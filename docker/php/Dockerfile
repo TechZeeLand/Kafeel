@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- PHP-FPM: listen on a unix socket instead of the default TCP 9000 ---
 RUN mkdir -p /run/php \
-    && sed -ri 's/^listen\s*=.*/listen = \/run\/php\/php8.3-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -ri 's/^;?listen\s*=.*/listen = \/run\/php\/php8.3-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
     && sed -ri 's/^;?listen\.owner\s*=.*/listen.owner = www-data/' /usr/local/etc/php-fpm.d/www.conf \
     && sed -ri 's/^;?listen\.group\s*=.*/listen.group = www-data/' /usr/local/etc/php-fpm.d/www.conf \
     && sed -ri 's/^;?listen\.mode\s*=.*/listen.mode = 0660/' /usr/local/etc/php-fpm.d/www.conf
