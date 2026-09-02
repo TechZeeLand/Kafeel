@@ -1,0 +1,37 @@
+FROM php:8.3-fpm
+
+# --- System deps: nginx (baked in) + supervisor (runs both processes) + PHP build deps ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        nginx supervisor libzip-dev unzip \
+    && docker-php-ext-install pdo pdo_mysql mysqli opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/nginx/sites-enabled/default
+
+# --- PHP-FPM: listen on a unix socket instead of the default TCP 9000 ---
+RUN mkdir -p /run/php \
+    && sed -ri 's/^listen\s*=.*/listen = \/run\/php\/php8.3-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -ri 's/^;?listen\.owner\s*=.*/listen.owner = www-data/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -ri 's/^;?listen\.group\s*=.*/listen.group = www-data/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -ri 's/^;?listen\.mode\s*=.*/listen.mode = 0660/' /usr/local/etc/php-fpm.d/www.conf
+
+COPY docker/nginx/default.conf /etc/nginx/sites-enabled/default.conf
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY docker/php/opcache-dev.ini /usr/local/etc/php/conf.d/opcache-dev.ini
+
+# --- App code ---
+# Baked in so the image is self-contained (this is what gets published to
+# GHCR and run in production via docker-compose.yml, unmodified). For local
+# development, docker-compose.override.yml bind-mounts ./src over
+# /var/www/html at runtime, shadowing this copy — that's what lets you edit
+# code and just refresh the browser instead of rebuilding.
+COPY src/ /var/www/html/
+
+# Uploaded product images must be writable by the web server
+RUN mkdir -p /var/www/html/uploads/products \
+    && chown -R www-data:www-data /var/www/html/uploads /var/www/html \
+    && chown -R www-data:www-data /run/php
+
+EXPOSE 80
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -1,0 +1,10 @@
+# Local environment config (copy .env.example -> .env and fill in secrets)
+.env
+
+# User-uploaded product photos — real files live only on the server
+uploads/products/*
+!uploads/products/.gitkeep
+
+# OS/editor cruft
+.DS_Store
+*.swp
