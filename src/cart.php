@@ -47,11 +47,11 @@ require __DIR__ . '/includes/header.php';
     <div class="summary-card">
       <h3>Order summary</h3>
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
-      <div class="summary-row"><span>Shipping</span><span class="val"><?= $totals['shipping'] > 0 ? money($totals['shipping']) : 'Free' ?></span></div>
-      <div class="summary-row total"><span>Total</span><span class="val"><?= money($totals['total']) ?></span></div>
-      <?php if ($totals['subtotal'] < FREE_SHIPPING_THRESHOLD): ?>
-        <p style="font-size:0.8rem;color:var(--ink-soft);margin-top:8px;">Add <?= money(FREE_SHIPPING_THRESHOLD - $totals['subtotal']) ?> more for free shipping.</p>
-      <?php endif; ?>
+      <div class="summary-row"><span>Shipping</span><span class="val">Calculated at checkout</span></div>
+      <p style="font-size:0.8rem;color:var(--ink-soft);margin-top:8px;">
+        <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka
+        (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)
+      </p>
       <a href="/checkout.php" class="btn btn-primary btn-block" style="margin-top:16px;">Proceed to checkout</a>
     </div>
   </div>

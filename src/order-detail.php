@@ -51,7 +51,7 @@ require __DIR__ . '/includes/header.php';
         </tbody>
       </table>
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($order['subtotal']) ?></span></div>
-      <div class="summary-row"><span>Shipping</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
+      <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
       <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>
     </div>
 

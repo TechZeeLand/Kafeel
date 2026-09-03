@@ -108,12 +108,12 @@ denied" surprises.
 
 - **Storefront:** `http://your-server-ip:1023` (or whatever `WEB_PORT` you set)
 - **Admin portal:** `http://your-server-ip:1023/admin`
-  - **Username:** `zizi`
+  - **Username:** `admin`
   - **Password:** `ChangeMe123!`
 - **phpMyAdmin:** `http://your-server-ip:1024` (or whatever `PMA_PORT` you
-  set) — logs in automatically as the `zizi` database user.
+  set) — logs in automatically as the `admin` database user.
 
-The same `zizi` / `ChangeMe123!` credentials are used for: the database
+The same `admin` / `ChangeMe123!` credentials are used for: the database
 user (`DB_USER`/`DB_PASS`), phpMyAdmin login, and the store admin account.
 The database **root** password defaults to the same value (`DB_ROOT_PASS`)
 — **change all of these in `.env` before going live.**
@@ -126,8 +126,20 @@ it directly:
 ```bash
 docker compose exec web php -r "echo password_hash('YourNewPassword!', PASSWORD_DEFAULT), PHP_EOL;"
 docker compose exec db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" \
-  -e "UPDATE admins SET password_hash='PASTE_HASH_HERE' WHERE username='zizi';"
+  -e "UPDATE admins SET password_hash='PASTE_HASH_HERE' WHERE username='admin';"
 ```
+
+### Applying schema migrations to an existing database
+
+New database changes ship as numbered SQL files in `sql/migrations/`. Fresh
+installs get everything via `sql/schema.sql` automatically; if you already
+have a running database, apply any new migration files by hand, in order:
+
+```bash
+docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/001_phase1.sql
+```
+
+(Or paste the file's contents into phpMyAdmin's SQL tab.)
 
 ## Local development (live-reload)
 
@@ -245,7 +257,7 @@ If you're putting this behind Nginx Proxy Manager, Caddy, or Traefik:
 
 ## Security notes before going live
 
-- Change the default `zizi` / `ChangeMe123!` credentials (admin login, DB
+- Change the default `admin` / `ChangeMe123!` credentials (admin login, DB
   user, and DB root password) before exposing this publicly.
 - Set `APP_DEBUG=0` in production (it already defaults to that) so PHP
   errors aren't shown to visitors.

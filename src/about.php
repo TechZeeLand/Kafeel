@@ -11,7 +11,7 @@ require __DIR__ . '/includes/header.php';
     <h2>What we carry</h2>
     <p>Our catalog spans everyday-carry gear for the pocket and the keychain, bags built for daily use, full-grain leather goods that only get better with age, and customized, engraved pieces made to order. We keep the range tight — every product on the site is something we'd genuinely recommend.</p>
     <h2>Shipping & returns</h2>
-    <p>We ship nationwide with cash-on-delivery available on every order, and offer free shipping once your cart passes <?= money(FREE_SHIPPING_THRESHOLD) ?>. If something isn't right, unused items can be returned within 7 days of delivery.</p>
+    <p>We ship nationwide with cash-on-delivery on every order, and deliver in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days. Delivery is <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka and <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka, with <?= money(SHIPPING_EXTRA_PER_KG) ?> added per additional kg once a parcel passes <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg. If something isn't right, unused items can be returned within 7 days of delivery — see our <a href="/refund-policy.php">refund & return policy</a> for details.</p>
     <h2>Questions?</h2>
     <p>Reach out any time through the <a href="/contact.php">contact page</a> — we read every message.</p>
   </div>

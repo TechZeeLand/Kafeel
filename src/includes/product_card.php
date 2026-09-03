@@ -14,6 +14,9 @@ $__onSale = !empty($p['compare_price']) && $p['compare_price'] > $p['price'];
     </button>
     <?php if ($__onSale): ?><span class="sale-flag">Sale</span><?php endif; ?>
     <?php if ((int)$p['stock'] <= 0): ?><span class="out-flag">Out of stock</span><?php endif; ?>
+    <?php if (!empty($p['youtube_url'])): ?>
+      <span class="video-flag" title="Video available"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span>
+    <?php endif; ?>
   </div>
   <div class="body">
     <span class="cat-label"><?= e($p['category_name'] ?? 'Shop') ?></span>

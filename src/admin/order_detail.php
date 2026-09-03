@@ -47,7 +47,7 @@ require __DIR__ . '/includes/header.php';
   <div class="panel-body" style="border-top:1px solid var(--line);">
     <div style="display:flex;justify-content:flex-end;gap:26px;font-size:0.92rem;">
       <div>Subtotal: <strong class="mono"><?= money($order['subtotal']) ?></strong></div>
-      <div>Shipping: <strong class="mono"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></strong></div>
+      <div>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>): <strong class="mono"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></strong></div>
       <div>Total: <strong class="mono"><?= money($order['total']) ?></strong></div>
     </div>
   </div>

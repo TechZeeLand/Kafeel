@@ -39,7 +39,7 @@ require __DIR__ . '/includes/header.php';
       <?php foreach ($products as $p): ?>
         <tr>
           <td><img class="thumb" src="<?= e(product_image_src($p['image_main'])) ?>" alt=""></td>
-          <td><?= e($p['name']) ?><?php if ($p['is_featured']): ?> <span class="pill pill-sage" style="font-size:0.6rem;">Featured</span><?php endif; ?></td>
+          <td><?= e($p['name']) ?><?php if ($p['is_featured']): ?> <span class="pill pill-sage" style="font-size:0.6rem;">Featured</span><?php endif; ?><?php if (!empty($p['youtube_url'])): ?> <span class="pill pill-rust" style="font-size:0.6rem;" title="<?= e($p['youtube_url']) ?>">▶ Video</span><?php endif; ?></td>
           <td><?= e($p['category_name'] ?? '—') ?></td>
           <td class="mono"><?= money($p['price']) ?></td>
           <td class="<?= $p['stock'] <= 5 ? 'stock-low' : '' ?>"><?= (int)$p['stock'] ?></td>

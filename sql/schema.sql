@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
   compare_price DECIMAL(10,2) DEFAULT NULL,
   stock INT NOT NULL DEFAULT 0,
+  weight_grams INT NOT NULL DEFAULT 500,
   image_main VARCHAR(255) DEFAULT NULL,
+  youtube_url VARCHAR(255) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   is_featured TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,6 +122,7 @@ CREATE TABLE IF NOT EXISTS orders (
   user_id INT DEFAULT NULL,
   status ENUM('pending','processing','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
   payment_method ENUM('cod','bank_transfer') NOT NULL DEFAULT 'cod',
+  delivery_area ENUM('inside_dhaka','outside_dhaka') NOT NULL DEFAULT 'inside_dhaka',
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -153,9 +156,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Seed data
 -- ============================================================
 
--- Default admin login -> username: zizi  password: ChangeMe123! (CHANGE THIS before going live)
+-- Default admin login -> username: admin  password: ChangeMe123! (CHANGE THIS before going live)
 INSERT INTO admins (username, name, password_hash, role) VALUES
-('zizi', 'ZiZi', '$2b$10$t65uPHFANoBh6cQGF5pB9Ow1R6T2bR2JaMqJsWE1TNgjilZdgl5Wq', 'owner');
+('admin', 'admin', '$2b$10$t65uPHFANoBh6cQGF5pB9Ow1R6T2bR2JaMqJsWE1TNgjilZdgl5Wq', 'owner');
 
 INSERT INTO categories (name, slug, description, sort_order) VALUES
 ('EDC Gear', 'edc-gear', 'Everyday carry tools, pocket knives, keychains and organizers.', 1),

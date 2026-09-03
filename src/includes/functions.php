@@ -76,14 +76,14 @@ function cart_items(): array {
     [$uid, $sid] = cart_identity();
     if ($uid) {
         $stmt = db()->prepare(
-            'SELECT c.id, c.quantity, p.id AS product_id, p.name, p.slug, p.price, p.image_main, p.stock
+            'SELECT c.id, c.quantity, p.id AS product_id, p.name, p.slug, p.price, p.image_main, p.stock, p.weight_grams
              FROM cart_items c JOIN products p ON p.id = c.product_id
              WHERE c.user_id = ? ORDER BY c.id DESC'
         );
         $stmt->execute([$uid]);
     } else {
         $stmt = db()->prepare(
-            'SELECT c.id, c.quantity, p.id AS product_id, p.name, p.slug, p.price, p.image_main, p.stock
+            'SELECT c.id, c.quantity, p.id AS product_id, p.name, p.slug, p.price, p.image_main, p.stock, p.weight_grams
              FROM cart_items c JOIN products p ON p.id = c.product_id
              WHERE c.session_id = ? ORDER BY c.id DESC'
         );
@@ -104,21 +104,42 @@ function cart_count(): int {
     return (int) $stmt->fetchColumn();
 }
 
+/**
+ * Cart contents + subtotal + total weight. Shipping isn't included here
+ * because it depends on the delivery area, which is only known at
+ * checkout — see shipping_fee_for_area().
+ */
 function cart_totals(): array {
     $items = cart_items();
     $subtotal = 0.0;
+    $weightGrams = 0;
     foreach ($items as $it) {
         $subtotal += $it['price'] * $it['quantity'];
+        $weightGrams += (int) $it['weight_grams'] * (int) $it['quantity'];
     }
-    $shipping = $subtotal > 0
-        ? ($subtotal >= FREE_SHIPPING_THRESHOLD ? 0.0 : SHIPPING_FLAT_FEE)
-        : 0.0;
     return [
         'items' => $items,
         'subtotal' => $subtotal,
-        'shipping' => $shipping,
-        'total' => $subtotal + $shipping,
+        'weight_grams' => $weightGrams,
     ];
+}
+
+/** Human label for a delivery_area value. */
+function delivery_area_label(string $area): string {
+    return $area === 'outside_dhaka' ? 'Outside Dhaka' : 'Inside Dhaka';
+}
+
+/**
+ * Shipping fee for a given delivery area + parcel weight: a flat zone fee,
+ * plus a per-kg surcharge for every kg (or part of a kg) over the free
+ * weight allowance.
+ */
+function shipping_fee_for_area(string $area, int $weightGrams): float {
+    $base = $area === 'outside_dhaka' ? SHIPPING_OUTSIDE_DHAKA_FEE : SHIPPING_INSIDE_DHAKA_FEE;
+    $freeGrams = SHIPPING_FREE_WEIGHT_KG * 1000;
+    $extraGrams = max(0, $weightGrams - $freeGrams);
+    $extraKg = (int) ceil($extraGrams / 1000);
+    return $base + ($extraKg * SHIPPING_EXTRA_PER_KG);
 }
 
 function cart_add(int $productId, int $qty = 1): void {
@@ -253,6 +274,14 @@ function handle_product_image_upload(string $fieldName): ?string {
         throw new RuntimeException('Could not save uploaded image.');
     }
     return UPLOAD_URL . '/' . $filename;
+}
+
+/** Loosely validates that a URL points at YouTube (watch, youtu.be, or shorts links). */
+function is_youtube_url(string $url): bool {
+    $host = parse_url($url, PHP_URL_HOST);
+    if (!$host) return false;
+    $host = strtolower(preg_replace('/^www\./', '', $host));
+    return in_array($host, ['youtube.com', 'youtu.be', 'm.youtube.com'], true);
 }
 
 function product_image_src(?string $path): string {

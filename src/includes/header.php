@@ -22,15 +22,15 @@ $__currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
 <div class="topbar">
   <div class="wrap">
-    <span>Free shipping on orders over <?= money(FREE_SHIPPING_THRESHOLD) ?></span>
-    <span>Cash on delivery available nationwide</span>
+    <span>Delivered in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days · Cash on delivery nationwide</span>
+    <span>Inside Dhaka <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> · Outside Dhaka <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?></span>
   </div>
 </div>
 
 <header class="site-header">
   <div class="wrap header-row">
     <button class="nav-toggle" id="navToggle" aria-label="Open menu"><span></span></button>
-    <a href="/" class="brand"><span class="mark">خ</span> <?= e(SITE_NAME) ?></a>
+    <a href="/" class="brand"><span class="mark">ك</span> <?= e(SITE_NAME) ?></a>
 
     <nav class="main-nav">
       <a href="/" class="<?= $__currentPath === '/' || $__currentPath === '/index.php' ? 'active' : '' ?>">Home</a>

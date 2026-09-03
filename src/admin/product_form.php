@@ -24,12 +24,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price = (float) ($_POST['price'] ?? 0);
     $comparePrice = $_POST['compare_price'] !== '' ? (float) $_POST['compare_price'] : null;
     $stock = (int) ($_POST['stock'] ?? 0);
+    $weightGrams = (int) ($_POST['weight_grams'] ?? 500);
+    $youtubeUrl = trim($_POST['youtube_url'] ?? '');
     $isActive = !empty($_POST['is_active']) ? 1 : 0;
     $isFeatured = !empty($_POST['is_featured']) ? 1 : 0;
 
     if (strlen($name) < 2) $errors[] = 'Please enter a product name.';
     if ($price <= 0) $errors[] = 'Please enter a valid price.';
     if ($stock < 0) $errors[] = 'Stock cannot be negative.';
+    if ($weightGrams <= 0) $errors[] = 'Please enter a valid weight in grams.';
+    if ($youtubeUrl !== '' && !is_youtube_url($youtubeUrl)) $errors[] = 'YouTube link must be a youtube.com or youtu.be URL.';
 
     if (!$errors) {
         $slug = slugify($name);
@@ -49,14 +53,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($product) {
                 db()->prepare(
-                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, description=?, price=?, compare_price=?, stock=?, image_main=?, is_active=?, is_featured=? WHERE id=?'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $description ?: null, $price, $comparePrice, $stock, $mainImage, $isActive, $isFeatured, $product['id']]);
+                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, description=?, price=?, compare_price=?, stock=?, weight_grams=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $description ?: null, $price, $comparePrice, $stock, $weightGrams, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
                 $productId = $product['id'];
                 flash_set('success', 'Product updated.');
             } else {
                 db()->prepare(
-                    'INSERT INTO products (category_id, name, slug, sku, short_desc, description, price, compare_price, stock, image_main, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $description ?: null, $price, $comparePrice, $stock, $mainImage, $isActive, $isFeatured]);
+                    'INSERT INTO products (category_id, name, slug, sku, short_desc, description, price, compare_price, stock, weight_grams, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $description ?: null, $price, $comparePrice, $stock, $weightGrams, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
                 $productId = (int) db()->lastInsertId();
                 flash_set('success', 'Product created.');
             }
@@ -141,7 +145,21 @@ require __DIR__ . '/includes/header.php';
         <div class="field"><label for="price">Price</label><input type="number" step="0.01" min="0" id="price" name="price" required value="<?= e((string)($product['price'] ?? ($_POST['price'] ?? ''))) ?>"></div>
         <div class="field"><label for="compare_price">Compare-at price (optional)</label><input type="number" step="0.01" min="0" id="compare_price" name="compare_price" value="<?= e((string)($product['compare_price'] ?? ($_POST['compare_price'] ?? ''))) ?>"><div class="hint">Shown crossed out to indicate a sale.</div></div>
       </div>
-      <div class="field" style="max-width:220px;"><label for="stock">Stock quantity</label><input type="number" min="0" id="stock" name="stock" required value="<?= e((string)($product['stock'] ?? ($_POST['stock'] ?? 0))) ?>"></div>
+      <div class="field-row">
+        <div class="field" style="max-width:220px;"><label for="stock">Stock quantity</label><input type="number" min="0" id="stock" name="stock" required value="<?= e((string)($product['stock'] ?? ($_POST['stock'] ?? 0))) ?>"></div>
+        <div class="field" style="max-width:220px;"><label for="weight_grams">Weight (grams)</label><input type="number" min="1" id="weight_grams" name="weight_grams" required value="<?= e((string)($product['weight_grams'] ?? ($_POST['weight_grams'] ?? 500))) ?>"><div class="hint">Used to calculate the shipping surcharge over 1kg.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Video</h2></div>
+    <div class="panel-body">
+      <div class="field">
+        <label for="youtube_url">YouTube video link (optional)</label>
+        <input type="url" id="youtube_url" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." value="<?= e($product['youtube_url'] ?? ($_POST['youtube_url'] ?? '')) ?>">
+        <div class="hint">If set, a "Watch video" button appears on the product page and a play icon appears on the product card.</div>
+      </div>
     </div>
   </div>
 

@@ -29,16 +29,16 @@ services:
       - "${WEB_PORT:-1023}:80"
     environment:
       DB_HOST: db
-      DB_NAME: ${DB_NAME:-kafeel_db}
-      DB_USER: ${DB_USER:-zizi}
-      DB_PASS: ${DB_PASS:-RAYilyvm2005@}
-      SITE_NAME: ${SITE_NAME:-Kafeel (كَفِيلْ)}
-      SITE_URL: ${SITE_URL:-}
-      CURRENCY_SYMBOL: ${CURRENCY_SYMBOL:-৳}
-      SHIPPING_FLAT_FEE: ${SHIPPING_FLAT_FEE:-80}
-      FREE_SHIPPING_THRESHOLD: ${FREE_SHIPPING_THRESHOLD:-2000}
-      TZ: ${TZ:-Asia/Dhaka}
-      APP_DEBUG: ${APP_DEBUG:-0}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      SITE_NAME: ${SITE_NAME}
+      SITE_URL: ${SITE_URL}
+      CURRENCY_SYMBOL: ${CURRENCY_SYMBOL}
+      SHIPPING_FLAT_FEE: ${SHIPPING_FLAT_FEE}
+      FREE_SHIPPING_THRESHOLD: ${FREE_SHIPPING_THRESHOLD}
+      TZ: ${TZ}
+      APP_DEBUG: ${APP_DEBUG}
     volumes:
       # Uploaded product photos land in a real, browsable host folder
       # instead of an opaque named volume.
@@ -54,10 +54,10 @@ services:
     container_name: kafeel_db
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: ${DB_NAME:-kafeel_db}
-      MARIADB_USER: ${DB_USER:-zizi}
-      MARIADB_PASSWORD: ${DB_PASS:-RAYilyvm2005@}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASS:-RAYilyvm2005@}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASS}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASS}
     volumes:
       - db_data:/var/lib/mysql
       - /Sites/Kafeel/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -77,8 +77,8 @@ services:
     restart: unless-stopped
     environment:
       PMA_HOST: db
-      PMA_USER: ${DB_USER:-zizi}
-      PMA_PASSWORD: ${DB_PASS:-RAYilyvm2005@}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASS}
     ports:
       - "${PMA_PORT:-1024}:80"
     depends_on:

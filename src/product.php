@@ -82,6 +82,13 @@ require __DIR__ . '/includes/header.php';
 
     <?php if ($product['short_desc']): ?><p class="desc"><?= e($product['short_desc']) ?></p><?php endif; ?>
 
+    <?php if (!empty($product['youtube_url']) && is_youtube_url($product['youtube_url'])): ?>
+      <a href="<?= e($product['youtube_url']) ?>" target="_blank" rel="noopener" class="video-btn" style="margin-bottom:18px;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 12s0-3.6-.46-5.3a3 3 0 0 0-2.1-2.1C18.6 4 12 4 12 4s-6.6 0-8.44.6a3 3 0 0 0-2.1 2.1C1 8.4 1 12 1 12s0 3.6.46 5.3a3 3 0 0 0 2.1 2.1C5.4 20 12 20 12 20s6.6 0 8.44-.6a3 3 0 0 0 2.1-2.1C23 15.6 23 12 23 12z"/><path d="M9.8 8.6v6.8L15.8 12z" fill="#fff"/></svg>
+        Watch video
+      </a>
+    <?php endif; ?>
+
     <div class="stock-line">
       <?php if ($product['stock'] > 10): ?>
         <span class="pill pill-sage">In stock</span>
@@ -124,7 +131,9 @@ require __DIR__ . '/includes/header.php';
 
     <div class="meta-list">
       <div><b>Category:</b> <?= e($product['category_name'] ?? 'Uncategorized') ?></div>
-      <div><b>Shipping:</b> Free over <?= money(FREE_SHIPPING_THRESHOLD) ?>, otherwise flat <?= money(SHIPPING_FLAT_FEE) ?></div>
+      <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
+      <div><b>Delivery time:</b> <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days</div>
+      <div><b>Payment:</b> Cash on delivery</div>
       <div><b>Returns:</b> 7-day no-questions returns on unused items</div>
     </div>
   </div>

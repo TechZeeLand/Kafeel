@@ -20,7 +20,7 @@ function env_val(string $key, $default = null) {
 if (!defined('DB_HOST')) {
     define('DB_HOST', env_val('DB_HOST', 'db'));
     define('DB_NAME', env_val('DB_NAME', 'kafeel_db'));
-    define('DB_USER', env_val('DB_USER', 'zizi'));
+    define('DB_USER', env_val('DB_USER', 'admin'));
     define('DB_PASS', env_val('DB_PASS', 'ChangeMe123!'));
 
     define('SITE_NAME', env_val('SITE_NAME', 'Kafeel (كَفِيلْ)'));
@@ -30,8 +30,22 @@ if (!defined('DB_HOST')) {
     // constant (used by nl_langinfo()) — defining our own under that name
     // silently collides with it.
     define('STORE_CURRENCY_SYMBOL', env_val('CURRENCY_SYMBOL', '৳'));
-    define('SHIPPING_FLAT_FEE', (float) env_val('SHIPPING_FLAT_FEE', 80));
-    define('FREE_SHIPPING_THRESHOLD', (float) env_val('FREE_SHIPPING_THRESHOLD', 2000));
+
+    // --- Shipping (flat zone fee + per-kg surcharge over the free weight) ---
+    define('SHIPPING_INSIDE_DHAKA_FEE', (float) env_val('SHIPPING_INSIDE_DHAKA_FEE', 80));
+    define('SHIPPING_OUTSIDE_DHAKA_FEE', (float) env_val('SHIPPING_OUTSIDE_DHAKA_FEE', 130));
+    define('SHIPPING_FREE_WEIGHT_KG', (float) env_val('SHIPPING_FREE_WEIGHT_KG', 1));
+    define('SHIPPING_EXTRA_PER_KG', (float) env_val('SHIPPING_EXTRA_PER_KG', 20));
+    define('DELIVERY_DAYS_MIN', (int) env_val('DELIVERY_DAYS_MIN', 3));
+    define('DELIVERY_DAYS_MAX', (int) env_val('DELIVERY_DAYS_MAX', 5));
+
+    // --- Contact / social links ---
+    define('CONTACT_EMAIL', env_val('CONTACT_EMAIL', 'hello@kafeelshopbd.com'));
+    define('CONTACT_PHONE', env_val('CONTACT_PHONE', ''));
+    define('SOCIAL_FACEBOOK', env_val('SOCIAL_FACEBOOK', 'https://www.facebook.com/kafeelshopbd'));
+    define('SOCIAL_FACEBOOK_MESSENGER', env_val('SOCIAL_FACEBOOK_MESSENGER', 'https://www.m.me/kafeelshopbd'));
+    define('SOCIAL_INSTAGRAM', env_val('SOCIAL_INSTAGRAM', 'https://www.instagram.com/kafeelbd/'));
+    define('SOCIAL_YOUTUBE', env_val('SOCIAL_YOUTUBE', 'https://www.youtube.com/@Kafeelbd'));
 
     define('UPLOAD_DIR', __DIR__ . '/../uploads/products');
     define('UPLOAD_URL', '/uploads/products');

@@ -26,7 +26,8 @@ require __DIR__ . '/includes/header.php';
     <div class="icon">✅</div>
     <h2>Thank you — your order is confirmed</h2>
     <p>Order <strong class="mono"><?= e($order['order_number']) ?></strong> has been placed and is being prepared.
-    <?php if ($order['payment_method'] === 'cod'): ?>Pay by cash when it arrives.<?php else: ?>We'll email bank transfer details shortly.<?php endif; ?></p>
+    <?php if ($order['payment_method'] === 'cod'): ?>Pay by cash when it arrives.<?php else: ?>We'll email bank transfer details shortly.<?php endif; ?>
+    Expect delivery in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days.</p>
   </div>
 
   <div class="form-card" style="text-align:left;">
@@ -39,10 +40,10 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
       </tbody>
     </table>
-    <div class="summary-row"><span>Shipping</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
+    <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
     <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>
     <p style="margin-top:18px;font-size:0.9rem;color:var(--ink-soft);">
-      Shipping to: <?= e($order['shipping_name']) ?>, <?= e($order['shipping_line1']) ?>, <?= e($order['shipping_city']) ?>
+      Shipping to: <?= e($order['shipping_name']) ?>, <?= e($order['shipping_line1']) ?>, <?= e($order['shipping_city']) ?> (<?= e(delivery_area_label($order['delivery_area'])) ?>)
     </p>
   </div>
 

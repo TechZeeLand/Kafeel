@@ -7,6 +7,9 @@ if (!$totals['items']) {
     redirect('/cart.php');
 }
 
+$shippingInside = shipping_fee_for_area('inside_dhaka', $totals['weight_grams']);
+$shippingOutside = shipping_fee_for_area('outside_dhaka', $totals['weight_grams']);
+
 $__user = current_user();
 $errors = [];
 
@@ -27,7 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $state = trim($_POST['shipping_state'] ?? '');
     $zip = trim($_POST['shipping_zip'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
-    $payment = ($_POST['payment_method'] ?? 'cod') === 'bank_transfer' ? 'bank_transfer' : 'cod';
+    $payment = 'cod'; // Cash on delivery only, for now.
+    $deliveryArea = ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'outside_dhaka' : 'inside_dhaka';
     $saveAddress = !empty($_POST['save_address']);
 
     if ($name === '' || strlen($name) < 2) $errors[] = 'Please enter the recipient\'s full name.';
@@ -47,18 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
+        $shippingFee = shipping_fee_for_area($deliveryArea, $freshTotals['weight_grams']);
+        $orderTotal = $freshTotals['subtotal'] + $shippingFee;
         $pdo = db();
         try {
             $pdo->beginTransaction();
             $orderNumber = 'ED-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
-                'INSERT INTO orders (order_number, user_id, status, payment_method, subtotal, shipping_fee, total,
+                'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, shipping_fee, total,
                  shipping_name, shipping_phone, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
-                $orderNumber, $__user['id'] ?? null, 'pending', $payment,
-                $freshTotals['subtotal'], $freshTotals['shipping'], $freshTotals['total'],
+                $orderNumber, $__user['id'] ?? null, 'pending', $payment, $deliveryArea,
+                $freshTotals['subtotal'], $shippingFee, $orderTotal,
                 $name, $phone, $line1, $city, $state ?: null, $zip ?: null, $notes ?: null,
             ]);
             $orderId = (int) $pdo->lastInsertId();
@@ -143,14 +149,23 @@ require __DIR__ . '/includes/header.php';
       </div>
 
       <div class="field">
-        <label>Payment method</label>
+        <label>Delivery area</label>
         <div class="checkbox-row" style="margin-bottom:8px;">
-          <input type="radio" name="payment_method" value="cod" id="pm_cod" checked>
-          <label for="pm_cod" style="margin:0;font-weight:400;">Cash on delivery</label>
+          <input type="radio" name="delivery_area" value="inside_dhaka" id="da_inside" data-fee="<?= e((string)$shippingInside) ?>" <?= ($_POST['delivery_area'] ?? 'inside_dhaka') === 'inside_dhaka' ? 'checked' : '' ?>>
+          <label for="da_inside" style="margin:0;font-weight:400;">Inside Dhaka — <?= money($shippingInside) ?></label>
         </div>
         <div class="checkbox-row">
-          <input type="radio" name="payment_method" value="bank_transfer" id="pm_bank">
-          <label for="pm_bank" style="margin:0;font-weight:400;">Bank transfer (details sent after order)</label>
+          <input type="radio" name="delivery_area" value="outside_dhaka" id="da_outside" data-fee="<?= e((string)$shippingOutside) ?>" <?= ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'checked' : '' ?>>
+          <label for="da_outside" style="margin:0;font-weight:400;">Outside Dhaka — <?= money($shippingOutside) ?></label>
+        </div>
+        <div class="hint">+<?= money(SHIPPING_EXTRA_PER_KG) ?> added per additional kg once your parcel passes <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg.</div>
+      </div>
+
+      <div class="field">
+        <label>Payment method</label>
+        <div class="checkbox-row">
+          <input type="radio" name="payment_method" value="cod" id="pm_cod" checked disabled>
+          <label for="pm_cod" style="margin:0;font-weight:400;">Cash on delivery — pay when your order arrives</label>
         </div>
       </div>
 
@@ -161,7 +176,7 @@ require __DIR__ . '/includes/header.php';
         </div>
       <?php endif; ?>
 
-      <button type="submit" class="btn btn-primary btn-block">Place order — <?= money($totals['total']) ?></button>
+      <button type="submit" class="btn btn-primary btn-block">Place order — <span id="submitTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></button>
     </form>
   </div>
 
@@ -171,9 +186,34 @@ require __DIR__ . '/includes/header.php';
       <div class="summary-row"><span><?= e($it['name']) ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
     <?php endforeach; ?>
     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
-    <div class="summary-row"><span>Shipping</span><span class="val"><?= $totals['shipping'] > 0 ? money($totals['shipping']) : 'Free' ?></span></div>
-    <div class="summary-row total"><span>Total</span><span class="val"><?= money($totals['total']) ?></span></div>
+    <div class="summary-row"><span>Shipping</span><span class="val" id="summaryShipping"><?= money($shippingInside) ?></span></div>
+    <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></div>
   </div>
 </div>
+
+<script>
+(function () {
+  var subtotal = <?= (float)$totals['subtotal'] ?>;
+  var symbol = <?= json_encode(STORE_CURRENCY_SYMBOL) ?>;
+  var radios = document.querySelectorAll('input[name="delivery_area"]');
+  var shippingEl = document.getElementById('summaryShipping');
+  var totalEl = document.getElementById('summaryTotal');
+  var submitEl = document.getElementById('submitTotal');
+
+  function fmt(n) {
+    return symbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function update() {
+    var checked = document.querySelector('input[name="delivery_area"]:checked');
+    var fee = checked ? parseFloat(checked.dataset.fee) : 0;
+    shippingEl.textContent = fmt(fee);
+    totalEl.textContent = fmt(subtotal + fee);
+    submitEl.textContent = fmt(subtotal + fee);
+  }
+
+  radios.forEach(function (r) { r.addEventListener('change', update); });
+})();
+</script>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -122,6 +122,24 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .hero-card li::before { content: "—"; color: var(--brass); font-family: var(--font-mono); }
 
 /* ------------------------------------------------------------ sections -- */
+.trust-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 26px 0; border-bottom: 1px solid var(--line); }
+.trust-strip .item { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+.trust-strip .item .ico { width: 40px; height: 40px; border-radius: 50%; background: var(--paper-raised); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--brass-dark); }
+.trust-strip .item .ico svg { width: 19px; height: 19px; }
+
+.why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.why-card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 24px; box-shadow: var(--shadow-card); }
+.why-card .ico { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--brass-tint); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.why-card .ico svg { width: 20px; height: 20px; }
+.why-card h3 { font-size: 1.08rem; margin-bottom: 6px; }
+.why-card p { color: var(--ink-soft); font-size: 0.9rem; margin: 0; }
+
+.video-btn { display: inline-flex; align-items: center; gap: 8px; background: #ff0000; color: #fff; padding: 10px 16px; border-radius: var(--radius-s); font-weight: 600; font-size: 0.88rem; }
+.video-btn:hover { background: #cc0000; color: #fff; }
+.video-btn svg { width: 16px; height: 16px; }
+.card-product .video-flag { position: absolute; bottom: 8px; right: 8px; background: #ff0000; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.card-product .video-flag svg { width: 12px; height: 12px; }
+
 .section { padding: 56px 0; }
 .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
 .section-head h2 { font-size: 1.9rem; }
@@ -257,6 +275,9 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .footer-grid ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; font-size: 0.9rem; }
 .footer-grid a:hover { color: #fff; }
 .footer-brand p { max-width: 32ch; font-size: 0.88rem; }
+.social-row { display: flex; gap: 10px; margin-top: 16px; }
+.social-row a { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.75); }
+.social-row a:hover { background: var(--brass); border-color: var(--brass); color: #fff; }
 .footer-bottom { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 20px; display: flex; justify-content: space-between; font-size: 0.78rem; font-family: var(--font-mono); color: rgba(255,255,255,0.5); flex-wrap: wrap; gap: 8px; }
 
 /* ------------------------------------------------------------ mobile nav drawer -- */
@@ -299,6 +320,8 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
   .product-view { grid-template-columns: 1fr; gap: 26px; }
   .account-layout { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
+  .trust-strip { grid-template-columns: repeat(3, 1fr); }
+  .why-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -310,4 +333,6 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
   .cart-line img { grid-area: img; width: 60px; height: 60px; }
   .field-row { grid-template-columns: 1fr; }
   .form-card { padding: 24px; }
+  .trust-strip { grid-template-columns: repeat(2, 1fr); }
+  .why-grid { grid-template-columns: 1fr; }
 }
