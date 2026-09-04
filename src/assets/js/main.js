@@ -68,10 +68,12 @@
       e.preventDefault();
       var btn = form.querySelector('button[type=submit]');
       var productId = form.querySelector('[name=product_id]').value;
+      var variantField = form.querySelector('[name=variant_id]');
+      var variantId = variantField ? variantField.value : '';
       var qtyField = form.querySelector('[name=quantity]');
       var qty = qtyField ? parseInt(qtyField.value, 10) || 1 : 1;
       if (btn) { btn.disabled = true; }
-      postJSON('/api/cart_add.php', { product_id: productId, quantity: qty })
+      postJSON('/api/cart_add.php', { product_id: productId, variant_id: variantId || null, quantity: qty })
         .then(function (res) {
           if (res.ok) {
             updateCartBadge(res.cart_count);

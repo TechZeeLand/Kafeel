@@ -22,6 +22,9 @@ $itemsStmt = db()->prepare('SELECT * FROM order_items WHERE order_id = ?');
 $itemsStmt->execute([$order['id']]);
 $items = $itemsStmt->fetchAll();
 
+$history = order_status_history($order['id']);
+$statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
+
 $__activeAccountTab = 'orders';
 $pageTitle = 'Order ' . $order['order_number'];
 require __DIR__ . '/includes/header.php';
@@ -41,18 +44,38 @@ require __DIR__ . '/includes/header.php';
     </div>
 
     <div class="form-card" style="margin-bottom:20px;">
-      <h3 style="margin-bottom:14px;">Items</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;">Items</h3>
+        <a href="/invoice.php?order=<?= e($order['order_number']) ?>" target="_blank" class="btn btn-outline btn-sm">📄 Download invoice</a>
+      </div>
       <table class="data-table">
         <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
         <tbody>
           <?php foreach ($items as $it): ?>
-            <tr><td><?= e($it['product_name']) ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
+            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table>
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($order['subtotal']) ?></span></div>
       <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
       <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>
+    </div>
+
+    <div class="form-card" style="margin-bottom:20px;">
+      <h3 style="margin-bottom:10px;">Order tracking</h3>
+      <?php if (!$history): ?>
+        <p style="color:var(--ink-faint);">No status updates yet — we'll update this as soon as your order moves.</p>
+      <?php else: ?>
+        <ul class="timeline">
+          <?php foreach ($history as $h): ?>
+            <li>
+              <strong><?= e($statusLabels[$h['status']] ?? ucfirst($h['status'])) ?></strong>
+              <span style="color:var(--ink-faint);"> — <?= e(date('j M Y, g:i A', strtotime($h['changed_at']))) ?></span>
+              <?php if ($h['note']): ?><div style="color:var(--ink-faint);font-size:0.85rem;"><?= e($h['note']) ?></div><?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
     </div>
 
     <div class="form-card">

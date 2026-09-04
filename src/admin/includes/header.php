@@ -31,6 +31,8 @@ function nav_active(string $file, string $current): string {
       <a href="/admin/orders.php" class="<?= $__path === 'orders.php' || $__path === 'order_detail.php' ? 'active' : '' ?>">Orders</a>
       <div class="section-label">People</div>
       <a href="/admin/users.php" class="<?= nav_active('users.php', $__path) ?>">Customers</a>
+      <div class="section-label">Appearance</div>
+      <a href="/admin/theme_settings.php" class="<?= nav_active('theme_settings.php', $__path) ?>">Theme & seasonal effects</a>
     </nav>
   </aside>
 

@@ -28,6 +28,7 @@ require __DIR__ . '/includes/header.php';
           <a href="/product.php?slug=<?= e($it['slug']) ?>"><img src="<?= e(product_image_src($it['image_main'])) ?>" alt="<?= e($it['name']) ?>"></a>
           <div>
             <div class="name"><a href="/product.php?slug=<?= e($it['slug']) ?>"><?= e($it['name']) ?></a></div>
+            <?php if ($it['variant_label']): ?><div class="unit" style="color:var(--ink-faint);"><?= e($it['variant_label']) ?></div><?php endif; ?>
             <div class="unit"><?= money($it['price']) ?> each</div>
             <button type="button" class="remove-btn js-cart-remove" data-item-id="<?= (int)$it['id'] ?>">Remove</button>
           </div>
@@ -49,7 +50,7 @@ require __DIR__ . '/includes/header.php';
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
       <div class="summary-row"><span>Shipping</span><span class="val">Calculated at checkout</span></div>
       <p style="font-size:0.8rem;color:var(--ink-soft);margin-top:8px;">
-        <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka
+        <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka
         (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)
       </p>
       <a href="/checkout.php" class="btn btn-primary btn-block" style="margin-top:16px;">Proceed to checkout</a>

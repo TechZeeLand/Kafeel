@@ -1,9 +1,19 @@
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json ./
+# No committed composer.lock (kept out of git so PHPMailer/mPDF patch releases
+# are picked up automatically) — resolves fresh on every image build.
+RUN composer install --no-dev --no-interaction --no-progress --optimize-autoloader
+
 FROM php:8.3-fpm
 
 # --- System deps: nginx (baked in) + supervisor (runs both processes) + PHP build deps ---
+# mbstring is required by mPDF (invoice PDFs); gd lets mPDF embed product
+# photos on invoices.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        nginx supervisor libzip-dev unzip \
-    && docker-php-ext-install pdo pdo_mysql mysqli opcache \
+        nginx supervisor libzip-dev unzip libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_mysql mysqli opcache mbstring gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
@@ -26,6 +36,7 @@ COPY docker/php/opcache-dev.ini /usr/local/etc/php/conf.d/opcache-dev.ini
 # /var/www/html at runtime, shadowing this copy — that's what lets you edit
 # code and just refresh the browser instead of rebuilding.
 COPY src/ /var/www/html/
+COPY --from=vendor /app/vendor/ /var/www/html/vendor/
 
 # Uploaded product images must be writable by the web server
 RUN mkdir -p /var/www/html/uploads/products \

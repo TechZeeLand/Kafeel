@@ -38,6 +38,11 @@ $relStmt = db()->prepare(
 $relStmt->execute([$product['category_id'], $product['id']]);
 $related = $relStmt->fetchAll();
 
+$variants = product_variants_for((int) $product['id']);
+$totalVariantStock = 0;
+foreach ($variants as $v) { $totalVariantStock += (int) $v['stock']; }
+$effectiveStock = $variants ? $totalVariantStock : (int) $product['stock'];
+
 $__user = current_user();
 $__favIds = $__user ? favorite_ids_for_user($__user['id']) : [];
 $isFav = in_array((int)$product['id'], $__favIds, true);
@@ -76,7 +81,7 @@ require __DIR__ . '/includes/header.php';
     <span class="sku">SKU <?= e($product['sku'] ?: '—') ?></span>
     <h1><?= e($product['name']) ?></h1>
     <div class="price-row">
-      <span class="price"><?= money($product['price']) ?></span>
+      <span class="price" id="productPrice"><?= money($product['price']) ?></span>
       <?php if ($onSale): ?><span class="compare"><?= money($product['compare_price']) ?></span><span class="pill pill-rust">Sale</span><?php endif; ?>
     </div>
 
@@ -89,28 +94,46 @@ require __DIR__ . '/includes/header.php';
       </a>
     <?php endif; ?>
 
-    <div class="stock-line">
-      <?php if ($product['stock'] > 10): ?>
+    <div class="stock-line" id="stockLine">
+      <?php if ($effectiveStock > 10): ?>
         <span class="pill pill-sage">In stock</span>
-      <?php elseif ($product['stock'] > 0): ?>
-        <span class="pill pill-rust">Only <?= (int)$product['stock'] ?> left</span>
+      <?php elseif ($effectiveStock > 0): ?>
+        <span class="pill pill-rust">Only <?= (int)$effectiveStock ?> left</span>
       <?php else: ?>
         <span class="pill pill-ink">Out of stock</span>
       <?php endif; ?>
     </div>
 
-    <?php if ($product['stock'] > 0): ?>
-      <form class="js-add-cart" method="post">
+    <?php if ($variants): ?>
+      <div class="field" style="max-width:340px;">
+        <label for="variantSelect">Choose an option</label>
+        <select id="variantSelect">
+          <option value="">Select color / size…</option>
+          <?php foreach ($variants as $v): $label = variant_label($v); $vStock = (int)$v['stock']; ?>
+            <option value="<?= (int)$v['id'] ?>"
+                    data-price="<?= e((string)((float)$product['price'] + (float)$v['price_delta'])) ?>"
+                    data-stock="<?= $vStock ?>"
+                    <?= $vStock < 1 ? 'disabled' : '' ?>>
+              <?= e($label) ?><?= $v['price_delta'] > 0 ? ' (+' . e(money($v['price_delta'])) . ')' : '' ?><?= $vStock < 1 ? ' — out of stock' : '' ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($effectiveStock > 0): ?>
+      <form class="js-add-cart" method="post" id="addCartForm">
         <input type="hidden" name="product_id" value="<?= (int)$product['id'] ?>">
+        <?php if ($variants): ?><input type="hidden" name="variant_id" id="variantIdField" value=""><?php endif; ?>
         <div class="qty-row">
           <div class="qty-stepper">
             <button type="button" class="minus" aria-label="Decrease">−</button>
-            <input type="number" name="quantity" value="1" min="1" max="<?= (int)$product['stock'] ?>">
+            <input type="number" name="quantity" id="qtyField" value="1" min="1" max="<?= (int)$effectiveStock ?>">
             <button type="button" class="plus" aria-label="Increase">+</button>
           </div>
         </div>
         <div class="product-actions">
-          <button type="submit" class="btn btn-primary">Add to cart</button>
+          <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>><?= $variants ? 'Select an option' : 'Add to cart' ?></button>
           <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>">
             <?= $isFav ? '♥ Saved' : '♡ Save for later' ?>
           </button>
@@ -131,13 +154,61 @@ require __DIR__ . '/includes/header.php';
 
     <div class="meta-list">
       <div><b>Category:</b> <?= e($product['category_name'] ?? 'Uncategorized') ?></div>
-      <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
+      <?php if ($product['color']): ?><div><b>Color:</b> <?= e($product['color']) ?></div><?php endif; ?>
+      <?php if ($product['height_mm'] || $product['width_mm'] || $product['depth_mm']): ?>
+        <div><b>Dimensions (H×W×D):</b>
+          <?= $product['height_mm'] ? (int)$product['height_mm'] : '—' ?> ×
+          <?= $product['width_mm'] ? (int)$product['width_mm'] : '—' ?> ×
+          <?= $product['depth_mm'] ? (int)$product['depth_mm'] : '—' ?> mm
+        </div>
+      <?php endif; ?>
+      <div><b>Weight:</b> <?= (int)$product['weight_grams'] ?>g</div>
+      <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
       <div><b>Delivery time:</b> <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days</div>
       <div><b>Payment:</b> Cash on delivery</div>
       <div><b>Returns:</b> 7-day no-questions returns on unused items</div>
     </div>
   </div>
 </div>
+
+<?php if ($variants): ?>
+<script>
+(function () {
+  var select = document.getElementById('variantSelect');
+  var priceEl = document.getElementById('productPrice');
+  var variantField = document.getElementById('variantIdField');
+  var qtyField = document.getElementById('qtyField');
+  var addBtn = document.getElementById('addCartBtn');
+  var stockLine = document.getElementById('stockLine');
+  var basePrice = <?= (float) $product['price'] ?>;
+  var symbol = <?= json_encode(STORE_CURRENCY_SYMBOL) ?>;
+
+  function fmt(n) { return symbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  select.addEventListener('change', function () {
+    var opt = select.options[select.selectedIndex];
+    if (!opt.value) {
+      variantField.value = '';
+      priceEl.textContent = fmt(basePrice);
+      addBtn.disabled = true;
+      addBtn.textContent = 'Select an option';
+      return;
+    }
+    var price = parseFloat(opt.dataset.price);
+    var stock = parseInt(opt.dataset.stock, 10);
+    variantField.value = opt.value;
+    priceEl.textContent = fmt(price);
+    qtyField.max = stock;
+    qtyField.value = 1;
+    addBtn.disabled = stock < 1;
+    addBtn.textContent = stock < 1 ? 'Out of stock' : 'Add to cart';
+    stockLine.innerHTML = stock > 10
+      ? '<span class="pill pill-sage">In stock</span>'
+      : (stock > 0 ? '<span class="pill pill-rust">Only ' + stock + ' left</span>' : '<span class="pill pill-ink">Out of stock</span>');
+  });
+})();
+</script>
+<?php endif; ?>
 
 <?php if ($related): ?>
 <section class="section section-alt">

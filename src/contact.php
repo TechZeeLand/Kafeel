@@ -12,9 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($message) < 5) {
         $errors[] = 'Please fill in your name, a valid email, and a short message.';
     } else {
-        // In production, wire this to an SMTP mailer or store in a `messages` table.
-        // Kept lightweight here so the site works with zero external services out of the box.
-        $sent = true;
+        require_once __DIR__ . '/includes/mail.php';
+        $body = '<p><strong>' . e($name) . '</strong> (' . e($email) . ') sent a message from the contact form:</p>'
+            . '<p style="white-space:pre-wrap;background:#f8f6ee;padding:14px;border-radius:6px;">' . nl2br(e($message)) . '</p>';
+        $delivered = send_email(CONTACT_EMAIL, SITE_NAME, 'New contact message from ' . $name, email_wrap('New contact message', $body), $email, $name);
+        if ($delivered) {
+            $sent = true;
+        } else {
+            $errors[] = "We couldn't send your message right now. Please try DMing us on Facebook/Instagram or emailing " . CONTACT_EMAIL . ' directly.';
+        }
     }
 }
 

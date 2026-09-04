@@ -227,6 +227,11 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brass); outline: none; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--ink-soft); }
+
+.timeline { list-style:none; margin:0; padding:0; }
+.timeline li { position:relative; padding:0 0 18px 22px; border-left:2px solid var(--line); font-size:0.92rem; }
+.timeline li:last-child { border-left-color: transparent; padding-bottom:0; }
+.timeline li::before { content:''; position:absolute; left:-6px; top:2px; width:10px; height:10px; border-radius:50%; background:var(--brass); border:2px solid var(--paper); }
 .form-foot { text-align: center; margin-top: 18px; font-size: 0.9rem; color: var(--ink-soft); }
 .form-foot a { color: var(--brass-dark); font-weight: 600; }
 

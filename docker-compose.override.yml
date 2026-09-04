@@ -19,3 +19,8 @@ services:
     volumes:
       - /Sites/Kafeel/src:/var/www/html
       - /Sites/Kafeel/uploads:/var/www/html/uploads
+      # The line above shadows the image's baked-in /var/www/html/vendor
+      # (PHPMailer, mPDF) with the host's ./src, which has no vendor/ of its
+      # own — so mount it back on top. Run ./vendor-install.sh once (and
+      # again after changing composer.json) to populate /Sites/Kafeel/vendor.
+      - /Sites/Kafeel/vendor:/var/www/html/vendor

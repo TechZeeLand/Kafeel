@@ -8,6 +8,7 @@ if (!$totals['items']) {
 }
 
 $shippingInside = shipping_fee_for_area('inside_dhaka', $totals['weight_grams']);
+$shippingSuburbs = shipping_fee_for_area('suburbs', $totals['weight_grams']);
 $shippingOutside = shipping_fee_for_area('outside_dhaka', $totals['weight_grams']);
 
 $__user = current_user();
@@ -31,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $zip = trim($_POST['shipping_zip'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
     $payment = 'cod'; // Cash on delivery only, for now.
-    $deliveryArea = ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'outside_dhaka' : 'inside_dhaka';
+    $deliveryArea = in_array($_POST['delivery_area'] ?? '', ['inside_dhaka', 'suburbs', 'outside_dhaka'], true) ? $_POST['delivery_area'] : 'inside_dhaka';
     $saveAddress = !empty($_POST['save_address']);
 
     if ($name === '' || strlen($name) < 2) $errors[] = 'Please enter the recipient\'s full name.';
@@ -70,13 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderId = (int) $pdo->lastInsertId();
 
             $itemStmt = $pdo->prepare(
-                'INSERT INTO order_items (order_id, product_id, product_name, price, quantity, subtotal) VALUES (?,?,?,?,?,?)'
+                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal) VALUES (?,?,?,?,?,?,?,?)'
             );
-            $stockStmt = $pdo->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
+            $productStockStmt = $pdo->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
+            $variantStockStmt = $pdo->prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?');
             foreach ($freshTotals['items'] as $it) {
-                $itemStmt->execute([$orderId, $it['product_id'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity']]);
-                $stockStmt->execute([$it['quantity'], $it['product_id'], $it['quantity']]);
+                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity']]);
+                if ($it['variant_id']) {
+                    $variantStockStmt->execute([$it['quantity'], $it['variant_id'], $it['quantity']]);
+                } else {
+                    $productStockStmt->execute([$it['quantity'], $it['product_id'], $it['quantity']]);
+                }
             }
+            order_status_add($orderId, 'pending');
 
             if ($__user && $saveAddress) {
                 $pdo->prepare('UPDATE addresses SET is_default = 0 WHERE user_id = ?')->execute([$__user['id']]);
@@ -154,6 +161,10 @@ require __DIR__ . '/includes/header.php';
           <input type="radio" name="delivery_area" value="inside_dhaka" id="da_inside" data-fee="<?= e((string)$shippingInside) ?>" <?= ($_POST['delivery_area'] ?? 'inside_dhaka') === 'inside_dhaka' ? 'checked' : '' ?>>
           <label for="da_inside" style="margin:0;font-weight:400;">Inside Dhaka — <?= money($shippingInside) ?></label>
         </div>
+        <div class="checkbox-row" style="margin-bottom:8px;">
+          <input type="radio" name="delivery_area" value="suburbs" id="da_suburbs" data-fee="<?= e((string)$shippingSuburbs) ?>" <?= ($_POST['delivery_area'] ?? '') === 'suburbs' ? 'checked' : '' ?>>
+          <label for="da_suburbs" style="margin:0;font-weight:400;">Dhaka Suburbs — <?= money($shippingSuburbs) ?></label>
+        </div>
         <div class="checkbox-row">
           <input type="radio" name="delivery_area" value="outside_dhaka" id="da_outside" data-fee="<?= e((string)$shippingOutside) ?>" <?= ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'checked' : '' ?>>
           <label for="da_outside" style="margin:0;font-weight:400;">Outside Dhaka — <?= money($shippingOutside) ?></label>
@@ -183,7 +194,7 @@ require __DIR__ . '/includes/header.php';
   <div class="summary-card">
     <h3>Order summary</h3>
     <?php foreach ($totals['items'] as $it): ?>
-      <div class="summary-row"><span><?= e($it['name']) ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
+      <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
     <?php endforeach; ?>
     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
     <div class="summary-row"><span>Shipping</span><span class="val" id="summaryShipping"><?= money($shippingInside) ?></span></div>

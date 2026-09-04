@@ -11,6 +11,7 @@ if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $tok
 }
 
 $productId = (int) ($input['product_id'] ?? 0);
+$variantId = !empty($input['variant_id']) ? (int) $input['variant_id'] : null;
 $qty = max(1, (int) ($input['quantity'] ?? 1));
 
 $stmt = db()->prepare('SELECT id, stock, is_active FROM products WHERE id = ?');
@@ -21,12 +22,34 @@ if (!$product || !$product['is_active']) {
     echo json_encode(['ok' => false, 'message' => 'This product is no longer available.']);
     exit;
 }
-if ($product['stock'] < 1) {
+
+$availableStock = (int) $product['stock'];
+if ($variantId) {
+    $vStmt = db()->prepare('SELECT id, stock, is_active FROM product_variants WHERE id = ? AND product_id = ?');
+    $vStmt->execute([$variantId, $productId]);
+    $variant = $vStmt->fetch();
+    if (!$variant || !$variant['is_active']) {
+        echo json_encode(['ok' => false, 'message' => 'That option is no longer available.']);
+        exit;
+    }
+    $availableStock = (int) $variant['stock'];
+}
+// A product with active variants must be ordered via a specific variant.
+if (!$variantId) {
+    $hasVariants = db()->prepare('SELECT COUNT(*) FROM product_variants WHERE product_id = ? AND is_active = 1');
+    $hasVariants->execute([$productId]);
+    if ((int) $hasVariants->fetchColumn() > 0) {
+        echo json_encode(['ok' => false, 'message' => 'Please choose an option before adding to cart.']);
+        exit;
+    }
+}
+
+if ($availableStock < 1) {
     echo json_encode(['ok' => false, 'message' => 'This product is out of stock.']);
     exit;
 }
 
-cart_add($productId, min($qty, (int)$product['stock']));
+cart_add($productId, min($qty, $availableStock), $variantId);
 
 echo json_encode([
     'ok' => true,

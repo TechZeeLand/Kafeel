@@ -17,6 +17,15 @@ $__currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/style.css">
+<?php $__theme = theme_settings(); ?>
+<style>
+:root {
+  --brass: <?= e($__theme['primary']) ?>;
+  --brass-dark: <?= e(hex_shade($__theme['primary'], -18)) ?>;
+  --brass-tint: <?= e(hex_shade($__theme['primary'], 55)) ?>;
+  --sage: <?= e($__theme['secondary']) ?>;
+}
+</style>
 </head>
 <body>
 
@@ -95,5 +104,16 @@ $__currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     <?php foreach ($__flashes as $f): ?>
       <div class="alert alert-<?= e($f['type']) ?>"><?= e($f['message']) ?></div>
     <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+<?php if ($__user && (int)($__user['email_verified'] ?? 1) === 0): ?>
+  <div class="wrap" style="padding-top:20px;">
+    <div class="alert alert-info" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span>Please verify your email address (<?= e($__user['email']) ?>) to secure your account.</span>
+      <form method="post" action="/resend-verification.php" style="margin:0;">
+        <?= csrf_field() ?>
+        <button type="submit" class="btn btn-outline btn-sm">Resend verification email</button>
+      </form>
+    </div>
   </div>
 <?php endif; ?>

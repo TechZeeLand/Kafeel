@@ -12,13 +12,22 @@ stack on any Docker host (a Debian/Ubuntu server, Portainer, Unraid, etc.).
 ## What's included
 
 - **Storefront:** homepage, category pages, product detail pages with an
-  image gallery, full-text search, cart, wishlist/favorites, checkout
-  (cash-on-delivery or bank transfer), order confirmation.
-- **Customer accounts:** register/login, profile + password management,
-  saved addresses, order history.
+  image gallery, optional color/size variants, full-text search, cart,
+  wishlist/favorites, checkout (cash-on-delivery only), order confirmation,
+  order tracking with a real status timeline, and a downloadable PDF
+  invoice per order.
+- **Customer accounts:** register/login with email verification, profile +
+  password management, saved addresses, order history.
 - **Admin portal** at `/admin`: dashboard with revenue/low-stock stats,
-  product CRUD with image + gallery uploads, category CRUD, order
-  management with status updates, customer list with enable/disable.
+  product CRUD with image + gallery uploads and per-product variants
+  (color/size, price adjustment, stock), category CRUD, order management
+  with status updates that log a timestamped history and email the
+  customer, customer list with enable/disable, and a theme settings page
+  for live primary/secondary color changes plus optional seasonal effects
+  (snow / falling leaves / rain).
+- **Email:** PHPMailer-backed transactional email (falls back to PHP's
+  `mail()` if no SMTP is configured) for the contact form, email
+  verification, and order status updates.
 - **Security basics:** password hashing (bcrypt via `password_hash`),
   CSRF tokens on every form and AJAX call, prepared statements everywhere,
   session hardening, uploaded files validated by MIME type and served from
@@ -137,9 +146,28 @@ have a running database, apply any new migration files by hand, in order:
 
 ```bash
 docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/001_phase1.sql
+docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/002_phase2.sql
 ```
 
-(Or paste the file's contents into phpMyAdmin's SQL tab.)
+(Or paste each file's contents into phpMyAdmin's SQL tab, in order.)
+
+`002_phase2.sql` adds product dimensions/color/variants, order status
+history, the suburbs shipping zone, email verification columns, and the
+`settings` table used by the admin theme page — all backward compatible,
+existing orders/products/users are backfilled sensibly (existing accounts
+are marked verified so nobody gets locked out).
+
+### Outbound email (SMTP)
+
+The contact form, email verification, and order status notifications are
+all sent via [PHPMailer](https://github.com/PHPMailer/PHPMailer). Set
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_SECURE`
+(`tls`, `ssl`, or blank) in `.env` to point at a real mail provider (Gmail
+app password, Zoho, SendGrid SMTP, your registrar's mail server, etc.).
+Leaving `SMTP_HOST` blank falls back to PHP's built-in `mail()` — fine for
+a quick local test, but most hosts won't actually deliver without real SMTP
+credentials, and messages will silently fail (logged to the PHP error log,
+never crashes the request).
 
 ## Local development (live-reload)
 
@@ -150,11 +178,19 @@ timestamp checking (`docker/php/opcache-dev.ini`, already baked into the
 image), so **editing a file and refreshing the browser is all it takes** —
 no rebuild, no restart.
 
+Because the whole `/var/www/html` is bind-mounted from `./src`, the
+image's baked-in Composer dependencies (PHPMailer, mPDF — see
+[`composer.json`](composer.json)) get shadowed too. Run
+[`./vendor-install.sh`](vendor-install.sh) once (and again whenever
+`composer.json` changes) to populate a local `./vendor` that the override
+file mounts back on top:
+
 ```bash
 git clone https://github.com/TechZeeLand/Kafeel.git
 cd Kafeel
 cp .env.example .env
 mkdir -p uploads/products
+./vendor-install.sh
 
 # Build a local image tagged to match docker-compose.yml's `image:` field,
 # so `docker compose up` uses it instead of trying to pull from GHCR.

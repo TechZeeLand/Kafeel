@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   phone VARCHAR(30) DEFAULT NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  email_verified TINYINT(1) NOT NULL DEFAULT 0,
+  email_verify_token VARCHAR(64) DEFAULT NULL,
+  email_verify_sent_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -71,6 +74,10 @@ CREATE TABLE IF NOT EXISTS products (
   compare_price DECIMAL(10,2) DEFAULT NULL,
   stock INT NOT NULL DEFAULT 0,
   weight_grams INT NOT NULL DEFAULT 500,
+  height_mm INT DEFAULT NULL,
+  width_mm INT DEFAULT NULL,
+  depth_mm INT DEFAULT NULL,
+  color VARCHAR(60) DEFAULT NULL,
   image_main VARCHAR(255) DEFAULT NULL,
   youtube_url VARCHAR(255) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -89,6 +96,22 @@ CREATE TABLE IF NOT EXISTS product_images (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Optional per-product variants (e.g. color / size combinations). A product
+-- with no rows here is sold as-is; price_delta is added to the base price.
+CREATE TABLE IF NOT EXISTS product_variants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  color VARCHAR(60) DEFAULT NULL,
+  size VARCHAR(60) DEFAULT NULL,
+  sku VARCHAR(60) DEFAULT NULL,
+  price_delta DECIMAL(10,2) NOT NULL DEFAULT 0,
+  stock INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ---------------------------------------------------------------
 -- cart / favorites (support both logged-in users and guest sessions)
 -- ---------------------------------------------------------------
@@ -97,9 +120,11 @@ CREATE TABLE IF NOT EXISTS cart_items (
   user_id INT DEFAULT NULL,
   session_id VARCHAR(64) DEFAULT NULL,
   product_id INT NOT NULL,
+  variant_id INT DEFAULT NULL,
   quantity INT NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -122,7 +147,7 @@ CREATE TABLE IF NOT EXISTS orders (
   user_id INT DEFAULT NULL,
   status ENUM('pending','processing','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
   payment_method ENUM('cod','bank_transfer') NOT NULL DEFAULT 'cod',
-  delivery_area ENUM('inside_dhaka','outside_dhaka') NOT NULL DEFAULT 'inside_dhaka',
+  delivery_area ENUM('inside_dhaka','suburbs','outside_dhaka') NOT NULL DEFAULT 'inside_dhaka',
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -142,12 +167,35 @@ CREATE TABLE IF NOT EXISTS order_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_id INT NOT NULL,
   product_id INT DEFAULT NULL,
+  variant_id INT DEFAULT NULL,
+  variant_label VARCHAR(150) DEFAULT NULL,
   product_name VARCHAR(180) NOT NULL,
   price DECIMAL(10,2) NOT NULL,
   quantity INT NOT NULL,
   subtotal DECIMAL(10,2) NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Timestamped log of every status an order has passed through, so the
+-- storefront and admin can show a real "22 Feb 2026, 3:00 AM: Shipped"
+-- style timeline instead of just the current status.
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  status ENUM('pending','processing','shipped','completed','cancelled') NOT NULL,
+  note VARCHAR(255) DEFAULT NULL,
+  changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Simple key/value store for admin-editable site settings (theme colors,
+-- seasonal effects, etc.) that don't need their own dedicated columns.
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key VARCHAR(60) PRIMARY KEY,
+  setting_value TEXT,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -177,3 +225,9 @@ INSERT INTO products (category_id, name, slug, sku, short_desc, description, pri
 (3, 'Slim Leather Cardholder', 'slim-leather-cardholder', 'LTH-002', 'Minimalist front-pocket cardholder.', 'A minimalist front-pocket cardholder in vegetable-tanned leather, holding up to six cards with a central pull-tab.', 850.00, NULL, 90, 1, 0),
 (3, 'Leather Belt, Classic Brown', 'leather-belt-classic-brown', 'LTH-003', 'Full-grain leather belt with brass buckle.', 'A full-grain leather belt in classic brown with a solid brass buckle, stitched edges and a break-in that only gets better.', 1200.00, 1400.00, 50, 1, 0),
 (4, 'Personalized Engraved Keychain', 'personalized-engraved-keychain', 'CUS-001', 'Custom name or initials, laser engraved.', 'A solid brass or leather keychain laser-engraved with your choice of name, initials or a short message. Ships in 3-5 days.', 550.00, NULL, 200, 1, 1);
+
+INSERT INTO settings (setting_key, setting_value) VALUES
+('theme_primary', '#a97c34'),
+('theme_secondary', '#5f7d5b'),
+('seasonal_enabled', '0'),
+('seasonal_effect', 'snow');

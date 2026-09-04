@@ -53,5 +53,8 @@
 
 <div id="toast"></div>
 <script src="/assets/js/main.js"></script>
+<?php $__theme = $__theme ?? theme_settings(); if (!empty($__theme['seasonal_enabled'])): ?>
+<script src="/assets/js/seasonal.js" data-effect="<?= e($__theme['seasonal_effect']) ?>"></script>
+<?php endif; ?>
 </body>
 </html>

@@ -33,11 +33,23 @@ if (!defined('DB_HOST')) {
 
     // --- Shipping (flat zone fee + per-kg surcharge over the free weight) ---
     define('SHIPPING_INSIDE_DHAKA_FEE', (float) env_val('SHIPPING_INSIDE_DHAKA_FEE', 80));
+    define('SHIPPING_SUBURBS_FEE', (float) env_val('SHIPPING_SUBURBS_FEE', 100));
     define('SHIPPING_OUTSIDE_DHAKA_FEE', (float) env_val('SHIPPING_OUTSIDE_DHAKA_FEE', 130));
     define('SHIPPING_FREE_WEIGHT_KG', (float) env_val('SHIPPING_FREE_WEIGHT_KG', 1));
     define('SHIPPING_EXTRA_PER_KG', (float) env_val('SHIPPING_EXTRA_PER_KG', 20));
     define('DELIVERY_DAYS_MIN', (int) env_val('DELIVERY_DAYS_MIN', 3));
     define('DELIVERY_DAYS_MAX', (int) env_val('DELIVERY_DAYS_MAX', 5));
+
+    // --- Outbound email (PHPMailer). Leave SMTP_HOST blank to fall back to
+    // PHP's built-in mail() — fine for testing, but most hosts need real SMTP
+    // creds to actually deliver mail. ---
+    define('SMTP_HOST', env_val('SMTP_HOST', ''));
+    define('SMTP_PORT', (int) env_val('SMTP_PORT', 587));
+    define('SMTP_USER', env_val('SMTP_USER', ''));
+    define('SMTP_PASS', env_val('SMTP_PASS', ''));
+    define('SMTP_SECURE', env_val('SMTP_SECURE', 'tls')); // tls | ssl | '' (none)
+    define('SMTP_FROM_EMAIL', env_val('SMTP_FROM_EMAIL', env_val('CONTACT_EMAIL', 'hello@kafeelshopbd.com')));
+    define('SMTP_FROM_NAME', env_val('SMTP_FROM_NAME', env_val('SITE_NAME', 'Kafeel')));
 
     // --- Contact / social links ---
     define('CONTACT_EMAIL', env_val('CONTACT_EMAIL', 'hello@kafeelshopbd.com'));
