@@ -3,7 +3,7 @@ WORKDIR /app
 COPY composer.json ./
 # No committed composer.lock (kept out of git so PHPMailer/mPDF patch releases
 # are picked up automatically) — resolves fresh on every image build.
-RUN composer install --no-dev --no-interaction --no-progress --optimize-autoloader
+RUN composer install --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-req=ext-gd
 
 FROM php:8.3-fpm
 
