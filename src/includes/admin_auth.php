@@ -25,16 +25,27 @@ function require_admin(): void {
     }
 }
 
-function attempt_admin_login(string $username, string $password): bool {
+/**
+ * @return array{0: bool, 1: ?int} [success, seconds_until_retry (if throttled)]
+ */
+function attempt_admin_login(string $username, string $password): array {
+    $username = trim($username);
+    $wait = login_throttle_check('admin', $username);
+    if ($wait !== null) {
+        return [false, $wait];
+    }
+
     $stmt = db()->prepare('SELECT id, password_hash FROM admins WHERE username = ?');
-    $stmt->execute([trim($username)]);
+    $stmt->execute([$username]);
     $row = $stmt->fetch();
     if (!$row || !password_verify($password, $row['password_hash'])) {
-        return false;
+        login_throttle_hit('admin', $username);
+        return [false, null];
     }
+    login_throttle_clear('admin', $username);
     session_regenerate_id(true);
     $_SESSION['admin_id'] = (int) $row['id'];
-    return true;
+    return [true, null];
 }
 
 function admin_logout(): void {

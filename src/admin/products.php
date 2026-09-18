@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/admin_auth.php';
+require_admin();
 $pageTitle = 'Products';
 
 $q = trim($_GET['q'] ?? '');

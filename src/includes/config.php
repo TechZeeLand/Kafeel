@@ -66,11 +66,19 @@ if (!defined('DB_HOST')) {
 
 // Session cookie hardening - must run before session_start()
 if (session_status() === PHP_SESSION_NONE) {
+    // Detect HTTPS directly or via a reverse proxy (nginx/Portainer setups
+    // commonly terminate TLS in front of this container), so the cookie
+    // only gets the `secure` flag when it's actually safe to require it.
+    $__isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+        || (($_SERVER['SERVER_PORT'] ?? '') == 443);
+
     session_set_cookie_params([
         'lifetime' => 60 * 60 * 24 * 30,
         'path' => '/',
         'httponly' => true,
         'samesite' => 'Lax',
+        'secure' => $__isHttps,
     ]);
     session_start();
 }

@@ -64,7 +64,7 @@ function output_order_invoice(array $order, array $items, array $history, string
         <td style="border:none;text-align:right;">
             <div><strong>Invoice / Order #' . e($order['order_number']) . '</strong></div>
             <div class="muted">Placed ' . e(date('d M Y', strtotime($order['created_at']))) . '</div>
-            <div class="muted">Payment: Cash on delivery</div>
+            <div class="muted">Payment: ' . e($order['payment_method'] === 'cod' ? 'Cash on delivery' : 'Bank transfer') . '</div>
             <div style="margin-top:6px;"><span class="status-badge">' . e($statusLabels[$order['status']] ?? ucfirst($order['status'])) . '</span></div>
         </td>
     </tr></table>

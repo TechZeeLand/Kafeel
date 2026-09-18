@@ -8,10 +8,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    if (attempt_admin_login($username, $password)) {
+    [$ok, $wait] = attempt_admin_login($username, $password);
+    if ($ok) {
         redirect('/admin/index.php');
     }
-    $error = 'Invalid username or password.';
+    $error = $wait !== null
+        ? 'Too many login attempts. Please try again in ' . ceil($wait / 60) . ' minute(s).'
+        : 'Invalid username or password.';
 }
 ?><!DOCTYPE html>
 <html lang="en">

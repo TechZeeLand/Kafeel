@@ -29,18 +29,29 @@ function require_login(): void {
     }
 }
 
-function attempt_login(string $email, string $password): bool {
+/**
+ * @return array{0: bool, 1: ?int} [success, seconds_until_retry (if throttled)]
+ */
+function attempt_login(string $email, string $password): array {
+    $email = strtolower(trim($email));
+    $wait = login_throttle_check('customer', $email);
+    if ($wait !== null) {
+        return [false, $wait];
+    }
+
     $stmt = db()->prepare('SELECT id, password_hash, status FROM users WHERE email = ?');
-    $stmt->execute([strtolower(trim($email))]);
+    $stmt->execute([$email]);
     $row = $stmt->fetch();
     if (!$row || $row['status'] !== 'active' || !password_verify($password, $row['password_hash'])) {
-        return false;
+        login_throttle_hit('customer', $email);
+        return [false, null];
     }
+    login_throttle_clear('customer', $email);
     $oldSessionId = session_id();
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int) $row['id'];
     cart_merge_session_into_user((int) $row['id'], $oldSessionId);
-    return true;
+    return [true, null];
 }
 
 function register_user(string $name, string $email, string $password, string $phone = ''): array {

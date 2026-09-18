@@ -26,6 +26,46 @@ function require_csrf(): void {
     }
 }
 
+/* ------------------------------------------------- login throttling - */
+
+/**
+ * DB-backed brute-force guard for login forms, keyed by both the
+ * attempted identifier (email/username) and the client IP so an
+ * attacker can't dodge it just by clearing cookies (a session-based
+ * guard could be reset that easily). Limit: 5 failed attempts per
+ * 5-minute window: whichever of (identifier, IP) is more attacked
+ * trips the lock first.
+ */
+function client_ip(): string {
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+/** Returns seconds remaining before another attempt is allowed, or null if clear. */
+function login_throttle_check(string $bucket, string $identifier): ?int {
+    $stmt = db()->prepare(
+        'SELECT COUNT(*) AS cnt, MIN(attempted_at) AS first_at FROM login_attempts
+         WHERE bucket = ? AND (identifier = ? OR ip = ?) AND attempted_at > (NOW() - INTERVAL 5 MINUTE)'
+    );
+    $stmt->execute([$bucket, strtolower($identifier), client_ip()]);
+    $row = $stmt->fetch();
+    if ($row && (int) $row['cnt'] >= 5) {
+        $elapsed = time() - strtotime($row['first_at']);
+        $remaining = 300 - $elapsed;
+        if ($remaining > 0) return $remaining;
+    }
+    return null;
+}
+
+function login_throttle_hit(string $bucket, string $identifier): void {
+    db()->prepare('INSERT INTO login_attempts (bucket, identifier, ip) VALUES (?,?,?)')
+        ->execute([$bucket, strtolower($identifier), client_ip()]);
+}
+
+function login_throttle_clear(string $bucket, string $identifier): void {
+    db()->prepare('DELETE FROM login_attempts WHERE bucket = ? AND (identifier = ? OR ip = ?)')
+        ->execute([$bucket, strtolower($identifier), client_ip()]);
+}
+
 /* ------------------------------------------------------- flash msg -- */
 
 function flash_set(string $type, string $message): void {

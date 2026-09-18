@@ -198,6 +198,19 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ---------------------------------------------------------------
+-- login throttling (brute-force guard for storefront + admin login)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  bucket VARCHAR(20) NOT NULL,        -- 'customer' | 'admin'
+  identifier VARCHAR(160) NOT NULL,   -- email or username attempted, lowercased
+  ip VARCHAR(45) NOT NULL,
+  attempted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_bucket_identifier (bucket, identifier, attempted_at),
+  KEY idx_bucket_ip (bucket, ip, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

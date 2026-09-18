@@ -9,13 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    if (attempt_login($email, $password)) {
+    [$ok, $wait] = attempt_login($email, $password);
+    if ($ok) {
         $redirectTo = $_SESSION['redirect_after_login'] ?? '/account.php';
         unset($_SESSION['redirect_after_login']);
         flash_set('success', 'Welcome back!');
         redirect($redirectTo);
     }
-    $error = 'That email and password combination doesn\'t match our records.';
+    $error = $wait !== null
+        ? 'Too many login attempts. Please try again in ' . ceil($wait / 60) . ' minute(s).'
+        : 'That email and password combination doesn\'t match our records.';
 }
 
 $pageTitle = 'Log in';
