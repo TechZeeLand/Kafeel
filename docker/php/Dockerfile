@@ -5,7 +5,7 @@ COPY composer.json ./
 # are picked up automatically) — resolves fresh on every image build.
 RUN composer install --no-dev --no-interaction --no-progress --optimize-autoloader --ignore-platform-req=ext-gd
 
-FROM php:8.3-fpm
+FROM php:8.3-fpm-bookworm
 
 # --- System deps: nginx (baked in) + supervisor (runs both processes) + PHP build deps ---
 # mbstring is required by mPDF (invoice PDFs); gd lets mPDF embed product
