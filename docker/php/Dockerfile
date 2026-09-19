@@ -13,7 +13,7 @@ FROM php:8.3-fpm-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx supervisor libzip-dev unzip pkg-config libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql mysqli opcache mbstring gd \
+    && docker-php-ext-install pdo_mysql mysqli opcache gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
