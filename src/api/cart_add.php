@@ -49,7 +49,7 @@ if ($availableStock < 1) {
     exit;
 }
 
-cart_add($productId, min($qty, $availableStock), $variantId);
+cart_add($productId, min($qty, $availableStock), $variantId, $availableStock);
 
 echo json_encode([
     'ok' => true,

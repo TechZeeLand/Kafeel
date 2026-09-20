@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS products (
   slug VARCHAR(200) NOT NULL UNIQUE,
   sku VARCHAR(60) DEFAULT NULL,
   short_desc VARCHAR(255) DEFAULT NULL,
+  tags VARCHAR(600) DEFAULT NULL,
   description TEXT,
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
   compare_price DECIMAL(10,2) DEFAULT NULL,
@@ -109,6 +110,26 @@ CREATE TABLE IF NOT EXISTS product_variants (
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   sort_order INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Selectable colors and sizes of a product (one row each). Colors carry a
+-- swatch + preview image; sizes carry dimensions/weight overrides (NULL =
+-- inherit the product's own value) and may carry a preview image too.
+-- Stock and price adjustments live per combination in product_variants.
+CREATE TABLE IF NOT EXISTS product_options (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  kind ENUM('color','size') NOT NULL,
+  name VARCHAR(60) NOT NULL,
+  swatch VARCHAR(7) DEFAULT NULL,
+  image VARCHAR(255) DEFAULT NULL,
+  weight_grams INT DEFAULT NULL,
+  height_mm INT DEFAULT NULL,
+  width_mm INT DEFAULT NULL,
+  depth_mm INT DEFAULT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  UNIQUE KEY uniq_option (product_id, kind, name),
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -153,6 +174,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_name VARCHAR(120) NOT NULL,
   shipping_phone VARCHAR(30) NOT NULL,
+  customer_email VARCHAR(160) DEFAULT NULL,
   shipping_line1 VARCHAR(200) NOT NULL,
   shipping_city VARCHAR(100) NOT NULL,
   shipping_state VARCHAR(100) DEFAULT NULL,
@@ -243,4 +265,8 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('theme_primary', '#a97c34'),
 ('theme_secondary', '#5f7d5b'),
 ('seasonal_enabled', '0'),
-('seasonal_effect', 'snow');
+('seasonal_effect', 'snow'),
+('topbar_enabled', '0'),
+('topbar_text', ''),
+('topbar_link', ''),
+('schema_version', '4');

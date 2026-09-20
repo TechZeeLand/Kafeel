@@ -42,16 +42,18 @@ function client_ip(): string {
 
 /** Returns seconds remaining before another attempt is allowed, or null if clear. */
 function login_throttle_check(string $bucket, string $identifier): ?int {
+    // Everything is computed inside the database so it can never disagree
+    // with the timestamps it stored (PHP's clock/timezone is not involved).
     $stmt = db()->prepare(
-        'SELECT COUNT(*) AS cnt, MIN(attempted_at) AS first_at FROM login_attempts
+        'SELECT COUNT(*) AS cnt,
+                GREATEST(0, 300 - COALESCE(TIMESTAMPDIFF(SECOND, MIN(attempted_at), NOW()), 0)) AS remaining
+         FROM login_attempts
          WHERE bucket = ? AND (identifier = ? OR ip = ?) AND attempted_at > (NOW() - INTERVAL 5 MINUTE)'
     );
     $stmt->execute([$bucket, strtolower($identifier), client_ip()]);
     $row = $stmt->fetch();
-    if ($row && (int) $row['cnt'] >= 5) {
-        $elapsed = time() - strtotime($row['first_at']);
-        $remaining = 300 - $elapsed;
-        if ($remaining > 0) return $remaining;
+    if ($row && (int) $row['cnt'] >= 5 && (int) $row['remaining'] > 0) {
+        return (int) $row['remaining'];
     }
     return null;
 }
@@ -93,8 +95,52 @@ function slugify(string $text): string {
     return $text !== '' ? $text : 'item-' . substr(md5((string)microtime(true)), 0, 6);
 }
 
-function e(string $s): string {
-    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+function e($s): string {
+    return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Database timestamps are stored in UTC (see db.php). This converts one to
+ * the store's timezone (TZ env, default Asia/Dhaka) for display.
+ */
+function db_time(?string $utc): ?DateTimeImmutable {
+    if ($utc === null || $utc === '' || str_starts_with($utc, '0000')) return null;
+    try {
+        return (new DateTimeImmutable($utc, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone(date_default_timezone_get()));
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function fmt_dt(?string $utc, string $format = 'd M Y, g:i A'): string {
+    $d = db_time($utc);
+    return $d ? $d->format($format) : '—';
+}
+
+/** Public base URL for links in emails. SITE_URL wins unless it's a localhost placeholder. */
+function base_url(): string {
+    $configured = SITE_URL;
+    $host = $configured !== '' ? (parse_url($configured, PHP_URL_HOST) ?: '') : '';
+    $isLocal = in_array($host, ['', 'localhost', '127.0.0.1', '0.0.0.0'], true);
+    if (!$isLocal) return $configured;
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        return ($https ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+    }
+    return $configured;
+}
+
+/** Only allows same-site relative paths, for post-action redirects. */
+function safe_local_path(?string $url, string $fallback = '/'): string {
+    if (!$url) return $fallback;
+    $parts = parse_url($url);
+    if ($parts === false) return $fallback;
+    if (!empty($parts['host']) && !empty($_SERVER['HTTP_HOST']) && strcasecmp($parts['host'], preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'])) !== 0) {
+        return $fallback;
+    }
+    $path = $parts['path'] ?? '/';
+    if ($path === '' || $path[0] !== '/' || str_starts_with($path, '//')) return $fallback;
+    return $path . (isset($parts['query']) ? '?' . $parts['query'] : '');
 }
 
 function redirect(string $path): void {
@@ -119,12 +165,19 @@ function variant_label(array $variant): string {
 }
 
 function cart_items(): array {
-    $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price, p.image_main,
-                   p.stock AS product_stock, p.weight_grams,
-                   v.color AS variant_color, v.size AS variant_size, v.price_delta, v.stock AS variant_stock
+    // A cart line's photo and weight follow the chosen options: the color's
+    // (or else the size's) preview image, and the size's weight override.
+    $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price,
+                   COALESCE(co.image, so.image, p.image_main) AS image_main,
+                   p.stock AS product_stock, p.is_active AS product_active,
+                   COALESCE(so.weight_grams, p.weight_grams) AS weight_grams,
+                   v.color AS variant_color, v.size AS variant_size, v.price_delta, v.stock AS variant_stock,
+                   v.is_active AS variant_active
             FROM cart_items c
             JOIN products p ON p.id = c.product_id
             LEFT JOIN product_variants v ON v.id = c.variant_id
+            LEFT JOIN product_options co ON co.product_id = v.product_id AND co.kind = \'color\' AND co.name = v.color
+            LEFT JOIN product_options so ON so.product_id = v.product_id AND so.kind = \'size\' AND so.name = v.size
             WHERE %s ORDER BY c.id DESC';
     [$uid, $sid] = cart_identity();
     if ($uid) {
@@ -138,6 +191,7 @@ function cart_items(): array {
     foreach ($rows as &$r) {
         $r['price'] = (float) $r['price'] + (float) ($r['price_delta'] ?? 0);
         $r['stock'] = $r['variant_id'] ? (int) $r['variant_stock'] : (int) $r['product_stock'];
+        $r['available'] = $r['product_active'] && (!$r['variant_id'] || $r['variant_active']);
         $r['variant_label'] = $r['variant_id'] ? variant_label(['color' => $r['variant_color'], 'size' => $r['variant_size']]) : null;
     }
     unset($r);
@@ -203,7 +257,7 @@ function shipping_fee_for_area(string $area, int $weightGrams): float {
     return $base + ($extraKg * SHIPPING_EXTRA_PER_KG);
 }
 
-function cart_add(int $productId, int $qty = 1, ?int $variantId = null): void {
+function cart_add(int $productId, int $qty = 1, ?int $variantId = null, ?int $maxQty = null): void {
     [$uid, $sid] = cart_identity();
     $qty = max(1, $qty);
     $pdo = db();
@@ -219,11 +273,14 @@ function cart_add(int $productId, int $qty = 1, ?int $variantId = null): void {
     }
     $row = $stmt->fetch();
     if ($row) {
-        $upd = $pdo->prepare('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?');
-        $upd->execute([$qty, $row['id']]);
+        // Never let repeated "add" clicks push the line past what's in stock.
+        $newQty = (int) $row['quantity'] + $qty;
+        if ($maxQty !== null) $newQty = min($newQty, $maxQty);
+        $upd = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE id = ?');
+        $upd->execute([max(1, $newQty), $row['id']]);
     } else {
         $ins = $pdo->prepare('INSERT INTO cart_items (user_id, session_id, product_id, variant_id, quantity) VALUES (?,?,?,?,?)');
-        $ins->execute([$uid, $uid ? null : $sid, $productId, $variantId, $qty]);
+        $ins->execute([$uid, $uid ? null : $sid, $productId, $variantId, $maxQty !== null ? min($qty, $maxQty) : $qty]);
     }
 }
 
@@ -361,9 +418,24 @@ function product_image_src(?string $path): string {
 function all_settings(): array {
     static $cache = null;
     if ($cache === null) {
-        $cache = [];
-        foreach (db()->query('SELECT setting_key, setting_value FROM settings')->fetchAll() as $row) {
-            $cache[$row['setting_key']] = $row['setting_value'];
+        $load = function (): array {
+            $out = [];
+            foreach (db()->query('SELECT setting_key, setting_value FROM settings')->fetchAll() as $row) {
+                $out[$row['setting_key']] = $row['setting_value'];
+            }
+            return $out;
+        };
+        $cache = $load();
+        if ((int) ($cache['schema_version'] ?? 3) < 4) {
+            // First request after an upgrade: apply pending migrations.
+            require_once __DIR__ . '/migrate.php';
+            try {
+                run_pending_migrations(db(), (int) ($cache['schema_version'] ?? 3));
+                $cache = $load();
+            } catch (Throwable $e) {
+                error_log('[migrate] ' . $e->getMessage());
+                $GLOBALS['__migration_error'] = $e->getMessage();
+            }
         }
     }
     return $cache;
@@ -381,11 +453,23 @@ function set_setting(string $key, string $value): void {
     )->execute([$key, $value]);
 }
 
+/** Setting if set (non-empty), otherwise the fallback (usually the env value). */
+function setting_or(string $key, $fallback) {
+    $v = get_setting($key, '');
+    return ($v !== null && $v !== '') ? $v : $fallback;
+}
+
+const THEME_DEFAULTS = ['primary' => '#a97c34', 'secondary' => '#5f7d5b', 'dark' => '#20293b'];
+const THEME_PAPER_LIGHT = '#efece2';
+const THEME_PAPER_DARK = '#12161f';
+
 /** Theme + seasonal-effect settings, with sane defaults if unset. */
 function theme_settings(): array {
+    $hex = fn (string $k, string $d) => preg_match('/^#[0-9a-fA-F]{6}$/', (string) get_setting($k, $d)) ? strtolower(get_setting($k, $d)) : $d;
     return [
-        'primary' => get_setting('theme_primary', '#a97c34'),
-        'secondary' => get_setting('theme_secondary', '#5f7d5b'),
+        'primary' => $hex('theme_primary', THEME_DEFAULTS['primary']),
+        'secondary' => $hex('theme_secondary', THEME_DEFAULTS['secondary']),
+        'dark' => $hex('theme_dark', THEME_DEFAULTS['dark']),
         'seasonal_enabled' => get_setting('seasonal_enabled', '0') === '1',
         'seasonal_effect' => get_setting('seasonal_effect', 'snow'),
     ];
@@ -404,13 +488,212 @@ function hex_shade(string $hex, float $percent): string {
     return sprintf('#%02x%02x%02x', $adjust($r), $adjust($g), $adjust($b));
 }
 
-/* --------------------------------------------------------- variants - */
+/** WCAG relative luminance of a #rrggbb color. */
+function color_luminance(string $hex): float {
+    $hex = ltrim($hex, '#');
+    $c = [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+    foreach ($c as &$v) { $v /= 255; $v = $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4; }
+    return 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2];
+}
+
+function contrast_ratio(string $a, string $b): float {
+    $la = color_luminance($a); $lb = color_luminance($b);
+    return (max($la, $lb) + 0.05) / (min($la, $lb) + 0.05);
+}
+
+/** Text color (white or near-black) that reads best on the given background. */
+function contrast_text(string $bg): string {
+    return contrast_ratio($bg, '#ffffff') >= contrast_ratio($bg, '#111111') ? '#ffffff' : '#111111';
+}
+
+/** Nudges a color darker/lighter (toward what the background needs) until it reads at ≥ $min:1. */
+function ensure_contrast(string $fg, string $bg, float $min = 4.5): string {
+    $toward = color_luminance($bg) > 0.4 ? -1 : 1;
+    for ($i = 0; $i < 40 && contrast_ratio($fg, $bg) < $min; $i++) {
+        $fg = hex_shade($fg, $toward * 6);
+    }
+    return $fg;
+}
+
+/**
+ * CSS custom properties for the admin-chosen theme. Emitted into <style> on
+ * both storefront and admin so every button, accent and dark surface follows
+ * the three theme colors, in light and dark mode alike.
+ */
+function theme_css(): string {
+    $t = theme_settings();
+    [$p, $s, $d] = [$t['primary'], $t['secondary'], $t['dark']];
+    $light = fn (string $c) => ensure_contrast($c, THEME_PAPER_LIGHT);
+    $dark = fn (string $c) => ensure_contrast($c, THEME_PAPER_DARK);
+    return ":root{"
+        . "--brass:$p;--brass-dark:" . hex_shade($p, -18) . ";--brass-tint:" . hex_shade($p, 55) . ";--on-brass:" . contrast_text($p) . ";"
+        . "--accent-text:" . $light($p) . ";--sage:$s;--sage-text:" . $light($s) . ";"
+        . "--surface-dark:$d;--on-dark:" . contrast_text($d) . ";}"
+        . ":root[data-theme=\"dark\"]{--accent-text:" . $dark($p) . ";--sage-text:" . $dark($s) . ";}";
+}
+
+/** Announcement bar shown above the header: [enabled, text, link]. */
+function topbar_settings(): array {
+    $text = trim((string) get_setting('topbar_text', ''));
+    return [
+        'enabled' => get_setting('topbar_enabled', '0') === '1' && $text !== '',
+        'text' => $text,
+        'link' => trim((string) get_setting('topbar_link', '')),
+        'raw_enabled' => get_setting('topbar_enabled', '0') === '1',
+    ];
+}
+
+/** Business details printed on invoices (admin-editable; env values are the fallback). */
+function store_info(): array {
+    $name = setting_or('store_name', trim(preg_replace('/\s*\([^)]*\)\s*$/u', '', SITE_NAME)) ?: SITE_NAME);
+    return [
+        'name' => $name,
+        'phone' => (string) setting_or('store_phone', CONTACT_PHONE),
+        'email' => (string) setting_or('store_email', CONTACT_EMAIL),
+        'address' => (string) setting_or('store_address', STORE_ADDRESS),
+    ];
+}
+
+/** Effective SMTP configuration: admin-saved values win, env is the fallback. */
+function smtp_settings(): array {
+    return [
+        'host' => (string) setting_or('smtp_host', SMTP_HOST),
+        'port' => (int) setting_or('smtp_port', SMTP_PORT),
+        'user' => (string) setting_or('smtp_user', SMTP_USER),
+        'pass' => (string) setting_or('smtp_pass', SMTP_PASS),
+        'secure' => get_setting('smtp_secure') !== null ? (string) get_setting('smtp_secure') : SMTP_SECURE, // tls | ssl | '' (none)
+        'from_email' => (string) setting_or('smtp_from_email', SMTP_FROM_EMAIL),
+        'from_name' => (string) setting_or('smtp_from_name', SMTP_FROM_NAME),
+    ];
+}
+
+/* --------------------------------------------------------------- tags -- */
+
+/** Cleans a comma/newline separated tag string into a de-duplicated list. */
+function parse_tags(?string $raw): array {
+    $out = [];
+    foreach (preg_split('/[,\n;]+/u', (string) $raw) as $t) {
+        $t = trim(preg_replace('/\s+/u', ' ', $t));
+        $t = mb_substr($t, 0, 40);
+        if ($t === '') continue;
+        $out[mb_strtolower($t)] ??= $t;
+    }
+    return array_slice(array_values($out), 0, 20);
+}
+
+function product_tags(array $product): array {
+    return parse_tags($product['tags'] ?? '');
+}
+
+/* ------------------------------------------------------------- search -- */
+
+function like_escape(string $s): string {
+    return str_replace(['|', '%', '_'], ['||', '|%', '|_'], $s);
+}
+
+/** Splits a query into up to 6 search words (each ≥1 char). */
+function search_words(string $q): array {
+    $words = preg_split('/[\s,]+/u', trim($q), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    return array_slice(array_map(fn ($w) => mb_substr($w, 0, 40), $words), 0, 6);
+}
+
+/**
+ * Partial-word product search. Every word the shopper typed has to appear
+ * somewhere in the product (name, tags, SKU, descriptions, category, color /
+ * size options) — but as a *fragment*, so "tita" finds "Titanium". Products
+ * whose name/tags start a word with the fragment rank highest.
+ *
+ * @return array{where:string, where_params:array, rank:string, rank_params:array}
+ */
+function product_search_sql(string $q): array {
+    $where = []; $wp = []; $rank = []; $rp = [];
+    foreach (search_words($q) as $w) {
+        $any = '%' . like_escape($w) . '%';
+        $start = like_escape($w) . '%';
+        $wordStart = '% ' . like_escape($w) . '%';
+        $where[] = '(p.name LIKE ? ESCAPE \'|\' OR p.tags LIKE ? ESCAPE \'|\' OR p.sku LIKE ? ESCAPE \'|\' OR p.short_desc LIKE ? ESCAPE \'|\'
+                    OR p.description LIKE ? ESCAPE \'|\' OR c.name LIKE ? ESCAPE \'|\' OR p.color LIKE ? ESCAPE \'|\'
+                    OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND sv.is_active = 1
+                               AND (sv.color LIKE ? ESCAPE \'|\' OR sv.size LIKE ? ESCAPE \'|\')))';
+        array_push($wp, $any, $any, $any, $any, $any, $any, $any, $any, $any);
+
+        $rank[] = '(IF(p.name LIKE ? ESCAPE \'|\', 12, 0) + IF(p.name LIKE ? ESCAPE \'|\', 10, 0) + IF(p.name LIKE ? ESCAPE \'|\', 5, 0)
+                  + IF(p.tags LIKE ? ESCAPE \'|\', 6, 0) + IF(p.sku LIKE ? ESCAPE \'|\', 5, 0)
+                  + IF(p.short_desc LIKE ? ESCAPE \'|\', 2, 0) + IF(p.description LIKE ? ESCAPE \'|\', 1, 0) + IF(c.name LIKE ? ESCAPE \'|\', 2, 0))';
+        array_push($rp, $start, $wordStart, $any, $any, $any, $any, $any, $any);
+    }
+    return [
+        'where' => $where ? implode(' AND ', $where) : '1=1',
+        'where_params' => $wp,
+        'rank' => $rank ? implode(' + ', $rank) : '0',
+        'rank_params' => $rp,
+    ];
+}
+
+/* --------------------------------------------------------- variants ---- */
+
+/** Extra SELECT columns product cards need to handle products that have variants. */
+const PRODUCT_LIST_EXTRA = ', (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id AND pv.is_active = 1) AS variant_count,
+    (SELECT COALESCE(SUM(pv.stock), 0) FROM product_variants pv WHERE pv.product_id = p.id AND pv.is_active = 1) AS variant_stock';
 
 function product_variants_for(int $productId, bool $activeOnly = true): array {
     $sql = 'SELECT * FROM product_variants WHERE product_id = ?' . ($activeOnly ? ' AND is_active = 1' : '') . ' ORDER BY sort_order, id';
     $stmt = db()->prepare($sql);
     $stmt->execute([$productId]);
     return $stmt->fetchAll();
+}
+
+/**
+ * Color and size options for a product: ['color' => [...], 'size' => [...]].
+ * Names used by a variant but missing from product_options (e.g. data from
+ * before options existed) are added as bare rows so nothing ever disappears.
+ */
+function product_options_for(int $productId): array {
+    $stmt = db()->prepare('SELECT * FROM product_options WHERE product_id = ? ORDER BY sort_order, id');
+    $stmt->execute([$productId]);
+    $out = ['color' => [], 'size' => []];
+    foreach ($stmt->fetchAll() as $o) { $out[$o['kind']][$o['name']] = $o; }
+    foreach (product_variants_for($productId, false) as $v) {
+        foreach (['color', 'size'] as $kind) {
+            $name = $v[$kind] ?? null;
+            if ($name !== null && $name !== '' && !isset($out[$kind][$name])) {
+                $out[$kind][$name] = ['id' => null, 'kind' => $kind, 'name' => $name, 'swatch' => null, 'image' => null,
+                    'weight_grams' => null, 'height_mm' => null, 'width_mm' => null, 'depth_mm' => null];
+            }
+        }
+    }
+    return ['color' => array_values($out['color']), 'size' => array_values($out['size'])];
+}
+
+/** Deletes an uploaded file, but only ever from inside the uploads folder. */
+function delete_upload_file(?string $urlPath): void {
+    if (!$urlPath || strpos($urlPath, UPLOAD_URL . '/') !== 0) return;
+    $file = UPLOAD_DIR . '/' . basename($urlPath);
+    if (is_file($file)) @unlink($file);
+}
+
+/**
+ * Puts an order's items back into stock ($direction = +1, when it's cancelled)
+ * or takes them out again ($direction = -1, when a cancelled order is revived).
+ * Returns false — changing nothing — if there isn't enough stock to revive it.
+ * Call inside a transaction.
+ */
+function order_stock_adjust(PDO $pdo, int $orderId, int $direction): bool {
+    $items = $pdo->prepare('SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?');
+    $items->execute([$orderId]);
+    foreach ($items->fetchAll() as $it) {
+        $table = $it['variant_id'] ? 'product_variants' : 'products';
+        $rowId = $it['variant_id'] ?: $it['product_id'];
+        if (!$rowId) continue; // product was deleted since — nothing to adjust
+        if ($direction > 0) {
+            $pdo->prepare("UPDATE $table SET stock = stock + ? WHERE id = ?")->execute([$it['quantity'], $rowId]);
+        } else {
+            $st = $pdo->prepare("UPDATE $table SET stock = stock - ? WHERE id = ? AND stock >= ?");
+            $st->execute([$it['quantity'], $rowId, $it['quantity']]);
+            if ($st->rowCount() < 1) return false;
+        }
+    }
+    return true;
 }
 
 /* --------------------------------------------------- order tracking - */

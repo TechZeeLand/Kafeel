@@ -38,7 +38,7 @@ require __DIR__ . '/includes/header.php';
           <td><?= e($u['phone'] ?? '—') ?></td>
           <td><?= (int)$u['order_count'] ?></td>
           <td class="mono"><?= money((float)$u['lifetime_value']) ?></td>
-          <td><?= date('d M Y', strtotime($u['created_at'])) ?></td>
+          <td><?= fmt_dt($u['created_at'], 'd M Y') ?></td>
           <td><?= $u['status'] === 'active' ? '<span class="pill pill-sage">Active</span>' : '<span class="pill pill-rust">Disabled</span>' ?></td>
           <td>
             <form method="post" onsubmit="return confirm('<?= $u['status'] === 'active' ? 'Disable' : 'Re-enable' ?> this account?');">

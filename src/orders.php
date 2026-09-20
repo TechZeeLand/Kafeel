@@ -33,7 +33,7 @@ require __DIR__ . '/includes/header.php';
           <?php foreach ($orders as $o): ?>
             <tr>
               <td class="mono"><?= e($o['order_number']) ?></td>
-              <td><?= date('d M Y', strtotime($o['created_at'])) ?></td>
+              <td><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
               <td><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
               <td class="mono"><?= money($o['total']) ?></td>
               <td><a href="/order-detail.php?order=<?= e($o['order_number']) ?>" class="btn btn-outline btn-sm">View</a></td>

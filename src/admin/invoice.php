@@ -17,6 +17,5 @@ $itemsStmt = db()->prepare('SELECT * FROM order_items WHERE order_id = ?');
 $itemsStmt->execute([$order['id']]);
 $items = $itemsStmt->fetchAll();
 
-$history = order_status_history($order['id']);
 $mode = ($_GET['download'] ?? '') === '1' ? 'D' : 'I';
-output_order_invoice($order, $items, $history, $mode);
+output_order_invoice($order, $items, $mode);

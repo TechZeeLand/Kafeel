@@ -10,9 +10,27 @@ $categoryCount = (int) db()->query('SELECT COUNT(*) FROM categories')->fetchColu
 $userCount = (int) db()->query('SELECT COUNT(*) FROM users')->fetchColumn();
 $pendingOrders = (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'pending'")->fetchColumn();
 $revenue = (float) db()->query("SELECT COALESCE(SUM(total),0) FROM orders WHERE status != 'cancelled'")->fetchColumn();
-$lowStock = db()->query('SELECT id, name, stock FROM products WHERE stock <= 5 AND is_active = 1 ORDER BY stock ASC LIMIT 6')->fetchAll();
+// Products with variants are stocked per variant, so measure the variants' total, not products.stock.
+$lowStock = db()->query(
+    'SELECT id, name, stock FROM (
+         SELECT p.id, p.name, p.is_active,
+                CASE WHEN (SELECT COUNT(*) FROM product_variants v WHERE v.product_id = p.id AND v.is_active = 1) > 0
+                     THEN (SELECT COALESCE(SUM(v.stock), 0) FROM product_variants v WHERE v.product_id = p.id AND v.is_active = 1)
+                     ELSE p.stock END AS stock
+         FROM products p) t
+     WHERE stock <= 5 AND is_active = 1 ORDER BY stock ASC LIMIT 6'
+)->fetchAll();
+
+// The seeded first-run password is public knowledge (it's in the repo) — nag until it's changed.
+$__pw = db()->prepare('SELECT password_hash FROM admins WHERE id = ?');
+$__pw->execute([current_admin()['id']]);
+$usingDefaultPassword = password_verify('ChangeMe123!', (string) $__pw->fetchColumn());
 $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 8')->fetchAll();
 ?>
+
+<?php if ($usingDefaultPassword): ?>
+  <div class="alert alert-warn"><strong>Change your admin password.</strong> You're still using the default one that ships with the store. <a href="/admin/account.php" style="text-decoration:underline;font-weight:600;">Change it now →</a></div>
+<?php endif; ?>
 
 <div class="stat-grid">
   <div class="stat-card"><div class="label">Total revenue</div><div class="value"><?= money($revenue) ?></div></div>
@@ -38,7 +56,7 @@ $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT
           <td><?= e($o['shipping_name']) ?></td>
           <td><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
           <td class="mono"><?= money($o['total']) ?></td>
-          <td><?= date('d M Y', strtotime($o['created_at'])) ?></td>
+          <td><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
           <td><a href="/admin/order_detail.php?id=<?= (int)$o['id'] ?>" class="btn btn-outline btn-sm">Manage</a></td>
         </tr>
       <?php endforeach; ?>

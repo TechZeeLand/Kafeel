@@ -19,5 +19,4 @@ $itemsStmt = db()->prepare('SELECT * FROM order_items WHERE order_id = ?');
 $itemsStmt->execute([$order['id']]);
 $items = $itemsStmt->fetchAll();
 
-$history = order_status_history($order['id']);
-output_order_invoice($order, $items, $history, 'I');
+output_order_invoice($order, $items, 'I');

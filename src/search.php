@@ -19,29 +19,33 @@ $offset = ($page - 1) * $perPage;
 
 $where = ['p.is_active = 1'];
 $params = [];
-$selectRelevance = '0 AS relevance';
+$rankSql = '0';
+$rankParams = [];
 
 if ($q !== '') {
-    $where[] = 'MATCH(p.name, p.short_desc, p.description) AGAINST (? IN NATURAL LANGUAGE MODE)';
-    $params[] = $q;
-    $selectRelevance = 'MATCH(p.name, p.short_desc, p.description) AGAINST (' . db()->quote($q) . ' IN NATURAL LANGUAGE MODE) AS relevance';
+    // Partial-word search: "tita" finds "Titanium" (see product_search_sql()).
+    $srch = product_search_sql($q);
+    $where[] = '(' . $srch['where'] . ')';
+    $params = $srch['where_params'];
+    $rankSql = $srch['rank'];
+    $rankParams = $srch['rank_params'];
 }
 if ($featuredOnly) {
     $where[] = 'p.is_featured = 1';
 }
 $whereSql = implode(' AND ', $where);
 
-$countStmt = db()->prepare("SELECT COUNT(*) FROM products p WHERE $whereSql");
+$countStmt = db()->prepare("SELECT COUNT(*) FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE $whereSql");
 $countStmt->execute($params);
 $total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int) ceil($total / $perPage));
 
 $stmt = db()->prepare(
-    "SELECT p.*, c.name AS category_name, $selectRelevance
+    "SELECT p.*, c.name AS category_name, ($rankSql) AS relevance" . PRODUCT_LIST_EXTRA . "
      FROM products p LEFT JOIN categories c ON c.id = p.category_id
-     WHERE $whereSql ORDER BY $sortSql LIMIT $perPage OFFSET $offset"
+     WHERE $whereSql ORDER BY $sortSql, p.name ASC LIMIT $perPage OFFSET $offset"
 );
-$stmt->execute($params);
+$stmt->execute(array_merge($rankParams, $params));
 $products = $stmt->fetchAll();
 
 $__user = current_user();

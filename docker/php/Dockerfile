@@ -38,6 +38,10 @@ COPY docker/php/opcache-dev.ini /usr/local/etc/php/conf.d/opcache-dev.ini
 COPY src/ /var/www/html/
 COPY --from=vendor /app/vendor/ /var/www/html/vendor/
 
+# SQL migrations live outside the web root; the app applies any that are new
+# on the first request after a deploy (src/includes/migrate.php).
+COPY sql/migrations/ /var/www/migrations/
+
 # Uploaded product images must be writable by the web server
 RUN mkdir -p /var/www/html/uploads/products \
     && chown -R www-data:www-data /var/www/html/uploads /var/www/html \

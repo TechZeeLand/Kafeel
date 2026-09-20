@@ -7,13 +7,13 @@ $__user = current_user();
 $__favIds = $__user ? favorite_ids_for_user($__user['id']) : [];
 
 $featured = db()->query(
-    "SELECT p.*, c.name AS category_name FROM products p
+    "SELECT p.*, c.name AS category_name" . PRODUCT_LIST_EXTRA . " FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE p.is_active = 1 AND p.is_featured = 1 ORDER BY p.created_at DESC LIMIT 8"
 )->fetchAll();
 
 $newest = db()->query(
-    "SELECT p.*, c.name AS category_name FROM products p
+    "SELECT p.*, c.name AS category_name" . PRODUCT_LIST_EXTRA . " FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE p.is_active = 1 ORDER BY p.created_at DESC LIMIT 8"
 )->fetchAll();

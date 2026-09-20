@@ -5,7 +5,7 @@ require_login();
 
 $user = current_user();
 $stmt = db()->prepare(
-    "SELECT p.*, c.name AS category_name FROM favorites f
+    "SELECT p.*, c.name AS category_name" . PRODUCT_LIST_EXTRA . " FROM favorites f
      JOIN products p ON p.id = f.product_id
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE f.user_id = ? AND p.is_active = 1 ORDER BY f.created_at DESC"

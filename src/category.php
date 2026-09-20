@@ -33,7 +33,7 @@ $total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($total / $perPage));
 
 $stmt = db()->prepare(
-    "SELECT p.*, c.name AS category_name FROM products p
+    "SELECT p.*, c.name AS category_name" . PRODUCT_LIST_EXTRA . " FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE p.category_id = ? AND p.is_active = 1
      ORDER BY $sortSql LIMIT $perPage OFFSET $offset"

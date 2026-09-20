@@ -4,7 +4,7 @@
   <div class="wrap">
     <div class="footer-grid">
       <div class="footer-brand">
-        <div class="brand" style="color:#fff;margin-bottom:10px;"><span class="mark">ك</span> <?= e(SITE_NAME) ?></div>
+        <div class="brand" style="color:var(--on-dark);margin-bottom:10px;"><span class="mark">ك</span> <?= e(SITE_NAME) ?></div>
         <p>Thoughtfully made EDC gear, bags and leather goods — built to be used daily and to last.</p>
         <div class="social-row">
           <a href="<?= e(SOCIAL_FACEBOOK) ?>" target="_blank" rel="noopener" aria-label="Facebook" title="Facebook">

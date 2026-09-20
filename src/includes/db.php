@@ -13,6 +13,11 @@ function db(): PDO {
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
+                // Always talk to the database in UTC, whatever the server's own
+                // timezone is. Timestamps are stored as UTC and converted to the
+                // store's timezone (TZ, Asia/Dhaka) only when displayed — see
+                // fmt_dt(). This keeps NOW() comparisons in SQL consistent.
+                $pdo->exec("SET time_zone = '+00:00'");
                 break;
             } catch (PDOException $e) {
                 // The db container can take a few seconds longer to become

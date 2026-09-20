@@ -141,33 +141,50 @@ docker compose exec db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" \
 ### Applying schema migrations to an existing database
 
 New database changes ship as numbered SQL files in `sql/migrations/`. Fresh
-installs get everything via `sql/schema.sql` automatically; if you already
-have a running database, apply any new migration files by hand, in order:
+installs get everything via `sql/schema.sql` automatically.
+
+**From migration 004 on, upgrades are automatic:** the image contains the
+migration files, and the first request after a deploy applies any that are
+new (tracked by the `schema_version` setting, guarded by a database lock, and
+written to be safe to repeat). You don't need to run anything by hand. If an
+automatic upgrade ever fails, the admin panel shows the error and you can run
+the file yourself:
 
 ```bash
-docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/001_phase1.sql
-docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/002_phase2.sql
+docker compose exec -T db mariadb -u root -p"$DB_ROOT_PASS" "$DB_NAME" < sql/migrations/004_phase4.sql
 ```
 
-(Or paste each file's contents into phpMyAdmin's SQL tab, in order.)
+Migrations 001-003 predate the auto-migrator and must have been applied by
+hand (paste each file into phpMyAdmin's SQL tab, in order) on databases
+created before them.
 
-`002_phase2.sql` adds product dimensions/color/variants, order status
-history, the suburbs shipping zone, email verification columns, and the
-`settings` table used by the admin theme page — all backward compatible,
-existing orders/products/users are backfilled sensibly (existing accounts
-are marked verified so nobody gets locked out).
+`004_phase4.sql` adds product tags, per-color/per-size options
+(`product_options`: color photos + swatches, size dimensions and weight),
+the customer email on orders, and the announcement-bar settings.
+
+### Timezone
+
+Timestamps are stored in the database as **UTC** and converted to `TZ`
+(default `Asia/Dhaka`) only for display (`fmt_dt()` in `functions.php`). The
+app forces its database session to UTC, so it doesn't matter what timezone the
+MariaDB container runs in. Use `fmt_dt($row['created_at'])` — never
+`date(..., strtotime(...))` — whenever you print a database date.
 
 ### Outbound email (SMTP)
 
-The contact form, email verification, and order status notifications are
-all sent via [PHPMailer](https://github.com/PHPMailer/PHPMailer). Set
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_SECURE`
-(`tls`, `ssl`, or blank) in `.env` to point at a real mail provider (Gmail
-app password, Zoho, SendGrid SMTP, your registrar's mail server, etc.).
-Leaving `SMTP_HOST` blank falls back to PHP's built-in `mail()` — fine for
-a quick local test, but most hosts won't actually deliver without real SMTP
-credentials, and messages will silently fail (logged to the PHP error log,
-never crashes the request).
+The contact form, email verification, order confirmations and status
+notifications are all sent via [PHPMailer](https://github.com/PHPMailer/PHPMailer).
+
+Set it up in the admin panel: **Admin -> Settings & email -> Email (SMTP)**,
+then use **Send a test email** to confirm it works (the exact error from the
+mail server is shown if it doesn't). Values saved there override the
+`SMTP_*` variables in `.env`, which remain as the fallback. Leaving both
+blank falls back to PHP's built-in `mail()`, which does **not** deliver from
+inside the Docker image (there is no sendmail) — emails silently fail (logged
+to the PHP error log, never crashes the request).
+
+The same page holds the announcement bar (top of every page) and the store
+name/phone/email/address printed on invoices.
 
 ## Local development (live-reload)
 

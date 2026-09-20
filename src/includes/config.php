@@ -54,6 +54,7 @@ if (!defined('DB_HOST')) {
     // --- Contact / social links ---
     define('CONTACT_EMAIL', env_val('CONTACT_EMAIL', 'hello@kafeelshopbd.com'));
     define('CONTACT_PHONE', env_val('CONTACT_PHONE', ''));
+    define('STORE_ADDRESS', env_val('STORE_ADDRESS', ''));
     define('SOCIAL_FACEBOOK', env_val('SOCIAL_FACEBOOK', 'https://www.facebook.com/kafeelshopbd'));
     define('SOCIAL_FACEBOOK_MESSENGER', env_val('SOCIAL_FACEBOOK_MESSENGER', 'https://www.m.me/kafeelshopbd'));
     define('SOCIAL_INSTAGRAM', env_val('SOCIAL_INSTAGRAM', 'https://www.instagram.com/kafeelbd/'));

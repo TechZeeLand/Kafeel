@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_admin();
+require_once __DIR__ . '/../includes/order_mail.php';
 
 $id = (int) ($_GET['id'] ?? 0);
 $stmt = db()->prepare('SELECT * FROM orders WHERE id = ?');
@@ -17,24 +18,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $note = trim($_POST['note'] ?? '');
     if (in_array($newStatus, $validStatuses, true)) {
         if ($newStatus !== $order['status']) {
-            db()->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$newStatus, $order['id']]);
-            order_status_add($order['id'], $newStatus, $note ?: null);
-
-            if ($order['user_id']) {
-                $cStmt = db()->prepare('SELECT name, email FROM users WHERE id = ?');
-                $cStmt->execute([$order['user_id']]);
-                $c = $cStmt->fetch();
-                if ($c) {
-                    require_once __DIR__ . '/../includes/mail.php';
-                    $statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
-                    $link = rtrim(SITE_URL, '/') . '/order-detail.php?order=' . $order['order_number'];
-                    $body = '<p>Hi ' . e(explode(' ', $c['name'])[0]) . ',</p>'
-                        . '<p>Your order <strong>#' . e($order['order_number']) . '</strong> is now <strong>' . e($statusLabels[$newStatus] ?? ucfirst($newStatus)) . '</strong>.</p>'
-                        . ($note ? '<p>' . e($note) . '</p>' : '')
-                        . '<p style="margin:20px 0;"><a href="' . e($link) . '" style="background:#a97c34;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Track your order</a></p>';
-                    send_email($c['email'], $c['name'], 'Order #' . $order['order_number'] . ' — ' . ($statusLabels[$newStatus] ?? ucfirst($newStatus)), email_wrap('Order update', $body));
+            $pdo = db();
+            $pdo->beginTransaction();
+            try {
+                $wasCancelled = $order['status'] === 'cancelled';
+                $nowCancelled = $newStatus === 'cancelled';
+                // Cancelling returns the items to stock; reviving a cancelled order takes them out again.
+                if ($nowCancelled && !$wasCancelled) {
+                    order_stock_adjust($pdo, (int) $order['id'], +1);
+                } elseif ($wasCancelled && !$nowCancelled && !order_stock_adjust($pdo, (int) $order['id'], -1)) {
+                    throw new RuntimeException('Not enough stock left to reactivate this order.');
                 }
+                $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$newStatus, $order['id']]);
+                order_status_add($order['id'], $newStatus, $note ?: null);
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                flash_set('error', $e->getMessage());
+                redirect('/admin/order_detail.php?id=' . $order['id']);
             }
+
+            // Email the customer (registered or guest, whichever email we have).
+            require_once __DIR__ . '/../includes/order_mail.php';
+            send_order_status_email($order, $newStatus, $note ?: null);
             flash_set('success', 'Order status updated to ' . ucfirst($newStatus) . '.');
         } else {
             flash_set('info', 'Status unchanged.');
@@ -89,6 +95,7 @@ require __DIR__ . '/includes/header.php';
     <div class="panel-body">
       <p><strong><?= e($order['shipping_name']) ?></strong><br>
       <?= e($order['shipping_phone']) ?><br>
+      <?php $__em = order_customer_email($order); if ($__em): ?><?= e($__em) ?><br><?php endif; ?>
       <?= e($order['shipping_line1']) ?><br>
       <?= e($order['shipping_city']) ?><?= $order['shipping_state'] ? ', ' . e($order['shipping_state']) : '' ?><?= $order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '' ?></p>
       <?php if ($order['notes']): ?><p><strong>Notes:</strong> <?= e($order['notes']) ?></p><?php endif; ?>
@@ -115,6 +122,7 @@ require __DIR__ . '/includes/header.php';
           <label for="note">Note (optional, shown to customer)</label>
           <input id="note" name="note" placeholder="e.g. Handed to courier, tracking #...">
         </div>
+        <p class="help" style="margin-top:-4px;">Cancelling an order puts its items back in stock. The customer is emailed automatically if we have their email.</p>
         <button type="submit" class="btn btn-primary">Update status</button>
       </form>
     </div>
@@ -131,7 +139,7 @@ require __DIR__ . '/includes/header.php';
         <?php foreach ($history as $h): ?>
           <li>
             <strong><?= e($statusLabels[$h['status']] ?? ucfirst($h['status'])) ?></strong>
-            <span style="color:var(--ink-faint);"> — <?= e(date('j M Y, g:i A', strtotime($h['changed_at']))) ?></span>
+            <span style="color:var(--ink-faint);"> — <?= e(fmt_dt($h['changed_at'], 'j M Y, g:i A')) ?></span>
             <?php if ($h['note']): ?><div style="color:var(--ink-faint);font-size:0.85rem;"><?= e($h['note']) ?></div><?php endif; ?>
           </li>
         <?php endforeach; ?>

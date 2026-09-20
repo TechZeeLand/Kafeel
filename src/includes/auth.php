@@ -88,21 +88,23 @@ function register_user(string $name, string $email, string $password, string $ph
 /** Builds and sends the "verify your email" message for a newly (re)issued token. */
 function send_verification_email(int $userId, string $name, string $email, string $token): bool {
     require_once __DIR__ . '/mail.php';
-    $link = rtrim(SITE_URL, '/') . '/verify-email.php?uid=' . $userId . '&token=' . $token;
+    $link = base_url() . '/verify-email.php?uid=' . $userId . '&token=' . $token;
     $body = '<p>Hi ' . e(explode(' ', $name)[0]) . ',</p>'
         . '<p>Welcome to ' . e(SITE_NAME) . '! Please confirm your email address to activate your account.</p>'
-        . '<p style="margin:24px 0;"><a href="' . e($link) . '" style="background:#a97c34;color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify my email</a></p>'
+        . '<p style="margin:24px 0;"><a href="' . e($link) . '" style="background:' . e(theme_settings()['primary']) . ';color:' . e(contrast_text(theme_settings()['primary'])) . ';padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify my email</a></p>'
         . '<p class="muted" style="font-size:0.85rem;color:#8791a6;">Or paste this link into your browser:<br>' . e($link) . '</p>';
     return send_email($email, $name, 'Verify your email — ' . SITE_NAME, email_wrap('Confirm your email address', $body));
 }
 
 /** Issues a fresh token and resends the verification email (rate-limited to once per 2 minutes). */
 function resend_verification_email(int $userId): bool {
-    $stmt = db()->prepare('SELECT name, email, email_verified, email_verify_sent_at FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT name, email, email_verified,
+                                  TIMESTAMPDIFF(SECOND, email_verify_sent_at, NOW()) AS secs_since_sent
+                           FROM users WHERE id = ?');
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
     if (!$user || (int) $user['email_verified'] === 1) return false;
-    if (!empty($user['email_verify_sent_at']) && (time() - strtotime($user['email_verify_sent_at'])) < 120) {
+    if ($user['secs_since_sent'] !== null && (int) $user['secs_since_sent'] < 120) {
         return false; // too soon
     }
     $token = bin2hex(random_bytes(32));

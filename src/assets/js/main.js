@@ -110,10 +110,11 @@
   /* --------------------------------------------------------- qty steps -- */
   document.querySelectorAll('.qty-stepper').forEach(function (stepper) {
     var input = stepper.querySelector('input');
-    var min = parseInt(input.getAttribute('min') || '1', 10);
-    var max = parseInt(input.getAttribute('max') || '999', 10);
     stepper.querySelectorAll('button').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        // Read limits now, not at page load: the product page changes max when a variant is picked.
+        var min = parseInt(input.getAttribute('min') || '1', 10);
+        var max = parseInt(input.getAttribute('max') || '999', 10);
         var val = parseInt(input.value, 10) || min;
         val = btn.classList.contains('minus') ? val - 1 : val + 1;
         val = Math.max(min, Math.min(max, val));
@@ -153,4 +154,120 @@
       thumb.classList.add('active');
     });
   });
+
+  /* ------------------------------------------------------ day / night --- */
+  var root = document.documentElement;
+  var themeBtn = document.getElementById('themeToggle');
+  function currentTheme() { return root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+  function syncThemeBtn() {
+    if (!themeBtn) return;
+    var dark = currentTheme() === 'dark';
+    var label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    themeBtn.setAttribute('aria-label', label);
+    themeBtn.setAttribute('title', label);
+    themeBtn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  }
+  function setTheme(t, remember) {
+    root.classList.add('theme-fade');
+    root.setAttribute('data-theme', t);
+    if (remember) { try { localStorage.setItem('kafeel-theme', t); } catch (e) {} }
+    syncThemeBtn();
+    setTimeout(function () { root.classList.remove('theme-fade'); }, 350);
+  }
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function () { setTheme(currentTheme() === 'dark' ? 'light' : 'dark', true); });
+  }
+  syncThemeBtn();
+  // Until the visitor picks a side, follow the operating system live.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var follow = function (e) {
+      var stored = null;
+      try { stored = localStorage.getItem('kafeel-theme'); } catch (err) {}
+      if (stored !== 'light' && stored !== 'dark') setTheme(e.matches ? 'dark' : 'light', false);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', follow); else if (mq.addListener) mq.addListener(follow);
+  }
+
+  /* ------------------------------------------------- search suggestions -- */
+  var searchForm = document.querySelector('form[data-suggest]');
+  if (searchForm) {
+    var sInput = searchForm.querySelector('input[name=q]');
+    var sBox = document.getElementById('searchSuggest');
+    var sTimer = null, sReq = 0, sActive = -1;
+
+    var hideSuggest = function () { sBox.hidden = true; sBox.innerHTML = ''; sActive = -1; };
+
+    var highlight = function (text, words) {
+      var frag = document.createDocumentFragment();
+      var lower = text.toLowerCase();
+      var marks = [];
+      words.forEach(function (w) {
+        var i = lower.indexOf(w.toLowerCase());
+        if (w && i > -1) marks.push([i, i + w.length]);
+      });
+      marks.sort(function (a, b) { return a[0] - b[0]; });
+      var pos = 0;
+      marks.forEach(function (m) {
+        if (m[0] < pos) return;
+        frag.appendChild(document.createTextNode(text.slice(pos, m[0])));
+        var el = document.createElement('mark'); el.textContent = text.slice(m[0], m[1]); frag.appendChild(el);
+        pos = m[1];
+      });
+      frag.appendChild(document.createTextNode(text.slice(pos)));
+      return frag;
+    };
+
+    var renderSuggest = function (items, q) {
+      sBox.innerHTML = '';
+      if (!items.length) { hideSuggest(); return; }
+      var words = q.split(/\s+/).filter(Boolean);
+      items.forEach(function (it) {
+        var a = document.createElement('a');
+        a.href = '/product.php?slug=' + encodeURIComponent(it.slug);
+        var img = document.createElement('img'); img.src = it.image; img.alt = ''; img.loading = 'lazy';
+        var wrap = document.createElement('div');
+        var name = document.createElement('div'); name.className = 's-name'; name.appendChild(highlight(it.name, words));
+        var meta = document.createElement('div'); meta.className = 's-meta'; meta.textContent = it.price + (it.category ? ' · ' + it.category : '');
+        wrap.appendChild(name); wrap.appendChild(meta);
+        a.appendChild(img); a.appendChild(wrap);
+        sBox.appendChild(a);
+      });
+      var all = document.createElement('a');
+      all.href = '/search.php?q=' + encodeURIComponent(q); all.className = 's-all';
+      all.textContent = 'See all results for “' + q + '”';
+      sBox.appendChild(all);
+      sBox.hidden = false; sActive = -1;
+    };
+
+    sInput.addEventListener('input', function () {
+      clearTimeout(sTimer);
+      var q = sInput.value.trim();
+      if (q.length < 2) { hideSuggest(); return; }
+      sTimer = setTimeout(function () {
+        var req = ++sReq;
+        fetch('/api/search_suggest.php?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (res) { if (req === sReq) renderSuggest(res.items || [], q); })
+          .catch(function () { hideSuggest(); });
+      }, 180);
+    });
+
+    sInput.addEventListener('keydown', function (e) {
+      var links = sBox.hidden ? [] : Array.prototype.slice.call(sBox.querySelectorAll('a'));
+      if (e.key === 'Escape') { hideSuggest(); return; }
+      if (!links.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        sActive = (sActive + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+        links.forEach(function (l, i) { l.classList.toggle('is-active', i === sActive); });
+      } else if (e.key === 'Enter' && sActive > -1) {
+        e.preventDefault();
+        window.location.href = links[sActive].href;
+      }
+    });
+
+    document.addEventListener('click', function (e) { if (!searchForm.contains(e.target)) hideSuggest(); });
+    sInput.addEventListener('focus', function () { if (sBox.children.length) sBox.hidden = false; });
+  }
 })();

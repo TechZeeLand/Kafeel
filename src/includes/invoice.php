@@ -2,96 +2,136 @@
 /**
  * Generates an order invoice as a PDF using mPDF. Nothing is cached to
  * disk — the PDF is rendered fresh from the database on every request, so
- * it always reflects the order's current status (and full status
- * timeline) automatically as it moves from pending -> ... -> completed.
+ * it always reflects the order's current status.
+ *
+ * Layout: header (shop + invoice number) → customer details on the left and
+ * the shop's own details beside them → items → totals.
  */
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/order_mail.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
-/**
- * @param array  $order   Row from `orders`.
- * @param array  $items   Rows from `order_items`.
- * @param array  $history Rows from order_status_history() (chronological).
- * @param string $mode    'I' = stream inline in the browser, 'D' = force download.
- */
-function output_order_invoice(array $order, array $items, array $history, string $mode = 'I'): void {
+/** Amount for the PDF. The currency sign is set in regular weight — the Bengali Taka glyph has no bold variant in the PDF fonts. */
+function invoice_money(float $amount): string {
+    return '<span class="cur">' . e(STORE_CURRENCY_SYMBOL) . '</span>' . e(number_format($amount, 2));
+}
+
+/** One "Label: value" line inside a details card. Empty values show a dash. */
+function invoice_detail_line(string $label, string $valueHtml): string {
+    $valueHtml = trim($valueHtml) !== '' ? $valueHtml : '<span class="muted">—</span>';
+    // A two-cell row so a wrapped address lines up under itself, not under the label.
+    return '<table class="dl"><tr><td class="lbl">' . e($label) . '</td><td class="val">' . $valueHtml . '</td></tr></table>';
+}
+
+/** Builds the invoice HTML (separate from PDF output so it can be tested/previewed). */
+function build_invoice_html(array $order, array $items): string {
+    $store = store_info();
+    $dark = theme_settings()['dark'];
+    $accent = theme_settings()['primary'];
+
     $rowsHtml = '';
     foreach ($items as $it) {
         $label = e($it['product_name']);
         if (!empty($it['variant_label'])) {
-            $label .= '<br><span style="color:#8791a6;font-size:9px;">' . e($it['variant_label']) . '</span>';
+            $label .= '<br><span class="muted small">' . e($it['variant_label']) . '</span>';
         }
         $rowsHtml .= '<tr>'
             . '<td>' . $label . '</td>'
-            . '<td style="text-align:right;">' . e(money($it['price'])) . '</td>'
+            . '<td style="text-align:right;">' . invoice_money((float) $it['price']) . '</td>'
             . '<td style="text-align:center;">' . (int) $it['quantity'] . '</td>'
-            . '<td style="text-align:right;">' . e(money($it['subtotal'])) . '</td>'
+            . '<td style="text-align:right;">' . invoice_money((float) $it['subtotal']) . '</td>'
             . '</tr>';
     }
 
-    $statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
-    $timelineHtml = '';
-    foreach ($history as $h) {
-        $timelineHtml .= '<tr>'
-            . '<td style="color:#8791a6;">' . e(date('d M Y, g:i A', strtotime($h['changed_at']))) . '</td>'
-            . '<td><strong>' . e($statusLabels[$h['status']] ?? ucfirst($h['status'])) . '</strong>' . ($h['note'] ? ' — ' . e($h['note']) : '') . '</td>'
-            . '</tr>';
-    }
-    if (!$timelineHtml) {
-        $timelineHtml = '<tr><td colspan="2" style="color:#8791a6;">No status history recorded yet.</td></tr>';
-    }
+    $statusLabels = ORDER_STATUS_LABELS;
 
-    $address = e($order['shipping_line1']) . ', ' . e($order['shipping_city'])
-        . ($order['shipping_state'] ? ', ' . e($order['shipping_state']) : '')
-        . ($order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '');
+    // --- customer card
+    $addr = e($order['shipping_line1']) . '<br>'
+        . e($order['shipping_city']) . ($order['shipping_state'] ? ', ' . e($order['shipping_state']) : '') . ($order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '');
+    $customerHtml = '<div class="card-title">Billed to</div>'
+        . '<div class="name">' . e($order['shipping_name']) . '</div>'
+        . invoice_detail_line('Phone', e($order['shipping_phone']))
+        . invoice_detail_line('Email', e((string) order_customer_email($order)))
+        . invoice_detail_line('Address', $addr);
 
-    $html = '<html><head><style>
-        body { font-family: sans-serif; font-size: 11px; color: #20293b; }
-        h1 { font-size: 20px; margin-bottom: 0; }
-        .muted { color: #8791a6; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th { text-align: left; background: #efece2; padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-        td { padding: 6px 8px; border-bottom: 1px solid #e6e2d3; }
-        .totals td { border: none; }
-        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; background: #e9d5a8; color: #8a6427; font-weight: bold; font-size: 10px; }
-        .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #a97c34; margin: 18px 0 4px; }
+    // --- shop card
+    $storeHtml = '<div class="card-title">From</div>'
+        . '<div class="name">' . e($store['name']) . '</div>'
+        . invoice_detail_line('Phone', e($store['phone']))
+        . invoice_detail_line('Email', e($store['email']))
+        . invoice_detail_line('Address', nl2br(e(trim($store['address']))));
+
+    $shipLabel = 'Shipping (' . delivery_area_label($order['delivery_area']) . ')';
+    $notes = !empty($order['notes']) ? '<div class="notes"><span class="muted">Order note:</span> ' . e($order['notes']) . '</div>' : '';
+
+    return '<html><head><style>
+        body { font-family: dejavusans, sans-serif; font-size: 11.5px; color: #20293b; }
+        .cur { font-weight: normal; }
+        .muted { color: #8791a6; } .small { font-size: 9px; }
+        h1 { font-size: 22px; margin: 0; color: ' . e($dark) . '; }
+        .doc-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: ' . e($accent) . '; }
+        table { width: 100%; border-collapse: collapse; }
+        .status-badge { background-color: ' . e($accent) . '; color: ' . e(contrast_text($accent)) . '; font-weight: bold; font-size: 9px; padding: 3px 9px; }
+        .card { background-color: #f6f3ea; border: 1px solid #e3dfd0; padding: 11px 13px; vertical-align: top; }
+        .card-title { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: ' . e($accent) . '; margin-bottom: 5px; font-weight: bold; }
+        .card .name { font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        table.dl { width: 100%; margin-top: 3px; }
+        table.dl td { vertical-align: top; line-height: 1.45; padding: 0; }
+        .lbl { color: #8791a6; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.5px; width: 50px; }
+        .items th { text-align: left; background-color: ' . e($dark) . '; color: ' . e(contrast_text($dark)) . '; padding: 7px 9px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .items td { padding: 8px 9px; border-bottom: 1px solid #e6e2d3; }
+        .totals td { padding: 4px 9px; }
+        .grand td { border-top: 2px solid ' . e($dark) . '; font-size: 13px; padding-top: 7px; }
+        .notes { margin-top: 14px; font-size: 10px; }
     </style></head><body>
-    <table style="border:none;"><tr style="border:none;">
-        <td style="border:none;width:60%;"><h1>' . e(SITE_NAME) . '</h1><div class="muted">Invoice</div></td>
-        <td style="border:none;text-align:right;">
-            <div><strong>Invoice / Order #' . e($order['order_number']) . '</strong></div>
-            <div class="muted">Placed ' . e(date('d M Y', strtotime($order['created_at']))) . '</div>
+
+    <table><tr>
+        <td style="width:58%;vertical-align:top;"><h1>' . e($store['name']) . '</h1><div class="doc-label">Invoice</div></td>
+        <td style="text-align:right;vertical-align:top;">
+            <div style="font-size:13px;font-weight:bold;">#' . e($order['order_number']) . '</div>
+            <div class="muted">Date: ' . e(fmt_dt($order['created_at'], 'd M Y')) . '</div>
             <div class="muted">Payment: ' . e($order['payment_method'] === 'cod' ? 'Cash on delivery' : 'Bank transfer') . '</div>
-            <div style="margin-top:6px;"><span class="status-badge">' . e($statusLabels[$order['status']] ?? ucfirst($order['status'])) . '</span></div>
+            <div style="margin-top:6px;"><span class="status-badge">&nbsp;' . e(strtoupper($statusLabels[$order['status']] ?? $order['status'])) . '&nbsp;</span></div>
         </td>
     </tr></table>
 
-    <div class="section-title">Ship to</div>
-    <div><strong>' . e($order['shipping_name']) . '</strong> &middot; ' . e($order['shipping_phone']) . '</div>
-    <div>' . $address . '</div>
+    <table style="margin-top:20px;"><tr>
+        <td class="card" style="width:48.5%;">' . $customerHtml . '</td>
+        <td style="width:3%;"></td>
+        <td class="card" style="width:48.5%;">' . $storeHtml . '</td>
+    </tr></table>
 
-    <div class="section-title">Items</div>
-    <table>
+    <table class="items" style="margin-top:22px;">
         <tr><th>Item</th><th style="text-align:right;">Price</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Subtotal</th></tr>
         ' . $rowsHtml . '
     </table>
-    <table class="totals" style="width:280px;margin-left:auto;">
-        <tr><td>Subtotal</td><td style="text-align:right;">' . e(money($order['subtotal'])) . '</td></tr>
-        <tr><td>Shipping (' . e(delivery_area_label($order['delivery_area'])) . ')</td><td style="text-align:right;">' . e($order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free') . '</td></tr>
-        <tr><td><strong>Total</strong></td><td style="text-align:right;"><strong>' . e(money($order['total'])) . '</strong></td></tr>
+
+    <table class="totals" style="width:260px;margin-left:auto;margin-top:8px;">
+        <tr><td>Subtotal</td><td style="text-align:right;">' . invoice_money((float) $order['subtotal']) . '</td></tr>
+        <tr><td>' . e($shipLabel) . '</td><td style="text-align:right;">' . ($order['shipping_fee'] > 0 ? invoice_money((float) $order['shipping_fee']) : 'Free') . '</td></tr>
+        <tr class="grand"><td><strong>Total</strong></td><td style="text-align:right;"><strong>' . invoice_money((float) $order['total']) . '</strong></td></tr>
     </table>
+    ' . $notes . '
 
-    <div class="section-title">Order status timeline</div>
-    <table>' . $timelineHtml . '</table>
-
-    <div style="margin-top:26px;font-size:9px;" class="muted">' . e(SITE_NAME) . ' &middot; ' . e(CONTACT_EMAIL) . ' &middot; Delivered in ' . (int) DELIVERY_DAYS_MIN . '&ndash;' . (int) DELIVERY_DAYS_MAX . ' days &middot; Cash on delivery</div>
+    <div class="muted small" style="margin-top:34px;text-align:center;">Thank you for shopping with ' . e($store['name']) . '.</div>
     </body></html>';
+}
 
-    $mpdf = new Mpdf(['tempDir' => sys_get_temp_dir(), 'format' => 'A4', 'margin_top' => 16, 'margin_bottom' => 16]);
+/**
+ * @param array  $order Row from `orders`.
+ * @param array  $items Rows from `order_items`.
+ * @param string $mode  'I' = stream inline in the browser, 'D' = force download.
+ */
+function output_order_invoice(array $order, array $items, string $mode = 'I'): void {
+    $mpdf = new Mpdf([
+        'tempDir' => sys_get_temp_dir(), 'format' => 'A4', 'margin_top' => 16, 'margin_bottom' => 16,
+        // Pick a font that has the right glyphs (Bengali ৳, Arabic, …) automatically.
+        'autoScriptToLang' => true, 'autoLangToFont' => true,
+    ]);
     $mpdf->SetTitle('Invoice ' . $order['order_number']);
-    $mpdf->WriteHTML($html);
+    $mpdf->WriteHTML(build_invoice_html($order, $items));
     $mpdf->Output('invoice-' . $order['order_number'] . '.pdf', $mode === 'D' ? Destination::DOWNLOAD : Destination::INLINE);
 }

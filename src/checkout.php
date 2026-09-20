@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $name = trim($_POST['shipping_name'] ?? '');
     $phone = trim($_POST['shipping_phone'] ?? '');
+    $email = trim($_POST['customer_email'] ?? '');
     $line1 = trim($_POST['shipping_line1'] ?? '');
     $city = trim($_POST['shipping_city'] ?? '');
     $state = trim($_POST['shipping_state'] ?? '');
@@ -37,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($name === '' || strlen($name) < 2) $errors[] = 'Please enter the recipient\'s full name.';
     if ($phone === '' || strlen($phone) < 6) $errors[] = 'Please enter a valid phone number.';
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look right.';
     if ($line1 === '') $errors[] = 'Please enter your street address.';
     if ($city === '') $errors[] = 'Please enter your city.';
 
@@ -46,8 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Your cart is empty.';
     }
     foreach ($freshTotals['items'] as $it) {
-        if ($it['quantity'] > $it['stock']) {
-            $errors[] = e($it['name']) . ' only has ' . (int)$it['stock'] . ' left in stock.';
+        $label = $it['name'] . ($it['variant_label'] ? ' (' . $it['variant_label'] . ')' : '');
+        if (!$it['available']) {
+            $errors[] = $label . ' is no longer available — please remove it from your cart.';
+        } elseif ($it['quantity'] > $it['stock']) {
+            $errors[] = $label . ' only has ' . (int) $it['stock'] . ' left in stock.';
         }
     }
 
@@ -60,13 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderNumber = 'ED-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
                 'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, shipping_fee, total,
-                 shipping_name, shipping_phone, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                 shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
                 $orderNumber, $__user['id'] ?? null, 'pending', $payment, $deliveryArea,
                 $freshTotals['subtotal'], $shippingFee, $orderTotal,
-                $name, $phone, $line1, $city, $state ?: null, $zip ?: null, $notes ?: null,
+                $name, $phone, ($email ?: ($__user['email'] ?? null)) ?: null, $line1, $city, $state ?: null, $zip ?: null, $notes ?: null,
             ]);
             $orderId = (int) $pdo->lastInsertId();
 
@@ -77,10 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $variantStockStmt = $pdo->prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?');
             foreach ($freshTotals['items'] as $it) {
                 $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity']]);
-                if ($it['variant_id']) {
-                    $variantStockStmt->execute([$it['quantity'], $it['variant_id'], $it['quantity']]);
-                } else {
-                    $productStockStmt->execute([$it['quantity'], $it['product_id'], $it['quantity']]);
+                // Conditional UPDATE: if someone else bought the last units a moment ago
+                // it matches no row, and we abort instead of overselling.
+                $stmtStock = $it['variant_id'] ? $variantStockStmt : $productStockStmt;
+                $stmtStock->execute([$it['quantity'], $it['variant_id'] ?: $it['product_id'], $it['quantity']]);
+                if ($stmtStock->rowCount() < 1) {
+                    throw new RuntimeException($it['name'] . ' just sold out — please review your cart.');
                 }
             }
             order_status_add($orderId, 'pending');
@@ -95,10 +102,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
             cart_clear();
             $_SESSION['last_order_number'] = $orderNumber;
-            redirect('/order-success.php');
+            $placedOrderId = (int) $orderId;
         } catch (Throwable $e) {
-            $pdo->rollBack();
-            $errors[] = 'Something went wrong placing your order. Please try again.';
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Something went wrong placing your order. Please try again.';
+            if (!($e instanceof RuntimeException)) error_log('[checkout] ' . $e->getMessage());
+        }
+
+        if (!empty($placedOrderId)) {
+            // Send the shopper on to the confirmation page right away, then
+            // email in the background so a slow mail server never delays them.
+            header('Location: /order-success.php');
+            session_write_close();
+            if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+            require_once __DIR__ . '/includes/order_mail.php';
+            send_order_confirmation($placedOrderId);
+            exit;
         }
     }
 }
@@ -131,6 +150,10 @@ require __DIR__ . '/includes/header.php';
           <label for="shipping_phone">Phone number</label>
           <input id="shipping_phone" name="shipping_phone" required value="<?= e($_POST['shipping_phone'] ?? ($defaultAddress['phone'] ?? ($__user['phone'] ?? ''))) ?>">
         </div>
+      </div>
+      <div class="field">
+        <label for="customer_email">Email <span style="font-weight:400;color:var(--ink-faint);">(for your order confirmation &amp; invoice)</span></label>
+        <input type="email" id="customer_email" name="customer_email" autocomplete="email" value="<?= e($_POST['customer_email'] ?? ($__user['email'] ?? '')) ?>">
       </div>
       <div class="field">
         <label for="shipping_line1">Street address</label>

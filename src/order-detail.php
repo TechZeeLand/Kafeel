@@ -38,7 +38,7 @@ require __DIR__ . '/includes/header.php';
   <div>
     <div class="panel" style="padding:20px;margin-bottom:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;">
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Status</div><span class="status-pill status-<?= e($order['status']) ?>"><?= e(ucfirst($order['status'])) ?></span></div>
-      <div><div style="font-size:0.78rem;color:var(--ink-faint);">Placed on</div><?= date('d M Y, H:i', strtotime($order['created_at'])) ?></div>
+      <div><div style="font-size:0.78rem;color:var(--ink-faint);">Placed on</div><?= fmt_dt($order['created_at'], 'd M Y, H:i') ?></div>
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Payment</div><?= $order['payment_method'] === 'cod' ? 'Cash on delivery' : 'Bank transfer' ?></div>
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Total</div><strong class="mono"><?= money($order['total']) ?></strong></div>
     </div>
@@ -70,7 +70,7 @@ require __DIR__ . '/includes/header.php';
           <?php foreach ($history as $h): ?>
             <li>
               <strong><?= e($statusLabels[$h['status']] ?? ucfirst($h['status'])) ?></strong>
-              <span style="color:var(--ink-faint);"> — <?= e(date('j M Y, g:i A', strtotime($h['changed_at']))) ?></span>
+              <span style="color:var(--ink-faint);"> — <?= e(fmt_dt($h['changed_at'], 'j M Y, g:i A')) ?></span>
               <?php if ($h['note']): ?><div style="color:var(--ink-faint);font-size:0.85rem;"><?= e($h['note']) ?></div><?php endif; ?>
             </li>
           <?php endforeach; ?>
