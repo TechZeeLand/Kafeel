@@ -18,7 +18,7 @@ require __DIR__ . '/includes/header.php';
     <h2>All categories (<?= count($categories) ?>)</h2>
     <a href="/admin/category_form.php" class="btn btn-primary">+ Add category</a>
   </div>
-  <table class="admin-table">
+  <div class="table-wrap"><table class="admin-table">
     <thead><tr><th></th><th>Name</th><th>Slug</th><th>Products</th><th>Status</th><th></th></tr></thead>
     <tbody>
       <?php if (!$categories): ?>
@@ -42,7 +42,7 @@ require __DIR__ . '/includes/header.php';
         </tr>
       <?php endforeach; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

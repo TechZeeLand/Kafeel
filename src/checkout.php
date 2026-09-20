@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveAddress = !empty($_POST['save_address']);
 
     if ($name === '' || strlen($name) < 2) $errors[] = 'Please enter the recipient\'s full name.';
-    if ($phone === '' || strlen($phone) < 6) $errors[] = 'Please enter a valid phone number.';
+    if (!preg_match('/^\+?[0-9][0-9 ()\-]{5,20}$/', $phone) || strlen(preg_replace('/\D/', '', $phone)) < 7 || strlen(preg_replace('/\D/', '', $phone)) > 15) $errors[] = 'Please enter a valid phone number, e.g. 01XXXXXXXXX.';
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look right.';
     if ($line1 === '') $errors[] = 'Please enter your street address.';
     if ($city === '') $errors[] = 'Please enter your city.';
@@ -139,16 +139,16 @@ require __DIR__ . '/includes/header.php';
       <div class="alert alert-info">Checking out as a guest. <a href="/login.php">Log in</a> to save this address and track your order later.</div>
     <?php endif; ?>
 
-    <form method="post">
+    <form method="post" id="checkoutForm">
       <?= csrf_field() ?>
       <div class="field-row">
         <div class="field">
           <label for="shipping_name">Full name</label>
-          <input id="shipping_name" name="shipping_name" required value="<?= e($_POST['shipping_name'] ?? ($defaultAddress['full_name'] ?? ($__user['name'] ?? ''))) ?>">
+          <input id="shipping_name" name="shipping_name" autocomplete="name" required value="<?= e($_POST['shipping_name'] ?? ($defaultAddress['full_name'] ?? ($__user['name'] ?? ''))) ?>">
         </div>
         <div class="field">
           <label for="shipping_phone">Phone number</label>
-          <input id="shipping_phone" name="shipping_phone" required value="<?= e($_POST['shipping_phone'] ?? ($defaultAddress['phone'] ?? ($__user['phone'] ?? ''))) ?>">
+          <input id="shipping_phone" name="shipping_phone" type="tel" inputmode="tel" autocomplete="tel" required value="<?= e($_POST['shipping_phone'] ?? ($defaultAddress['phone'] ?? ($__user['phone'] ?? ''))) ?>">
         </div>
       </div>
       <div class="field">
@@ -157,21 +157,21 @@ require __DIR__ . '/includes/header.php';
       </div>
       <div class="field">
         <label for="shipping_line1">Street address</label>
-        <input id="shipping_line1" name="shipping_line1" required value="<?= e($_POST['shipping_line1'] ?? ($defaultAddress['line1'] ?? '')) ?>">
+        <input id="shipping_line1" name="shipping_line1" autocomplete="address-line1" required value="<?= e($_POST['shipping_line1'] ?? ($defaultAddress['line1'] ?? '')) ?>">
       </div>
       <div class="field-row">
         <div class="field">
           <label for="shipping_city">City</label>
-          <input id="shipping_city" name="shipping_city" required value="<?= e($_POST['shipping_city'] ?? ($defaultAddress['city'] ?? '')) ?>">
+          <input id="shipping_city" name="shipping_city" autocomplete="address-level2" required value="<?= e($_POST['shipping_city'] ?? ($defaultAddress['city'] ?? '')) ?>">
         </div>
         <div class="field">
           <label for="shipping_state">State / Division</label>
-          <input id="shipping_state" name="shipping_state" value="<?= e($_POST['shipping_state'] ?? ($defaultAddress['state'] ?? '')) ?>">
+          <input id="shipping_state" name="shipping_state" autocomplete="address-level1" value="<?= e($_POST['shipping_state'] ?? ($defaultAddress['state'] ?? '')) ?>">
         </div>
       </div>
       <div class="field">
         <label for="shipping_zip">ZIP / postal code</label>
-        <input id="shipping_zip" name="shipping_zip" value="<?= e($_POST['shipping_zip'] ?? ($defaultAddress['zip'] ?? '')) ?>">
+        <input id="shipping_zip" name="shipping_zip" inputmode="numeric" autocomplete="postal-code" value="<?= e($_POST['shipping_zip'] ?? ($defaultAddress['zip'] ?? '')) ?>">
       </div>
       <div class="field">
         <label for="notes">Order notes (optional)</label>
@@ -210,7 +210,7 @@ require __DIR__ . '/includes/header.php';
         </div>
       <?php endif; ?>
 
-      <button type="submit" class="btn btn-primary btn-block">Place order — <span id="submitTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></button>
+      <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></button>
     </form>
   </div>
 
@@ -223,6 +223,11 @@ require __DIR__ . '/includes/header.php';
     <div class="summary-row"><span>Shipping</span><span class="val" id="summaryShipping"><?= money($shippingInside) ?></span></div>
     <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></div>
   </div>
+
+  <div class="checkout-bar">
+    <div class="bb-price"><small>Total</small><strong id="barTotal"><?= money($totals['subtotal'] + $shippingInside) ?></strong></div>
+    <button type="submit" form="checkoutForm" class="btn btn-primary">Place order</button>
+  </div>
 </div>
 
 <script>
@@ -233,6 +238,7 @@ require __DIR__ . '/includes/header.php';
   var shippingEl = document.getElementById('summaryShipping');
   var totalEl = document.getElementById('summaryTotal');
   var submitEl = document.getElementById('submitTotal');
+  var barEl = document.getElementById('barTotal');
 
   function fmt(n) {
     return symbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -244,6 +250,7 @@ require __DIR__ . '/includes/header.php';
     shippingEl.textContent = fmt(fee);
     totalEl.textContent = fmt(subtotal + fee);
     submitEl.textContent = fmt(subtotal + fee);
+    if (barEl) barEl.textContent = fmt(subtotal + fee);
   }
 
   radios.forEach(function (r) { r.addEventListener('change', update); });

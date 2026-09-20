@@ -6,6 +6,8 @@
  * this and are assumed applied. Every auto-applied file must be idempotent.
  */
 const MIGRATE_BASELINE = 3;
+/** Highest migration number the code expects; all_settings() upgrades the database until it reaches it. */
+const MIGRATE_LATEST = 4;
 
 function migration_dirs(): array {
     return [

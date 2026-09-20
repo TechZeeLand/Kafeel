@@ -251,3 +251,45 @@ mark.hit { background: color-mix(in srgb, var(--brass) 30%, transparent); color:
   .opt-row.color { grid-template-columns: 40px 1fr 34px; }
   .opt-row.color .img-pick { grid-column: 1 / -1; }
 }
+
+/* ==========================================================================
+   Branding & sharing page, uploaded logo in the admin chrome
+   ========================================================================== */
+.brand-logo { display: block; height: 32px; width: auto; max-width: 170px; object-fit: contain; }
+.brand-logo.on-plate { background: #fff; padding: 4px 8px; border-radius: 6px; box-sizing: content-box; height: 24px; }
+.admin-sidebar .brand .brand-name { overflow: hidden; text-overflow: ellipsis; }
+.login-logo { max-height: 56px; max-width: 100%; }
+.subhead { font-family: var(--font-display); font-size: 1rem; margin: 26px 0 4px; padding-top: 18px; border-top: 1px solid var(--line); }
+.asset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 14px; }
+.asset-slot { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.asset-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 0.88rem; }
+.asset-head .muted { font-size: 0.72rem; }
+.asset-preview { height: 120px; border-radius: 6px; border: 1px dashed var(--line); display: flex; align-items: center; justify-content: center; gap: 10px; overflow: hidden; padding: 10px; }
+.asset-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.asset-preview.checker { background: repeating-conic-gradient(#ececec 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+.asset-preview.dark { background: var(--surface-dark); border-color: transparent; }
+.asset-preview.wide { height: auto; aspect-ratio: 1200 / 630; padding: 0; border-style: solid; background: #e6e9ee; }
+.asset-preview.wide img { width: 100%; height: 100%; object-fit: cover; max-height: none; }
+.asset-preview img.fav { width: 64px; height: 64px; }
+.asset-preview img.on-plate-demo { background: #fff; padding: 6px 10px; border-radius: 6px; }
+.asset-preview .empty, .asset-preview .small-note { font-size: 0.78rem; color: var(--ink-faint); text-align: center; }
+.asset-preview.dark .empty { color: rgba(255,255,255,.6); }
+.asset-slot input[type=file] { font-size: 0.82rem; max-width: 100%; }
+.asset-slot .hint { font-size: 0.76rem; color: var(--ink-faint); }
+.switch small { display: block; font-weight: 400; color: var(--ink-faint); font-size: 0.76rem; }
+.switch.remove { font-size: 0.82rem; color: var(--rust); }
+.share-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 8px; }
+.pv-label { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); margin-bottom: 6px; }
+.share-card { border: 1px solid #dadde1; border-radius: 8px; overflow: hidden; background: #f0f2f5; max-width: 440px; }
+.share-card .sc-img { aspect-ratio: 1200 / 630; background: #dfe3ea; }
+.share-card .sc-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.share-card .sc-body { padding: 9px 12px 11px; }
+.share-card .sc-host { font-size: 0.66rem; color: #65676b; letter-spacing: .02em; }
+.share-card .sc-title { font-weight: 600; font-size: 0.95rem; color: #050505; line-height: 1.25; margin: 1px 0; }
+.share-card .sc-desc { font-size: 0.8rem; color: #65676b; line-height: 1.35; }
+@media (max-width: 900px) {
+  .asset-grid, .share-previews { grid-template-columns: 1fr; }
+  .admin-sidebar nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .admin-sidebar nav a { flex-shrink: 0; white-space: nowrap; }
+  .admin-user { flex-wrap: wrap; gap: 6px 14px; }
+}

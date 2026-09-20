@@ -32,14 +32,14 @@ require __DIR__ . '/includes/header.php';
 
   <div class="form-card" style="text-align:left;">
     <h3 style="margin-bottom:14px;">Order details</h3>
-    <table class="data-table">
+    <div class="table-scroll"><table class="data-table">
       <thead><tr><th>Item</th><th>Qty</th><th>Subtotal</th></tr></thead>
       <tbody>
         <?php foreach ($items as $it): ?>
           <tr><td><?= e($it['product_name']) ?></td><td><?= (int)$it['quantity'] ?></td><td><?= money($it['subtotal']) ?></td></tr>
         <?php endforeach; ?>
       </tbody>
-    </table>
+    </table></div>
     <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
     <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>
     <p style="margin-top:18px;font-size:0.9rem;color:var(--ink-soft);">

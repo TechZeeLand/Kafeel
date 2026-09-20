@@ -18,5 +18,12 @@ if ($itemId <= 0) {
     exit;
 }
 
+// Never let a line go above what's in stock (the cart page only limits this in the browser).
+foreach (cart_items() as $it) {
+    if ((int) $it['id'] === $itemId) {
+        $qty = min($qty, max(1, (int) $it['stock']));
+        break;
+    }
+}
 cart_set_qty($itemId, $qty);
 echo json_encode(['ok' => true, 'cart_count' => cart_count()]);

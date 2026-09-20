@@ -43,7 +43,7 @@ COPY --from=vendor /app/vendor/ /var/www/html/vendor/
 COPY sql/migrations/ /var/www/migrations/
 
 # Uploaded product images must be writable by the web server
-RUN mkdir -p /var/www/html/uploads/products \
+RUN mkdir -p /var/www/html/uploads/products /var/www/html/uploads/branding \
     && chown -R www-data:www-data /var/www/html/uploads /var/www/html \
     && chown -R www-data:www-data /run/php
 

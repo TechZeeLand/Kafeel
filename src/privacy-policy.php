@@ -7,7 +7,7 @@ require __DIR__ . '/includes/header.php';
 <div class="page-header wrap"><span class="eyebrow">Legal</span><h1>Privacy Policy</h1></div>
 <div class="wrap section" style="padding-top:8px;">
   <div class="prose">
-    <p>Last updated: <?= date('d F Y') ?>. This policy explains what information <?= e(SITE_NAME) ?> collects when you use our website and place an order, and how we use it.</p>
+    <p>Last updated: <?= e(legal_updated_label()) ?>. This policy explains what information <?= e(store_name()) ?> collects when you use our website and place an order, and how we use it.</p>
 
     <h2>Information we collect</h2>
     <p>When you browse the site, create an account, or place an order, we may collect: your name, phone number, delivery address, email address, and details of the products you order. We also store basic technical information such as your session and cart contents so the site works correctly.</p>
@@ -28,7 +28,8 @@ require __DIR__ . '/includes/header.php';
     <p>You can ask us what personal information we hold about you, ask us to correct it, or ask us to delete it, subject to any records we're legally required to keep. Reach out through the <a href="/contact.php">contact page</a> for any of these requests.</p>
 
     <h2>Contact</h2>
-    <p>Questions about this policy can be sent to <a href="mailto:<?= e(CONTACT_EMAIL) ?>"><?= e(CONTACT_EMAIL) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <p>Questions about this policy can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <?= store_contact_extra_html() ?>
   </div>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

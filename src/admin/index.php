@@ -44,7 +44,7 @@ $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT
     <h2>Recent orders</h2>
     <a href="/admin/orders.php" class="btn btn-outline btn-sm">View all</a>
   </div>
-  <table class="admin-table">
+  <div class="table-wrap"><table class="admin-table">
     <thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Total</th><th>Date</th><th></th></tr></thead>
     <tbody>
       <?php if (!$recentOrders): ?>
@@ -61,12 +61,12 @@ $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT
         </tr>
       <?php endforeach; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <div class="panel">
   <div class="panel-head"><h2>Low stock</h2><span style="color:var(--ink-faint);font-size:0.82rem;"><?= count($lowStock) ?> item(s) at or below 5 units</span></div>
-  <table class="admin-table">
+  <div class="table-wrap"><table class="admin-table">
     <thead><tr><th>Product</th><th>Stock left</th><th></th></tr></thead>
     <tbody>
       <?php if (!$lowStock): ?>
@@ -80,7 +80,7 @@ $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT
         </tr>
       <?php endforeach; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

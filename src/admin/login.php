@@ -21,7 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin login · <?= e(SITE_NAME) ?></title>
+<meta name="robots" content="noindex, nofollow">
+<title>Admin login · <?= e(store_name()) ?></title>
+<?= brand_head_icons() ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/admin.css">
@@ -29,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="login-shell">
   <div class="login-card">
-    <span class="brand">⚙ <?= e(SITE_NAME) ?></span>
+    <span class="brand"><?= brand_logo() ? '<img src="' . e(brand_logo()) . '" alt="' . e(store_name()) . '" class="login-logo">' : '⚙ ' . e(store_name()) ?></span>
     <div class="sub">Admin portal</div>
     <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
     <form method="post">

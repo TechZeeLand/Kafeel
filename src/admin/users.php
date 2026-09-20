@@ -25,7 +25,7 @@ require __DIR__ . '/includes/header.php';
 
 <div class="panel">
   <div class="panel-head"><h2>Customers (<?= count($users) ?>)</h2></div>
-  <table class="admin-table">
+  <div class="table-wrap"><table class="admin-table">
     <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Lifetime value</th><th>Joined</th><th>Status</th><th></th></tr></thead>
     <tbody>
       <?php if (!$users): ?>
@@ -51,7 +51,7 @@ require __DIR__ . '/includes/header.php';
         </tr>
       <?php endforeach; ?>
     </tbody>
-  </table>
+  </table></div>
 </div>
 
 <?php require __DIR__ . '/includes/footer.php'; ?>

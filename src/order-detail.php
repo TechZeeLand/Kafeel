@@ -48,14 +48,14 @@ require __DIR__ . '/includes/header.php';
         <h3 style="margin:0;">Items</h3>
         <a href="/invoice.php?order=<?= e($order['order_number']) ?>" target="_blank" class="btn btn-outline btn-sm">📄 Download invoice</a>
       </div>
-      <table class="data-table">
+      <div class="table-scroll"><table class="data-table">
         <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
         <tbody>
           <?php foreach ($items as $it): ?>
             <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
           <?php endforeach; ?>
         </tbody>
-      </table>
+      </table></div>
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($order['subtotal']) ?></span></div>
       <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
       <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>

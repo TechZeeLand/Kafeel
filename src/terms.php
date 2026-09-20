@@ -7,7 +7,7 @@ require __DIR__ . '/includes/header.php';
 <div class="page-header wrap"><span class="eyebrow">Legal</span><h1>Terms of Service</h1></div>
 <div class="wrap section" style="padding-top:8px;">
   <div class="prose">
-    <p>Last updated: <?= date('d F Y') ?>. These terms apply whenever you browse or order from <?= e(SITE_NAME) ?>. By placing an order with us, you agree to them.</p>
+    <p>Last updated: <?= e(legal_updated_label()) ?>. These terms apply whenever you browse or order from <?= e(store_name()) ?>. By placing an order with us, you agree to them.</p>
 
     <h2>Orders</h2>
     <p>Placing an order is an offer to buy the listed product at the listed price. We confirm your order after it's placed; we may cancel or adjust an order if a product turns out to be out of stock or incorrectly priced, and we'll let you know if that happens.</p>
@@ -34,7 +34,8 @@ require __DIR__ . '/includes/header.php';
     <p>We may update these terms from time to time as the store evolves. The current version is always available on this page.</p>
 
     <h2>Contact</h2>
-    <p>Questions about these terms can be sent to <a href="mailto:<?= e(CONTACT_EMAIL) ?>"><?= e(CONTACT_EMAIL) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <p>Questions about these terms can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <?= store_contact_extra_html() ?>
   </div>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

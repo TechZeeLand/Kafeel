@@ -27,7 +27,7 @@ require __DIR__ . '/includes/header.php';
         <a class="btn btn-primary" href="/">Start shopping</a>
       </div>
     <?php else: ?>
-      <table class="data-table">
+      <div class="table-scroll"><table class="data-table">
         <thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($orders as $o): ?>
@@ -40,7 +40,7 @@ require __DIR__ . '/includes/header.php';
             </tr>
           <?php endforeach; ?>
         </tbody>
-      </table>
+      </table></div>
     <?php endif; ?>
   </div>
 </div>

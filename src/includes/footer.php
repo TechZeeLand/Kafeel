@@ -1,22 +1,25 @@
 </main>
-
+<?php
+$__store = $__store ?? store_info();
+$__theme = $__theme ?? theme_settings();
+$__cartCount = $__cartCount ?? cart_count();
+$__user = $__user ?? current_user();
+$__categories = $__categories ?? [];
+$__currentPath = $__currentPath ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../assets/' . $f);
+?>
 <footer class="site-footer">
   <div class="wrap">
     <div class="footer-grid">
       <div class="footer-brand">
-        <div class="brand" style="color:var(--on-dark);margin-bottom:10px;"><span class="mark">ك</span> <?= e(SITE_NAME) ?></div>
-        <p>Thoughtfully made EDC gear, bags and leather goods — built to be used daily and to last.</p>
-        <div class="social-row">
-          <a href="<?= e(SOCIAL_FACEBOOK) ?>" target="_blank" rel="noopener" aria-label="Facebook" title="Facebook">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.45 2.91h-2.33V22c4.78-.76 8.44-4.92 8.44-9.94z"/></svg>
-          </a>
-          <a href="<?= e(SOCIAL_INSTAGRAM) ?>" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>
-          </a>
-          <a href="<?= e(SOCIAL_YOUTUBE) ?>" target="_blank" rel="noopener" aria-label="YouTube" title="YouTube">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M23 12s0-3.6-.46-5.3a3 3 0 0 0-2.1-2.1C18.6 4 12 4 12 4s-6.6 0-8.44.6a3 3 0 0 0-2.1 2.1C1 8.4 1 12 1 12s0 3.6.46 5.3a3 3 0 0 0 2.1 2.1C5.4 20 12 20 12 20s6.6 0 8.44-.6a3 3 0 0 0 2.1-2.1C23 15.6 23 12 23 12z"/><path d="M9.8 8.6v6.8L15.8 12z" fill="var(--ink)"/></svg>
-          </a>
-        </div>
+        <a href="/" class="brand"><?= brand_inner('footer') ?></a>
+        <?php if ($__store['description'] !== ''): ?><p><?= e($__store['description']) ?></p><?php endif; ?>
+        <ul class="footer-contact">
+          <?php if ($__store['address'] !== ''): ?><li><?= ui_icon('pin', 16) ?><span><?= nl2br(e($__store['address'])) ?></span></li><?php endif; ?>
+          <?php if ($__store['phone'] !== ''): ?><li><?= ui_icon('phone', 16) ?><a href="<?= e(tel_href($__store['phone'])) ?>"><?= e($__store['phone']) ?></a></li><?php endif; ?>
+          <?php if ($__store['email'] !== ''): ?><li><?= ui_icon('mail', 16) ?><a href="mailto:<?= e($__store['email']) ?>"><?= e($__store['email']) ?></a></li><?php endif; ?>
+        </ul>
+        <?= social_row_html() ?>
       </div>
       <div>
         <h4>Shop</h4>
@@ -45,16 +48,25 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© <?= date('Y') ?> <?= e(SITE_NAME) ?>. All rights reserved.</span>
+      <span>© <?= date('Y') ?> <?= e($__store['name']) ?>. All rights reserved.</span>
       <span>Delivered in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days · Cash on delivery only</span>
     </div>
   </div>
 </footer>
 
-<div id="toast"></div>
-<script src="/assets/js/main.js"></script>
-<?php $__theme = $__theme ?? theme_settings(); if (!empty($__theme['seasonal_enabled'])): ?>
-<script src="/assets/js/seasonal.js" data-effect="<?= e($__theme['seasonal_effect']) ?>"></script>
+<!-- Mobile bottom tab bar -->
+<nav class="tabbar" aria-label="Quick navigation">
+  <a href="/" class="tab <?= ($__currentPath === '/' || $__currentPath === '/index.php') ? 'active' : '' ?>"><?= ui_icon('home', 22) ?><span>Home</span></a>
+  <button type="button" class="tab" data-open-search><?= ui_icon('search', 22) ?><span>Search</span></button>
+  <a href="/cart.php" class="tab <?= $__currentPath === '/cart.php' ? 'active' : '' ?>"><?= ui_icon('cart', 22) ?><span>Cart</span><span class="badge" data-cart-badge<?= $__cartCount > 0 ? '' : ' hidden' ?>><?= (int) $__cartCount ?></span></a>
+  <a href="<?= $__user ? '/wishlist.php' : '/login.php' ?>" class="tab <?= $__currentPath === '/wishlist.php' ? 'active' : '' ?>"><?= ui_icon('heart', 22) ?><span>Saved</span></a>
+  <a href="<?= $__user ? '/account.php' : '/login.php' ?>" class="tab <?= in_array($__currentPath, ['/account.php', '/login.php', '/register.php', '/orders.php', '/addresses.php'], true) ? 'active' : '' ?>"><?= ui_icon('user', 22) ?><span><?= $__user ? 'Account' : 'Log in' ?></span></a>
+</nav>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/assets/js/main.js?v=<?= $__assetV('js/main.js') ?>"></script>
+<?php if (!empty($__theme['seasonal_enabled'])): ?>
+<script src="/assets/js/seasonal.js?v=<?= $__assetV('js/seasonal.js') ?>" data-effect="<?= e($__theme['seasonal_effect']) ?>"></script>
 <?php endif; ?>
 </body>
 </html>

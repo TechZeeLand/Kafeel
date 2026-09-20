@@ -2,7 +2,7 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 
-$pageTitle = 'EDC gear, bags & leather goods';
+$seo = ['home' => true];   // homepage: title = "Store — tagline", plus organization data for search engines
 $__user = current_user();
 $__favIds = $__user ? favorite_ids_for_user($__user['id']) : [];
 
@@ -24,6 +24,8 @@ $categoriesWithCount = db()->query(
      WHERE c.is_active = 1 GROUP BY c.id ORDER BY c.sort_order, c.name"
 )->fetchAll();
 
+// Hero buttons point at the first two live categories, so renaming/removing a category can never leave a dead link.
+$heroCats = array_slice($categoriesWithCount, 0, 2);
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -34,8 +36,8 @@ require __DIR__ . '/includes/header.php';
       <h1>Gear for the pocket, the bag, and everywhere in between.</h1>
       <p class="lead">Carefully chosen EDC gear, bags and full-grain leather goods — the kind of things you reach for daily and never think to replace.</p>
       <div class="hero-actions">
-        <a href="/category.php?slug=edc-gear" class="btn btn-primary">Shop EDC gear</a>
-        <a href="/category.php?slug=leather-goods" class="btn btn-outline">Shop leather goods</a>
+        <?php if (isset($heroCats[0])): ?><a href="/category.php?slug=<?= e($heroCats[0]['slug']) ?>" class="btn btn-primary">Shop <?= e($heroCats[0]['name']) ?></a><?php else: ?><a href="/search.php?sort=newest" class="btn btn-primary">Shop all products</a><?php endif; ?>
+        <?php if (isset($heroCats[1])): ?><a href="/category.php?slug=<?= e($heroCats[1]['slug']) ?>" class="btn btn-outline">Shop <?= e($heroCats[1]['name']) ?></a><?php endif; ?>
       </div>
     </div>
     <div class="hero-card">
@@ -102,8 +104,8 @@ require __DIR__ . '/includes/header.php';
   <div class="wrap">
     <div class="section-head">
       <div>
-        <span class="tag">The Kafeel promise</span>
-        <h2>Why choose <?= e(SITE_NAME) ?></h2>
+        <span class="tag">The <?= e($__store['name']) ?> promise</span>
+        <h2>Why choose <?= e($__store['name']) ?></h2>
       </div>
     </div>
     <div class="why-grid">
@@ -127,7 +129,7 @@ require __DIR__ . '/includes/header.php';
 </section>
 
 <?php if ($featured): ?>
-<section class="section section-alt">
+<section class="section">
   <div class="wrap">
     <div class="section-head">
       <div>
@@ -143,7 +145,7 @@ require __DIR__ . '/includes/header.php';
 </section>
 <?php endif; ?>
 
-<section class="section">
+<section class="section section-alt">
   <div class="wrap">
     <div class="section-head">
       <div>

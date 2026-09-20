@@ -4,6 +4,8 @@
 # User-uploaded product photos — real files live only on the server
 uploads/products/*
 !uploads/products/.gitkeep
+uploads/branding/*
+!uploads/branding/.gitkeep
 
 # OS/editor cruft
 .DS_Store

@@ -90,10 +90,10 @@ function send_verification_email(int $userId, string $name, string $email, strin
     require_once __DIR__ . '/mail.php';
     $link = base_url() . '/verify-email.php?uid=' . $userId . '&token=' . $token;
     $body = '<p>Hi ' . e(explode(' ', $name)[0]) . ',</p>'
-        . '<p>Welcome to ' . e(SITE_NAME) . '! Please confirm your email address to activate your account.</p>'
+        . '<p>Welcome to ' . e(store_name()) . '! Please confirm your email address to activate your account.</p>'
         . '<p style="margin:24px 0;"><a href="' . e($link) . '" style="background:' . e(theme_settings()['primary']) . ';color:' . e(contrast_text(theme_settings()['primary'])) . ';padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify my email</a></p>'
         . '<p class="muted" style="font-size:0.85rem;color:#8791a6;">Or paste this link into your browser:<br>' . e($link) . '</p>';
-    return send_email($email, $name, 'Verify your email — ' . SITE_NAME, email_wrap('Confirm your email address', $body));
+    return send_email($email, $name, 'Verify your email — ' . store_name(), email_wrap('Confirm your email address', $body));
 }
 
 /** Issues a fresh token and resends the verification email (rate-limited to once per 2 minutes). */

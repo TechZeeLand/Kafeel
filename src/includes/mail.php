@@ -68,16 +68,23 @@ function mail_last_error(): ?string {
     return $GLOBALS['__mail_error'] ?? null;
 }
 
-/** Wraps a body of content in a minimal, on-brand HTML email shell. */
+/** Wraps a body of content in a minimal, on-brand HTML email shell (store name or logo, store email in the footer). */
 function email_wrap(string $title, string $bodyHtml): string {
-    $site = e(SITE_NAME);
+    $store = store_info();
+    $dark = theme_settings()['dark'];
+    $logo = brand_logo_email_url();
+    // A logo goes on a white band (any logo colours are readable there); without one, the store name sits on the theme colour.
+    $head = $logo
+        ? '<div style="background:#ffffff;padding:16px 24px;border-bottom:4px solid ' . e($dark) . ';"><img src="' . e($logo) . '" alt="' . e($store['name']) . '" style="display:block;max-height:44px;max-width:220px;height:auto;width:auto;border:0;"></div>'
+        : '<div style="background:' . e($dark) . ';color:' . e(contrast_text($dark)) . ';padding:18px 24px;font-size:1.1rem;font-weight:bold;">' . e($store['name']) . '</div>';
+    $foot = e($store['name']) . ($store['email'] !== '' ? ' &middot; ' . e($store['email']) : '') . ($store['phone'] !== '' ? ' &middot; ' . e($store['phone']) : '');
     return '<div style="font-family:Arial,Helvetica,sans-serif;background:#efece2;padding:32px 16px;">'
         . '<div style="max-width:520px;margin:0 auto;background:#fffdf8;border:1px solid #d9d4c3;border-radius:8px;overflow:hidden;">'
-        . '<div style="background:' . e(theme_settings()['dark']) . ';color:#ffffff;padding:18px 24px;font-size:1.1rem;font-weight:bold;">' . $site . '</div>'
+        . $head
         . '<div style="padding:24px;color:#20293b;line-height:1.6;">'
         . '<h2 style="margin-top:0;color:#20293b;">' . e($title) . '</h2>'
         . $bodyHtml
         . '</div>'
-        . '<div style="padding:16px 24px;background:#f8f6ee;color:#8791a6;font-size:0.78rem;">' . $site . ' &middot; ' . e(store_info()['email']) . '</div>'
+        . '<div style="padding:16px 24px;background:#f8f6ee;color:#8791a6;font-size:0.78rem;">' . $foot . '</div>'
         . '</div></div>';
 }

@@ -30,6 +30,7 @@ if (!defined('DB_HOST')) {
     // constant (used by nl_langinfo()) — defining our own under that name
     // silently collides with it.
     define('STORE_CURRENCY_SYMBOL', env_val('CURRENCY_SYMBOL', '৳'));
+    define('STORE_CURRENCY_CODE', strtoupper(env_val('CURRENCY_CODE', 'BDT'))); // ISO 4217, used in link-preview / search-engine product data
 
     // --- Shipping (flat zone fee + per-kg surcharge over the free weight) ---
     define('SHIPPING_INSIDE_DHAKA_FEE', (float) env_val('SHIPPING_INSIDE_DHAKA_FEE', 80));

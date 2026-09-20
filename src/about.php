@@ -7,7 +7,7 @@ require __DIR__ . '/includes/header.php';
 <div class="page-header wrap"><span class="eyebrow">About</span><h1>Good tools, chosen carefully</h1></div>
 <div class="wrap section" style="padding-top:8px;">
   <div class="prose">
-    <p><?= e(SITE_NAME) ?> started with a simple idea: the small things we carry every day — a knife, a wallet, a bag, a keychain — deserve the same attention as anything else we buy. We look for items that are well made, honestly priced, and built to be used, not just displayed.</p>
+    <p><?= e(store_name()) ?> started with a simple idea: the small things we carry every day — a knife, a wallet, a bag, a keychain — deserve the same attention as anything else we buy. We look for items that are well made, honestly priced, and built to be used, not just displayed.</p>
     <h2>What we carry</h2>
     <p>Our catalog spans everyday-carry gear for the pocket and the keychain, bags built for daily use, full-grain leather goods that only get better with age, and customized, engraved pieces made to order. We keep the range tight — every product on the site is something we'd genuinely recommend.</p>
     <h2>Shipping & returns</h2>

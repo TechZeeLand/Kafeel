@@ -12,7 +12,7 @@
   if (effect === 'none') return;
 
   var KEY = 'kafeel-fx';
-  var btn = document.getElementById('fxToggle');
+  var btns = document.querySelectorAll('[data-fx-toggle]');
   var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   function saved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
@@ -116,12 +116,13 @@
   }
 
   function syncButton() {
-    if (!btn) return;
     var on = running;
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     var label = on ? 'Turn screen animation off' : 'Turn screen animation on';
-    btn.setAttribute('aria-label', label);
-    btn.setAttribute('title', label);
+    btns.forEach(function (btn) {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    });
   }
 
   window.addEventListener('resize', resize);
@@ -131,12 +132,12 @@
     else if (canvas && !running) { running = true; raf = requestAnimationFrame(tick); }
   });
 
-  if (btn) {
+  btns.forEach(function (btn) {
     btn.addEventListener('click', function () {
       if (running) { stop(); save('off'); } else { start(); save('on'); }
       syncButton();
     });
-  }
+  });
 
   if (wantsOn()) start();
   syncButton();

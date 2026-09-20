@@ -117,15 +117,21 @@ function fmt_dt(?string $utc, string $format = 'd M Y, g:i A'): string {
     return $d ? $d->format($format) : '—';
 }
 
-/** Public base URL for links in emails. SITE_URL wins unless it's a localhost placeholder. */
+/**
+ * Public base URL for links in emails, link previews and the sitemap. SITE_URL
+ * wins unless it's a localhost placeholder; otherwise the address of the
+ * current request is used — but only if the Host header looks like a real host
+ * (a forged Host header must never end up in canonical links or emails).
+ */
 function base_url(): string {
     $configured = SITE_URL;
     $host = $configured !== '' ? (parse_url($configured, PHP_URL_HOST) ?: '') : '';
     $isLocal = in_array($host, ['', 'localhost', '127.0.0.1', '0.0.0.0'], true);
     if (!$isLocal) return $configured;
-    if (!empty($_SERVER['HTTP_HOST'])) {
+    $reqHost = $_SERVER['HTTP_HOST'] ?? '';
+    if ($reqHost !== '' && preg_match('/^[a-z0-9.-]+(:\d{1,5})?$|^\[[0-9a-f:]+\](:\d{1,5})?$/i', $reqHost)) {
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-        return ($https ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'];
+        return ($https ? 'https://' : 'http://') . $reqHost;
     }
     return $configured;
 }
@@ -414,10 +420,9 @@ function product_image_src(?string $path): string {
 
 /* ------------------------------------------------------- settings --- */
 
-/** All settings as a flat [key => value] array, cached for the request. */
+/** All settings as a flat [key => value] array, cached for the request (and kept current by set_setting()). */
 function all_settings(): array {
-    static $cache = null;
-    if ($cache === null) {
+    if (!isset($GLOBALS['__settings_cache'])) {
         $load = function (): array {
             $out = [];
             foreach (db()->query('SELECT setting_key, setting_value FROM settings')->fetchAll() as $row) {
@@ -426,9 +431,9 @@ function all_settings(): array {
             return $out;
         };
         $cache = $load();
-        if ((int) ($cache['schema_version'] ?? 3) < 4) {
+        require_once __DIR__ . '/migrate.php';
+        if ((int) ($cache['schema_version'] ?? 3) < MIGRATE_LATEST) {
             // First request after an upgrade: apply pending migrations.
-            require_once __DIR__ . '/migrate.php';
             try {
                 run_pending_migrations(db(), (int) ($cache['schema_version'] ?? 3));
                 $cache = $load();
@@ -437,8 +442,9 @@ function all_settings(): array {
                 $GLOBALS['__migration_error'] = $e->getMessage();
             }
         }
+        $GLOBALS['__settings_cache'] = $cache;
     }
-    return $cache;
+    return $GLOBALS['__settings_cache'];
 }
 
 function get_setting(string $key, ?string $default = null): ?string {
@@ -451,6 +457,7 @@ function set_setting(string $key, string $value): void {
         'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
     )->execute([$key, $value]);
+    if (isset($GLOBALS['__settings_cache'])) $GLOBALS['__settings_cache'][$key] = $value;
 }
 
 /** Setting if set (non-empty), otherwise the fallback (usually the env value). */
@@ -543,17 +550,6 @@ function topbar_settings(): array {
     ];
 }
 
-/** Business details printed on invoices (admin-editable; env values are the fallback). */
-function store_info(): array {
-    $name = setting_or('store_name', trim(preg_replace('/\s*\([^)]*\)\s*$/u', '', SITE_NAME)) ?: SITE_NAME);
-    return [
-        'name' => $name,
-        'phone' => (string) setting_or('store_phone', CONTACT_PHONE),
-        'email' => (string) setting_or('store_email', CONTACT_EMAIL),
-        'address' => (string) setting_or('store_address', STORE_ADDRESS),
-    ];
-}
-
 /** Effective SMTP configuration: admin-saved values win, env is the fallback. */
 function smtp_settings(): array {
     return [
@@ -562,8 +558,9 @@ function smtp_settings(): array {
         'user' => (string) setting_or('smtp_user', SMTP_USER),
         'pass' => (string) setting_or('smtp_pass', SMTP_PASS),
         'secure' => get_setting('smtp_secure') !== null ? (string) get_setting('smtp_secure') : SMTP_SECURE, // tls | ssl | '' (none)
-        'from_email' => (string) setting_or('smtp_from_email', SMTP_FROM_EMAIL),
-        'from_name' => (string) setting_or('smtp_from_name', SMTP_FROM_NAME),
+        // Sender defaults follow the store details, so renaming the store renames the sender too.
+        'from_email' => (string) setting_or('smtp_from_email', env_val('SMTP_FROM_EMAIL') ?: (filter_var(setting_or('smtp_user', SMTP_USER), FILTER_VALIDATE_EMAIL) ?: store_info()['email'])),
+        'from_name' => (string) setting_or('smtp_from_name', store_info()['name']),
     ];
 }
 
@@ -709,3 +706,5 @@ function order_status_history(int $orderId): array {
     $stmt->execute([$orderId]);
     return $stmt->fetchAll();
 }
+
+require_once __DIR__ . '/branding.php';

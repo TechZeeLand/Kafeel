@@ -26,18 +26,25 @@ require __DIR__ . '/includes/header.php';
       <?php foreach ($totals['items'] as $it): ?>
         <div class="cart-line">
           <a href="/product.php?slug=<?= e($it['slug']) ?>"><img src="<?= e(product_image_src($it['image_main'])) ?>" alt="<?= e($it['name']) ?>"></a>
-          <div>
+          <div class="cl-info">
             <div class="name"><a href="/product.php?slug=<?= e($it['slug']) ?>"><?= e($it['name']) ?></a></div>
             <?php if ($it['variant_label']): ?><div class="unit" style="color:var(--ink-faint);"><?= e($it['variant_label']) ?></div><?php endif; ?>
             <div class="unit"><?= money($it['price']) ?> each</div>
+            <?php if (!$it['available']): ?>
+              <div class="cl-warn">No longer available — please remove it to check out.</div>
+            <?php elseif ($it['quantity'] > $it['stock']): ?>
+              <div class="cl-warn">Only <?= (int) $it['stock'] ?> left in stock — please lower the quantity.</div>
+            <?php endif; ?>
             <button type="button" class="remove-btn js-cart-remove" data-item-id="<?= (int)$it['id'] ?>">Remove</button>
           </div>
-          <div class="qty-stepper">
-            <button type="button" class="minus" aria-label="Decrease">−</button>
-            <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= (int)$it['stock'] ?>">
-            <button type="button" class="plus" aria-label="Increase">+</button>
+          <div class="cl-buy">
+            <div class="qty-stepper">
+              <button type="button" class="minus" aria-label="Decrease">−</button>
+              <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= max(1, (int)$it['stock']) ?>" aria-label="Quantity">
+              <button type="button" class="plus" aria-label="Increase">+</button>
+            </div>
+            <div class="line-total"><?= money($it['price'] * $it['quantity']) ?></div>
           </div>
-          <div class="line-total"><?= money($it['price'] * $it['quantity']) ?></div>
         </div>
       <?php endforeach; ?>
       <div style="padding-top:18px;">
@@ -53,8 +60,13 @@ require __DIR__ . '/includes/header.php';
         <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka
         (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)
       </p>
-      <a href="/checkout.php" class="btn btn-primary btn-block" style="margin-top:16px;">Proceed to checkout</a>
+      <a href="/checkout.php" class="btn btn-primary btn-block cart-checkout-desktop" style="margin-top:16px;">Proceed to checkout</a>
     </div>
+  </div>
+
+  <div class="checkout-bar">
+    <div class="bb-price"><small>Subtotal</small><strong><?= money($totals['subtotal']) ?></strong></div>
+    <a href="/checkout.php" class="btn btn-primary">Checkout</a>
   </div>
 <?php endif; ?>
 </div>

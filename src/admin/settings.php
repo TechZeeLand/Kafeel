@@ -28,12 +28,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($section === 'store') {
         $email = trim($_POST['store_email'] ?? '');
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'The store email address doesn\'t look right.';
+        if (trim($_POST['store_name'] ?? '') === '') $errors[] = 'The store name can\'t be empty.';
+        $links = [];
+        foreach (['facebook' => 'Facebook page', 'messenger' => 'Messenger', 'instagram' => 'Instagram', 'youtube' => 'YouTube'] as $k => $label) {
+            $u = trim($_POST['social_' . $k] ?? '');
+            if ($u !== '' && !preg_match('~^https?://[^\s]+$~i', $u)) $errors[] = $label . ' link must start with https:// (or leave it empty to hide it).';
+            $links[$k] = $u;
+        }
         if (!$errors) {
             set_setting('store_name', mb_substr(trim($_POST['store_name'] ?? ''), 0, 80));
+            set_setting('store_tagline', mb_substr(trim($_POST['store_tagline'] ?? ''), 0, 80));
             set_setting('store_phone', mb_substr(trim($_POST['store_phone'] ?? ''), 0, 40));
             set_setting('store_email', $email);
             set_setting('store_address', mb_substr(trim(str_replace("\r", '', $_POST['store_address'] ?? '')), 0, 300));
-            flash_set('success', 'Store details saved — they appear on every invoice.');
+            foreach ($links as $k => $u) set_setting('social_' . $k, mb_substr($u, 0, 255));
+            flash_set('success', 'Store details saved — they now show across the whole site: header, footer, contact page, legal pages, emails and invoices.');
             redirect('/admin/settings.php#store');
         }
     }
@@ -75,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $tb = topbar_settings();
 $store = store_info();
+$socials = store_socials();
 $smtp = smtp_settings();
 $smtpFromDb = (string) get_setting('smtp_host', '') !== '';
 $smtpConfigured = $smtp['host'] !== '';
@@ -112,15 +122,25 @@ require __DIR__ . '/includes/header.php';
 <!-- ───────────── Store details ───────────── -->
 <form method="post" id="store" class="panel">
   <?= csrf_field() ?><input type="hidden" name="section" value="store">
-  <div class="panel-head"><h2>Store details <span class="sub">printed on invoices</span></h2></div>
+  <div class="panel-head"><h2>Store details <span class="sub">used everywhere on the site</span></h2></div>
   <div class="panel-body">
+    <p class="help">Change these once and they update the header, footer, contact page, About and legal pages, page titles, emails and invoices. The logo, favicon and share image live under <a href="/admin/branding.php" style="text-decoration:underline;font-weight:600;">Branding &amp; sharing</a>.</p>
     <div class="field-row">
-      <div class="field"><label for="store_name">Store name</label><input type="text" id="store_name" name="store_name" value="<?= e($store['name']) ?>" maxlength="80"></div>
-      <div class="field"><label for="store_phone">Phone number</label><input type="text" id="store_phone" name="store_phone" value="<?= e($store['phone']) ?>" maxlength="40" placeholder="+880 1XXX-XXXXXX"></div>
+      <div class="field"><label for="store_name">Store name</label><input type="text" id="store_name" name="store_name" value="<?= e($section === 'store' ? ($_POST['store_name'] ?? '') : $store['name']) ?>" maxlength="80" required></div>
+      <div class="field"><label for="store_tagline">Tagline <span class="muted" style="font-weight:400;">(optional)</span></label><input type="text" id="store_tagline" name="store_tagline" value="<?= e($section === 'store' ? ($_POST['store_tagline'] ?? '') : $store['tagline']) ?>" maxlength="80" placeholder="EDC gear, bags &amp; leather goods"><div class="hint">Shown in the homepage's browser-tab title: “<?= e($store['name']) ?> — tagline”.</div></div>
     </div>
     <div class="field-row">
-      <div class="field"><label for="store_email">Email</label><input type="email" id="store_email" name="store_email" value="<?= e($store['email']) ?>"></div>
-      <div class="field"><label for="store_address">Address</label><textarea id="store_address" name="store_address" rows="3" maxlength="300" placeholder="House, road, area&#10;City"><?= e($store['address']) ?></textarea></div>
+      <div class="field"><label for="store_phone">Phone number</label><input type="text" id="store_phone" name="store_phone" value="<?= e($section === 'store' ? ($_POST['store_phone'] ?? '') : $store['phone']) ?>" maxlength="40" placeholder="+880 1XXX-XXXXXX"></div>
+      <div class="field"><label for="store_email">Email</label><input type="email" id="store_email" name="store_email" value="<?= e($section === 'store' ? ($_POST['store_email'] ?? '') : $store['email']) ?>"><div class="hint">Also where messages from the contact form are delivered.</div></div>
+    </div>
+    <div class="field"><label for="store_address">Address</label><textarea id="store_address" name="store_address" rows="3" maxlength="300" placeholder="House, road, area&#10;City"><?= e($section === 'store' ? ($_POST['store_address'] ?? '') : $store['address']) ?></textarea></div>
+
+    <h3 class="subhead">Social links</h3>
+    <p class="help">Shown as icons in the footer, mobile menu and contact page. Leave one empty to hide it.</p>
+    <div class="field-row">
+      <?php foreach (['facebook' => ['Facebook page', 'https://www.facebook.com/yourpage'], 'messenger' => ['Messenger', 'https://m.me/yourpage'], 'instagram' => ['Instagram', 'https://www.instagram.com/yourname/'], 'youtube' => ['YouTube', 'https://www.youtube.com/@yourchannel']] as $k => [$label, $ph]): ?>
+        <div class="field"><label for="social_<?= $k ?>"><?= e($label) ?></label><input type="url" id="social_<?= $k ?>" name="social_<?= $k ?>" value="<?= e($section === 'store' ? ($_POST['social_' . $k] ?? '') : ($socials[$k]['url'] ?? '')) ?>" placeholder="<?= e($ph) ?>"></div>
+      <?php endforeach; ?>
     </div>
   </div>
   <div class="panel-foot"><button class="btn btn-primary" type="submit">Save store details</button></div>
@@ -158,8 +178,8 @@ require __DIR__ . '/includes/header.php';
       </div>
     </div>
     <div class="field-row">
-      <div class="field"><label for="smtp_from_email">"From" email</label><input type="email" id="smtp_from_email" name="smtp_from_email" value="<?= e($smtp['from_email']) ?>" placeholder="orders@yourdomain.com"><div class="hint">Usually the same as the username. Many providers reject other addresses.</div></div>
-      <div class="field"><label for="smtp_from_name">"From" name</label><input type="text" id="smtp_from_name" name="smtp_from_name" value="<?= e($smtp['from_name']) ?>"></div>
+      <div class="field"><label for="smtp_from_email">"From" email</label><input type="email" id="smtp_from_email" name="smtp_from_email" value="<?= e((string) get_setting('smtp_from_email', '')) ?>" placeholder="<?= e($smtp['from_email']) ?>"><div class="hint">Usually the same as the username — many providers reject other addresses. Leave blank to use <?= e($smtp['from_email']) ?>.</div></div>
+      <div class="field"><label for="smtp_from_name">"From" name</label><input type="text" id="smtp_from_name" name="smtp_from_name" value="<?= e((string) get_setting('smtp_from_name', '')) ?>" placeholder="<?= e(store_name()) ?>"><div class="hint">Leave blank to use the store name (<?= e(store_name()) ?>) — it then follows any rename.</div></div>
     </div>
   </div>
   <div class="panel-foot"><button class="btn btn-primary" type="submit">Save email settings</button></div>

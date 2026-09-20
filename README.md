@@ -24,7 +24,8 @@ stack on any Docker host (a Debian/Ubuntu server, Portainer, Unraid, etc.).
   with status updates that log a timestamped history and email the
   customer, customer list with enable/disable, and a theme settings page
   for live primary/secondary color changes plus optional seasonal effects
-  (snow / falling leaves / rain).
+  (snow / falling leaves / rain), and a **Branding & sharing** page for the
+  logo, favicon, link-preview banner and site description.
 - **Email:** PHPMailer-backed transactional email (falls back to PHP's
   `mail()` if no SMTP is configured) for the contact form, email
   verification, and order status updates.
@@ -32,7 +33,11 @@ stack on any Docker host (a Debian/Ubuntu server, Portainer, Unraid, etc.).
   CSRF tokens on every form and AJAX call, prepared statements everywhere,
   session hardening, uploaded files validated by MIME type and served from
   a directory with PHP execution disabled.
-- Fully responsive layout (mobile nav drawer, responsive grids) styled with
+- **Search & sharing:** correct link previews (Open Graph / Twitter cards),
+  canonical URLs, `robots.txt`, `sitemap.xml`, structured data and a web-app
+  manifest, all generated from the store settings.
+- Fully responsive, phone-first layout (slide-in menu, bottom tab bar,
+  sticky add-to-cart / checkout bars, swipeable gallery) styled with
   a custom, non-templated design system — the "field ledger" theme
   (ink-navy/brass/paper tones, monospace type, index-card product tiles).
   See `src/assets/css/style.css`.
@@ -183,8 +188,41 @@ blank falls back to PHP's built-in `mail()`, which does **not** deliver from
 inside the Docker image (there is no sendmail) — emails silently fail (logged
 to the PHP error log, never crashes the request).
 
+
 The same page holds the announcement bar (top of every page) and the store
 name/phone/email/address printed on invoices.
+
+The same page holds the announcement bar (top of every page) and the **store
+details** — name, tagline, phone, email, address and social links. These are
+the single source for the whole site (header, footer, contact page, About and
+legal pages, page titles, emails, invoices): the `.env` values (`SITE_NAME`,
+`CONTACT_*`, `SOCIAL_*`) are only the starting point until you save them in
+the admin. In code, always read them through `store_info()` /
+`store_socials()` (`includes/branding.php`) — never print `SITE_NAME` or
+`CONTACT_EMAIL` directly, or a rename in the admin will miss that spot.
+
+### Logo, favicon and link previews
+
+**Admin -> Branding & sharing** takes one logo and uses it everywhere: header,
+mobile menu, footer, admin, emails and invoices. The browser-tab icon, phone
+home-screen icons and the picture shown when a link is shared are generated
+from it, unless you upload a separate **favicon** or **share banner**
+(1200x630 JPG/PNG). An optional light logo is used on dark backgrounds
+(footer, mobile menu, dark mode).
+
+- Non-product pages share the site name, description and banner; a shared
+  product link shows that product's own photo, title and short description.
+- **Set `SITE_URL`** in `.env` to the real public address (e.g.
+  `https://kafeelshopbd.com`). Link previews need absolute https URLs, and the
+  Branding page warns you if it can't determine one.
+- WhatsApp/Facebook cache previews. After changing the banner, paste a link
+  into Facebook's Sharing Debugger and press *Scrape Again*.
+- SVG logos are accepted (scripts/external links are rejected) but
+  WhatsApp/Facebook can't show SVG, so also provide a PNG banner or PNG logo.
+- Files go in `uploads/branding/` (falls back to `uploads/products/` if that
+  folder isn't writable). `LEGAL_LAST_UPDATED` in `includes/branding.php` sets
+  the date shown on the legal pages; update it when you edit their wording.
+
 
 ## Local development (live-reload)
 

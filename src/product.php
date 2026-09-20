@@ -83,7 +83,19 @@ $isFav = in_array((int)$product['id'], $__favIds, true);
 $onSale = !empty($product['compare_price']) && $product['compare_price'] > $product['price'];
 
 $pageTitle = $product['name'];
-$pageDescription = $product['short_desc'] ?: $product['name'];
+// What a shared link to this product shows (see render_head_meta()): the product's own photo, name and description.
+$seoPrice = (float) $product['price'] + ($variants ? min(array_map(fn ($v) => (float) $v['price_delta'], $variants)) : 0);
+$seo = [
+    'type' => 'product',
+    'title' => $product['name'],
+    'description' => product_share_description($product),
+    'image' => $gallery[0] ?? null,
+    'images' => array_values(array_filter($gallery)),
+    'price' => $seoPrice,
+    'in_stock' => $effectiveStock > 0,
+    'sku' => $product['sku'],
+    'category' => $product['category_name'],
+];
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -221,6 +233,13 @@ require __DIR__ . '/includes/header.php';
     </div>
   </div>
 </div>
+
+<?php if ($effectiveStock > 0): ?>
+<div class="buy-bar" id="buyBar" aria-label="Add to cart">
+  <div class="bb-price"><small>Price</small><strong id="buyBarPrice"><?= money($product['price']) ?></strong></div>
+  <button type="button" class="btn btn-primary" id="buyBarBtn">Add to cart</button>
+</div>
+<?php endif; ?>
 
 <?php if ($variants): ?>
 <script>window.KAFEEL_PRODUCT = <?= json_encode($pickerData, $jsonFlags) ?>;</script>

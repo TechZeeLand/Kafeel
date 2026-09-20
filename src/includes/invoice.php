@@ -64,6 +64,16 @@ function build_invoice_html(array $order, array $items): string {
         . invoice_detail_line('Email', e($store['email']))
         . invoice_detail_line('Address', nl2br(e(trim($store['address']))));
 
+    // Logo above the shop name (PDF can embed png/jpg/gif/svg; skipped if the file is missing or an unsupported type).
+    $logoHtml = '';
+    $logoUrl = brand_logo();
+    $logoFile = $logoUrl ? upload_local_path($logoUrl) : null;
+    if ($logoFile && is_readable($logoFile) && preg_match('/\.(png|jpe?g|gif|svg)$/i', $logoFile)) {
+        $logoHtml = '<img src="' . e($logoFile) . '" style="height:42px;margin-bottom:6px;"><br>';
+    }
+    // The logo usually contains the name already; only print the name as text if there's no logo or the admin asked for both.
+    $nameHtml = ($logoHtml === '' || get_setting('brand_logo_show_name', '0') === '1') ? '<h1>' . e($store['name']) . '</h1>' : '';
+
     $shipLabel = 'Shipping (' . delivery_area_label($order['delivery_area']) . ')';
     $notes = !empty($order['notes']) ? '<div class="notes"><span class="muted">Order note:</span> ' . e($order['notes']) . '</div>' : '';
 
@@ -89,7 +99,7 @@ function build_invoice_html(array $order, array $items): string {
     </style></head><body>
 
     <table><tr>
-        <td style="width:58%;vertical-align:top;"><h1>' . e($store['name']) . '</h1><div class="doc-label">Invoice</div></td>
+        <td style="width:58%;vertical-align:top;">' . $logoHtml . $nameHtml . '<div class="doc-label">Invoice</div></td>
         <td style="text-align:right;vertical-align:top;">
             <div style="font-size:13px;font-weight:bold;">#' . e($order['order_number']) . '</div>
             <div class="muted">Date: ' . e(fmt_dt($order['created_at'], 'd M Y')) . '</div>
