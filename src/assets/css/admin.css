@@ -328,3 +328,21 @@ mark.hit { background: color-mix(in srgb, var(--brass) 30%, transparent); color:
   .log-filters select, .log-filters .log-date { flex: 1 1 140px; }
 }
 .log-table .log-admin { white-space: nowrap; }
+
+/* ---- staff management ---- */
+.form-section { margin: 26px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: .95rem; letter-spacing: .02em; }
+.form-section:first-child { margin-top: 0; }
+.doc-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; flex-wrap: wrap; }
+.doc-card .doc-ico { font-size: 1.4rem; }
+.doc-card .doc-meta { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+.doc-card .doc-meta small { display: block; color: var(--ink-faint); }
+.check { display: flex; align-items: center; gap: 8px; font-size: .9rem; cursor: pointer; }
+.detail-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; margin: 0; }
+.detail-list > div { min-width: 0; }
+.detail-list .wide { grid-column: 1 / -1; }
+.detail-list dt { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 3px; }
+.detail-list dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .detail-list { grid-template-columns: 1fr; } }
+
+.stat-grid.stat-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .stat-grid.stat-grid-3 { grid-template-columns: 1fr; } }

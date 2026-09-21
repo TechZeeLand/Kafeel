@@ -8,14 +8,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    [$ok, $wait] = attempt_admin_login($username, $password);
+    [$ok, $wait, $why] = array_pad(attempt_admin_login($username, $password), 3, null);
     if ($ok) {
         redirect('/admin/index.php');
     }
     $error = $wait !== null
         ? 'Too many login attempts. Please try again in ' . ceil($wait / 60) . ' minute(s).'
-        : 'Invalid username or password.';
+        : ($why === 'disabled' ? 'This account has been disabled. Please contact the store owner.' : 'Invalid username or password.');
 }
+if ($error === '' || $error === null) { $__fl = flash_get(); if ($__fl) $error = $__fl[0]['message']; }
 ?><!DOCTYPE html>
 <html lang="en">
 <head>

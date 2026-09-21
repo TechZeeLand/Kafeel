@@ -1,9 +1,9 @@
-# Phase 5 — what changed and how to deploy
+# Phase 5 + Staff management — what changed and how to deploy
 
 ## Deploy
 1. Copy these files over your project (they are the full codebase, minus `.git`, `vendor/` and `.env`).
 2. Commit and push to `main` so GitHub Actions rebuilds the image, then redeploy in Portainer.
-3. Nothing to run by hand: `sql/migrations/005_phase5.sql` is applied automatically on the first request
+3. Nothing to run by hand: `sql/migrations/005_phase5.sql` and `006_staff.sql` are applied automatically on the first request
    (the check now runs when the database connection opens, so any page can be the first one hit).
    It is idempotent and keeps all existing data. Fresh installs get everything from `sql/schema.sql`.
 4. Optional env vars (also editable in Admin > Settings): `CONTACT_PHONE_2`, `SOCIAL_WHATSAPP`.
@@ -46,3 +46,28 @@
   `UPDATE admins SET role='owner' WHERE username='...';`
 - Tab bar also shows on checkout (previously hidden). To hide it there again, add `body.page-checkout .tabbar{display:none}` and set `--tabbar-h:0px` for that page.
 - Not verified here: real mPDF PDF output and real SMTP delivery (checked the invoice HTML and email bodies instead).
+
+
+## Staff management (migration 006)
+Admin > **Staff** (owners only) — add, edit, disable, enable, delete and reset the password of every admin/staff account.
+Each person has: Name, Number, Email, Address, Blood group, Gender, NID number (all required) and one optional document
+(PDF/JPG/PNG/WebP, up to 5 MB, e.g. an NID scan).
+
+- **Staff see their own details, read-only,** on Admin > My account (with their document). Only owners can change them (Staff > Edit).
+  Owners edit their own details the same way.
+- **New staff get a temporary password** set by the owner; until they choose their own at first sign-in, only My account is open to them.
+  "Reset password" does the same for someone who forgot theirs.
+- **Disable** blocks sign-in and ends the person's open session on their next click; **Delete** removes the account and its document.
+  Their past activity-log entries remain under their name. Owners cannot disable, delete, demote or reset the password of themselves,
+  and there is always at least one active owner.
+- **The document is private:** it is stored in the database (not in the public uploads folder) and served only by a permission-checked
+  page to owners and to that person. The file type is checked from its contents, not its name. An owner opening someone else's
+  document is written to the Activity log; opening your own is not.
+- **NID numbers** are shown masked in lists and are never written to the Activity log (edits show "NID number ••••1234 → ••••5678").
+  Email and NID must be unique per account.
+- Everything is in the Activity log (Staff group): added, edited (before/after), disabled, enabled, deleted, password reset, document opened. Passwords are never logged.
+- Existing admin accounts (e.g. the default `admin`) have no profile details yet: they show "Details incomplete" until an owner fills them in.
+
+**Things to know:** NID numbers and documents are stored unencrypted in the database, protected by access control and logging,
+so keep database backups private. Documents live in the database, so backups grow by their size. The default `admin`
+account should be given a real name and a new password (My account) like any other.

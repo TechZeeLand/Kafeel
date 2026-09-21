@@ -76,7 +76,7 @@ $exportUrl = logs_url() . (str_contains(logs_url(), '?') ? '&' : '?') . 'export=
 require __DIR__ . '/includes/header.php';
 ?>
 
-<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+<div class="stat-grid stat-grid-3">
   <div class="stat-card"><div class="label">Entries recorded</div><div class="value"><?= number_format($allTime) ?></div></div>
   <div class="stat-card"><div class="label">Today</div><div class="value"><?= number_format($todayCount) ?></div></div>
   <div class="stat-card"><div class="label">Admin accounts</div><div class="value"><?= count($admins) ?></div></div>

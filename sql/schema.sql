@@ -45,7 +45,33 @@ CREATE TABLE IF NOT EXISTS admins (
   name VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('owner','staff') NOT NULL DEFAULT 'staff',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  phone VARCHAR(40) DEFAULT NULL,
+  email VARCHAR(160) DEFAULT NULL,
+  address VARCHAR(500) DEFAULT NULL,
+  blood_group VARCHAR(4) DEFAULT NULL,
+  gender VARCHAR(10) DEFAULT NULL,
+  nid_number VARCHAR(20) DEFAULT NULL,
+  status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_admin_email (email),
+  UNIQUE KEY uniq_admin_nid (nid_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One optional private document per staff member. Kept in the database (not in the public
+-- uploads folder) and only served through admin/staff_document.php to owners and to that person.
+CREATE TABLE IF NOT EXISTS admin_documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  mime VARCHAR(100) NOT NULL,
+  size INT NOT NULL,
+  data LONGBLOB NOT NULL,
+  uploaded_by INT DEFAULT NULL,
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_doc_admin (admin_id),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------
@@ -340,4 +366,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '5');
+('schema_version', '6');

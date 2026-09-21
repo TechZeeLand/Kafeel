@@ -30,6 +30,13 @@ const ADMIN_LOG_ACTIONS = [
     'category.delete'      => ['Category deleted', 'rust'],
     'customer.disable'     => ['Customer disabled', 'rust'],
     'customer.enable'      => ['Customer re-enabled', 'sage'],
+    'staff.create'         => ['Staff member added', 'sage'],
+    'staff.update'         => ['Staff details edited', 'ink'],
+    'staff.delete'         => ['Staff member deleted', 'rust'],
+    'staff.enable'         => ['Staff account re-enabled', 'sage'],
+    'staff.disable'        => ['Staff account disabled', 'rust'],
+    'staff.password_reset' => ['Reset a staff password', 'ink'],
+    'staff.document_view'  => ['Opened a staff document', 'ink'],
     'coupon.create'        => ['Coupon created', 'sage'],
     'coupon.update'        => ['Coupon edited', 'ink'],
     'coupon.enable'        => ['Coupon switched on', 'sage'],
@@ -50,7 +57,7 @@ const ADMIN_LOG_ACTIONS = [
 /** Human names for the action groups (the filter drop-down on the Activity log page). */
 const ADMIN_LOG_GROUPS = [
     'auth' => 'Sign-ins & passwords', 'order' => 'Orders', 'product' => 'Products', 'category' => 'Categories',
-    'customer' => 'Customers', 'coupon' => 'Coupons', 'review' => 'Reviews', 'settings' => 'Settings & email',
+    'customer' => 'Customers', 'staff' => 'Staff', 'coupon' => 'Coupons', 'review' => 'Reviews', 'settings' => 'Settings & email',
     'branding' => 'Branding', 'theme' => 'Theme',
 ];
 
@@ -137,6 +144,7 @@ function admin_log_target_url(?string $type, ?int $id): ?string {
         'product' => '/admin/product_form.php?id=' . $id,
         'category' => '/admin/category_form.php?id=' . $id,
         'coupon' => '/admin/coupon_form.php?id=' . $id,
+        'staff' => '/admin/staff_form.php?id=' . $id,
         default => null,
     };
 }

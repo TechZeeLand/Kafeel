@@ -66,7 +66,7 @@ $back = '?' . http_build_query(array_filter(['q' => $q, 'status' => $status, 'st
 require __DIR__ . '/includes/header.php';
 ?>
 
-<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+<div class="stat-grid stat-grid-3">
   <div class="stat-card"><div class="label">Published</div><div class="value"><?= (int) ($counts['published'] ?? 0) ?></div></div>
   <div class="stat-card"><div class="label">Hidden</div><div class="value"><?= (int) ($counts['hidden'] ?? 0) ?></div></div>
   <div class="stat-card"><div class="label">Average rating</div><div class="value"><?= $avgAll !== null && $avgAll !== false ? e(number_format((float) $avgAll, 1)) . ' ★' : '—' ?></div></div>

@@ -11,7 +11,7 @@ function current_admin(): ?array {
         if (empty($_SESSION['admin_id'])) {
             $admin = null;
         } else {
-            $stmt = db()->prepare('SELECT id, username, name, role FROM admins WHERE id = ?');
+            $stmt = db()->prepare('SELECT id, username, name, role, status, must_change_password FROM admins WHERE id = ?');
             $stmt->execute([$_SESSION['admin_id']]);
             $admin = $stmt->fetch() ?: null;
         }
@@ -24,9 +24,21 @@ function require_admin(): void {
         redirect('/admin/login.php');
     }
     // The session says "admin", but the account may have been removed since — treat that as signed out.
-    if (current_admin() === null) {
+    $me = current_admin();
+    if ($me === null) {
         unset($_SESSION['admin_id']);
         redirect('/admin/login.php');
+    }
+    // An owner can switch an account off: the person is signed out on their very next click.
+    if (($me['status'] ?? 'active') !== 'active') {
+        unset($_SESSION['admin_id']);
+        flash_set('error', 'This account has been disabled. Please contact the store owner.');
+        redirect('/admin/login.php');
+    }
+    // Given a temporary password by an owner? The only pages open until it is changed are My account and sign-out.
+    if (!empty($me['must_change_password']) && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['account.php', 'logout.php'], true)) {
+        flash_set('info', 'Please choose your own password before continuing.');
+        redirect('/admin/account.php');
     }
 }
 
@@ -45,7 +57,7 @@ function require_owner(): void {
 }
 
 /**
- * @return array{0: bool, 1: ?int} [success, seconds_until_retry (if throttled)]
+ * @return array{0: bool, 1: ?int, 2?: string} [success, seconds_until_retry (if throttled), 'disabled' when the account is switched off]
  */
 function attempt_admin_login(string $username, string $password): array {
     $username = trim($username);
@@ -54,7 +66,7 @@ function attempt_admin_login(string $username, string $password): array {
         return [false, $wait];
     }
 
-    $stmt = db()->prepare('SELECT id, username, name, password_hash FROM admins WHERE username = ?');
+    $stmt = db()->prepare('SELECT id, username, name, password_hash, status FROM admins WHERE username = ?');
     $stmt->execute([$username]);
     $row = $stmt->fetch();
     if (!$row || !password_verify($password, $row['password_hash'])) {
@@ -66,6 +78,11 @@ function attempt_admin_login(string $username, string $password): array {
         return [false, null];
     }
     login_throttle_clear('admin', $username);
+    // Correct password but the account was switched off. Only now (after the password is proven) do we say so.
+    if (($row['status'] ?? 'active') !== 'active') {
+        admin_log('auth.login_failed', 'Sign-in blocked: the account "' . $row['username'] . '" is disabled', null, null, [], ['id' => (int) $row['id'], 'name' => $row['name'], 'username' => $row['username']]);
+        return [false, null, 'disabled'];
+    }
     session_regenerate_id(true);
     $_SESSION['admin_id'] = (int) $row['id'];
     admin_log('auth.login', 'Signed in', null, null, [], ['id' => (int) $row['id'], 'name' => $row['name'], 'username' => $row['username']]);

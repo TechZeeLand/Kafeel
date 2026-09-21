@@ -746,3 +746,4 @@ require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/admin_log.php';
 require_once __DIR__ . '/coupons.php';
 require_once __DIR__ . '/reviews.php';
+require_once __DIR__ . '/staff.php';
