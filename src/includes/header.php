@@ -10,6 +10,9 @@ $__theme = theme_settings();
 $__topbar = topbar_settings();
 $__assetV = fn (string $f) => (int) @filemtime(__DIR__ . '/../assets/' . $f);
 $__pageClass = 'page-' . preg_replace('/[^a-z0-9-]/', '', str_replace('.php', '', basename($_SERVER['SCRIPT_NAME'] ?? 'index')));
+// A page that shows a sticky action bar above the tab bar (cart, checkout, product) sets $bodyClass = 'has-action-bar'
+// so the page gets the matching bottom padding — and only when that bar is really on the page.
+if (!empty($bodyClass)) $__pageClass .= ' ' . preg_replace('/[^a-z0-9 -]/', '', (string) $bodyClass);
 $__fxOn = !empty($__theme['seasonal_enabled']) && $__theme['seasonal_effect'] !== 'none';
 $__activeCat = $_GET['slug'] ?? '';
 ?><!DOCTYPE html>
@@ -149,10 +152,10 @@ $__activeCat = $_GET['slug'] ?? '';
         <?php endif; ?>
       </div>
 
-      <?php if ($__store['phone'] !== '' || $__store['email'] !== '' || store_socials()): ?>
+      <?php if (store_phones() || $__store['email'] !== '' || store_socials()): ?>
       <div class="mnav-contact">
         <div class="mnav-title">Get in touch</div>
-        <?php if ($__store['phone'] !== ''): ?><a href="<?= e(tel_href($__store['phone'])) ?>"><?= ui_icon('phone', 18) ?><?= e($__store['phone']) ?></a><?php endif; ?>
+        <?php foreach (store_phones() as $__ph): ?><a href="<?= e(tel_href($__ph)) ?>"><?= ui_icon('phone', 18) ?><?= e($__ph) ?></a><?php endforeach; ?>
         <?php if ($__store['email'] !== ''): ?><a href="mailto:<?= e($__store['email']) ?>"><?= ui_icon('mail', 18) ?><?= e($__store['email']) ?></a><?php endif; ?>
         <?= social_row_html('social-row mnav-social') ?>
       </div>

@@ -27,16 +27,16 @@ require __DIR__ . '/includes/header.php';
         <a class="btn btn-primary" href="/">Start shopping</a>
       </div>
     <?php else: ?>
-      <div class="table-scroll"><table class="data-table">
-        <thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th></th></tr></thead>
+      <div class="table-scroll"><table class="data-table stack">
+        <thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>
           <?php foreach ($orders as $o): ?>
             <tr>
-              <td class="mono"><?= e($o['order_number']) ?></td>
-              <td><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
-              <td><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
-              <td class="mono"><?= money($o['total']) ?></td>
-              <td><a href="/order-detail.php?order=<?= e($o['order_number']) ?>" class="btn btn-outline btn-sm">View</a></td>
+              <td class="mono cell-order" data-label="Order"><a href="/order-detail.php?order=<?= e($o['order_number']) ?>"><?= e($o['order_number']) ?></a></td>
+              <td class="cell-date" data-label="Date"><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
+              <td class="cell-status" data-label="Status"><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
+              <td class="mono cell-total" data-label="Total"><?= money($o['total']) ?></td>
+              <td class="cell-action"><a href="/order-detail.php?order=<?= e($o['order_number']) ?>" class="btn btn-outline btn-sm">View</a></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

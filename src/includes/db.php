@@ -30,6 +30,14 @@ function db(): PDO {
                 sleep(2);
             }
         }
+        // Load the settings right away: that is what applies any pending schema migration (see
+        // all_settings() and migrate.php). Doing it here — not lazily on the first settings read —
+        // guarantees the database is up to date before ANY page runs its first query. Otherwise a
+        // page whose first query touches a table added by a new migration would crash on the first
+        // request after a deploy, before anything had a chance to create that table.
+        if (function_exists('all_settings')) {
+            try { all_settings(); } catch (Throwable $e) { error_log('[db] could not preload settings: ' . $e->getMessage()); }
+        }
     }
     return $pdo;
 }

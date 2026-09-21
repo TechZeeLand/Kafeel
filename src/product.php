@@ -78,6 +78,16 @@ $pickerData = [
 $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
 $__user = current_user();
+$wishCount = product_wish_count((int) $product['id']);
+$reviewSummary = review_summary((int) $product['id']);
+$reviewPage = max(1, (int) ($_GET['rpage'] ?? 1));
+$reviewPages = max(1, (int) ceil($reviewSummary['count'] / REVIEWS_PER_PAGE));
+$reviewPage = min($reviewPage, $reviewPages);
+$reviews = review_list((int) $product['id'], REVIEWS_PER_PAGE, ($reviewPage - 1) * REVIEWS_PER_PAGE);
+$reviewBox = review_box_state($__user, (int) $product['id']);
+// Text typed into a review that failed validation (see review_submit.php), so nothing is lost.
+$reviewOld = $_SESSION['review_old'][(int) $product['id']] ?? null;
+unset($_SESSION['review_old'][(int) $product['id']]);
 $__favIds = $__user ? favorite_ids_for_user($__user['id']) : [];
 $isFav = in_array((int)$product['id'], $__favIds, true);
 $onSale = !empty($product['compare_price']) && $product['compare_price'] > $product['price'];
@@ -95,7 +105,10 @@ $seo = [
     'in_stock' => $effectiveStock > 0,
     'sku' => $product['sku'],
     'category' => $product['category_name'],
+    'rating' => $reviewSummary['count'] ? $reviewSummary['avg'] : null,
+    'review_count' => $reviewSummary['count'],
 ];
+$bodyClass = $effectiveStock > 0 ? 'has-action-bar' : '';
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -126,6 +139,11 @@ require __DIR__ . '/includes/header.php';
   <div class="product-info">
     <span class="sku">SKU <?= e($product['sku'] ?: '—') ?></span>
     <h1><?= e($product['name']) ?></h1>
+    <?php if ($reviewSummary['count']): ?>
+      <a class="rating-line" href="#reviews" aria-label="<?= e(number_format($reviewSummary['avg'], 1)) ?> out of 5 from <?= (int) $reviewSummary['count'] ?> reviews">
+        <?= stars_html($reviewSummary['avg']) ?><span class="rating-num"><?= e(number_format($reviewSummary['avg'], 1)) ?></span><span class="rating-count">(<?= (int) $reviewSummary['count'] ?> review<?= $reviewSummary['count'] === 1 ? '' : 's' ?>)</span>
+      </a>
+    <?php endif; ?>
     <div class="price-row">
       <span class="price" id="productPrice"><?= money($product['price']) ?></span>
       <?php if ($onSale): ?><span class="compare"><?= money($product['compare_price']) ?></span><span class="pill pill-rust">Sale</span><?php endif; ?>
@@ -148,6 +166,11 @@ require __DIR__ . '/includes/header.php';
       <?php else: ?>
         <span class="pill pill-ink">Out of stock</span>
       <?php endif; ?>
+    </div>
+
+    <div class="wish-line" data-wish-count="<?= (int) $product['id'] ?>"<?= $wishCount < 1 ? ' hidden' : '' ?>>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      <span><strong data-wish-num><?= (int) $wishCount ?></strong> <span data-wish-word><?= $wishCount === 1 ? 'person has' : 'people have' ?></span> this in their wishlist</span>
     </div>
 
     <?php
@@ -191,7 +214,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="product-actions">
           <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>>Add to cart</button>
-          <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>">
+          <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="♡ Save for later">
             <?= $isFav ? '♥ Saved' : '♡ Save for later' ?>
           </button>
         </div>
@@ -199,7 +222,7 @@ require __DIR__ . '/includes/header.php';
     <?php else: ?>
       <div class="product-actions">
         <button class="btn btn-primary" disabled>Out of stock</button>
-        <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>">
+        <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="♡ Notify me / save">
           <?= $isFav ? '♥ Saved' : '♡ Notify me / save' ?>
         </button>
       </div>
@@ -245,6 +268,91 @@ require __DIR__ . '/includes/header.php';
 <script>window.KAFEEL_PRODUCT = <?= json_encode($pickerData, $jsonFlags) ?>;</script>
 <script src="/assets/js/product.js?v=<?= (int) @filemtime(__DIR__ . '/assets/js/product.js') ?>"></script>
 <?php endif; ?>
+
+<section class="section reviews" id="reviews">
+  <div class="wrap">
+    <div class="section-head"><div><span class="tag">Customer reviews</span><h2>What customers say</h2></div></div>
+
+    <div class="reviews-layout">
+      <aside class="review-summary" aria-label="Rating summary">
+        <?php if ($reviewSummary['count']): ?>
+          <div class="rs-score"><span class="rs-avg"><?= e(number_format($reviewSummary['avg'], 1)) ?></span><span class="rs-of">out of 5</span></div>
+          <?= stars_html($reviewSummary['avg'], 'stars-lg') ?>
+          <div class="rs-count"><?= (int) $reviewSummary['count'] ?> review<?= $reviewSummary['count'] === 1 ? '' : 's' ?></div>
+          <div class="rs-bars">
+            <?php foreach ($reviewSummary['dist'] as $star => $n): $pct = $reviewSummary['count'] ? round($n / $reviewSummary['count'] * 100) : 0; ?>
+              <div class="rs-bar"><span class="rs-star"><?= (int) $star ?>★</span><span class="rs-track"><span style="width:<?= (int) $pct ?>%"></span></span><span class="rs-n"><?= (int) $n ?></span></div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="rs-empty">No reviews yet</div>
+        <?php endif; ?>
+        <div class="rs-wish" data-wish-count="<?= (int) $product['id'] ?>"<?= $wishCount < 1 ? ' hidden' : '' ?>><span data-wish-num><?= (int) $wishCount ?></span> <span data-wish-word><?= $wishCount === 1 ? 'person has' : 'people have' ?></span> saved this to a wishlist</div>
+      </aside>
+
+      <div class="review-main">
+        <?php
+        $existing = $reviewBox['existing'];
+        $val = fn (string $k, $fallback = '') => $reviewOld[$k] ?? ($existing[$k] ?? $fallback);
+        $curRating = (int) $val('rating', 0);
+        ?>
+        <?php if ($reviewBox['state'] === 'guest'): ?>
+          <div class="review-note">
+            <strong>Bought this?</strong> <a href="/login.php" style="text-decoration:underline;">Log in</a> to share what you think — only customers who have received the product can review it.
+          </div>
+        <?php elseif ($reviewBox['state'] === 'cannot'): ?>
+          <div class="review-note">Only customers who have received this product can review it. Once your order ships, you can come back and leave a review.</div>
+        <?php else: ?>
+          <form class="review-form" id="review-form" method="post" action="/review_submit.php">
+            <?= csrf_field() ?>
+            <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+            <h3><?= $existing ? 'Your review' : 'Write a review' ?></h3>
+            <?php if ($existing && $existing['status'] === 'hidden'): ?>
+              <div class="alert alert-info">The store has hidden your review, so it isn't shown to other customers. You can still edit or delete it.</div>
+            <?php endif; ?>
+            <fieldset class="star-input">
+              <legend>Your rating</legend>
+              <?php for ($i = 5; $i >= 1; $i--): ?>
+                <input type="radio" name="rating" id="rate<?= $i ?>" value="<?= $i ?>"<?= $curRating === $i ? ' checked' : '' ?> required>
+                <label for="rate<?= $i ?>" title="<?= $i ?> star<?= $i === 1 ? '' : 's' ?>"><span class="sr-only"><?= $i ?> star<?= $i === 1 ? '' : 's' ?></span></label>
+              <?php endfor; ?>
+            </fieldset>
+            <div class="field"><label for="review_title">Title <span style="font-weight:400;color:var(--ink-faint);">(optional)</span></label><input id="review_title" name="title" maxlength="120" value="<?= e($val('title')) ?>" placeholder="Sum it up in a few words"></div>
+            <div class="field"><label for="review_body">Your review</label><textarea id="review_body" name="body" rows="4" required minlength="<?= (int) REVIEW_MIN_BODY ?>" maxlength="<?= (int) REVIEW_MAX_BODY ?>" placeholder="What did you like? How is the quality?"><?= e($val('body')) ?></textarea></div>
+            <div class="review-actions">
+              <button type="submit" class="btn btn-primary" name="action" value="save"><?= $existing ? 'Update review' : 'Submit review' ?></button>
+              <?php if ($existing): ?><button type="submit" class="btn btn-ghost" name="action" value="delete" formnovalidate onclick="return confirm('Delete your review?');">Delete</button><?php endif; ?>
+            </div>
+          </form>
+        <?php endif; ?>
+
+        <?php if ($reviews): ?>
+          <ul class="review-list">
+            <?php foreach ($reviews as $r): ?>
+              <li class="review">
+                <div class="review-head">
+                  <?= stars_html((float) $r['rating']) ?>
+                  <?php if ($r['title']): ?><strong class="review-title"><?= e($r['title']) ?></strong><?php endif; ?>
+                </div>
+                <p class="review-body"><?= nl2br(e($r['body'])) ?></p>
+                <div class="review-meta"><?= e(review_display_name($r['author_name'])) ?> · <span class="verified">Verified purchase</span> · <?= e(fmt_dt($r['created_at'], 'j M Y')) ?></div>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+          <?php if ($reviewPages > 1): ?>
+            <div class="pagination" aria-label="Review pages">
+              <?php for ($i = 1; $i <= $reviewPages; $i++): ?>
+                <?php if ($i === $reviewPage): ?><span class="current"><?= $i ?></span><?php else: ?><a href="/product.php?slug=<?= e($product['slug']) ?>&amp;rpage=<?= $i ?>#reviews"><?= $i ?></a><?php endif; ?>
+              <?php endfor; ?>
+            </div>
+          <?php endif; ?>
+        <?php elseif ($reviewBox['state'] !== 'can_review'): ?>
+          <p class="review-empty">Be the first to review this product once you've received it.</p>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+</section>
 
 <?php if ($related): ?>
 <section class="section section-alt">

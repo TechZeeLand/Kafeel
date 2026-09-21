@@ -14,6 +14,14 @@ $shippingOutside = shipping_fee_for_area('outside_dhaka', $totals['weight_grams'
 $__user = current_user();
 $errors = [];
 
+// A coupon saved earlier in this visit is re-checked against the cart as it is now.
+$__couponDrop = null;
+$appliedCoupon = coupon_session_current($totals['subtotal'], coupon_shopper($__user), $__couponDrop);
+// While browsing, a coupon that stopped working is dropped with a notice. But when the customer is
+// pressing "Place order" it must NOT be dropped silently and the order placed at a higher price than
+// the one they saw: the order is held back (see the POST handler) so they can confirm the new total.
+if ($__couponDrop && $_SERVER['REQUEST_METHOD'] !== 'POST') flash_set('info', $__couponDrop);
+
 $defaultAddress = null;
 if ($__user) {
     $stmt = db()->prepare('SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, id DESC LIMIT 1');
@@ -23,6 +31,7 @@ if ($__user) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
+    if ($__couponDrop) $errors[] = $__couponDrop . ' Your total has changed — please check it and place the order again.';
 
     $name = trim($_POST['shipping_name'] ?? '');
     $phone = trim($_POST['shipping_phone'] ?? '');
@@ -58,19 +67,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors) {
         $shippingFee = shipping_fee_for_area($deliveryArea, $freshTotals['weight_grams']);
-        $orderTotal = $freshTotals['subtotal'] + $shippingFee;
         $pdo = db();
         try {
             $pdo->beginTransaction();
+            // Coupon: locked, re-validated with everything we now know about the buyer, and priced
+            // here on the server. Nothing the browser sent decides the discount.
+            $coupon = null; $discount = 0.0;
+            if (coupon_session_code() !== '') {
+                [$coupon, $discount] = coupon_claim_for_order($pdo, coupon_session_code(), (float) $freshTotals['subtotal'], coupon_shopper($__user, $email, $phone));
+            }
+            $orderTotal = round((float) $freshTotals['subtotal'] - $discount + $shippingFee, 2);
             $orderNumber = 'ED-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
-                'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, shipping_fee, total,
+                'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, discount, coupon_id, coupon_code, shipping_fee, total,
                  shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
                 $orderNumber, $__user['id'] ?? null, 'pending', $payment, $deliveryArea,
-                $freshTotals['subtotal'], $shippingFee, $orderTotal,
+                $freshTotals['subtotal'], $discount, $coupon['id'] ?? null, $coupon['code'] ?? null, $shippingFee, $orderTotal,
                 $name, $phone, ($email ?: ($__user['email'] ?? null)) ?: null, $line1, $city, $state ?: null, $zip ?: null, $notes ?: null,
             ]);
             $orderId = (int) $pdo->lastInsertId();
@@ -101,10 +116,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->commit();
             cart_clear();
+            coupon_session_clear();
             $_SESSION['last_order_number'] = $orderNumber;
             $placedOrderId = (int) $orderId;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
+            // A coupon that just stopped working is dropped, so the shopper isn't stuck re-submitting it.
+            if ($e instanceof CouponException) { coupon_session_clear(); $appliedCoupon = null; }
             $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Something went wrong placing your order. Please try again.';
             if (!($e instanceof RuntimeException)) error_log('[checkout] ' . $e->getMessage());
         }
@@ -122,7 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$discount = $appliedCoupon ? (float) $appliedCoupon['discount'] : 0.0;
 $pageTitle = 'Checkout';
+$bodyClass = 'has-action-bar';
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -210,7 +230,7 @@ require __DIR__ . '/includes/header.php';
         </div>
       <?php endif; ?>
 
-      <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></button>
+      <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></span></button>
     </form>
   </div>
 
@@ -220,12 +240,29 @@ require __DIR__ . '/includes/header.php';
       <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
     <?php endforeach; ?>
     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
+    <div class="summary-row discount-row" id="summaryDiscountRow"<?= $discount > 0 ? '' : ' hidden' ?>><span>Discount<?= $appliedCoupon ? ' <small class="coupon-tag" id="summaryCouponCode">' . e($appliedCoupon['coupon']['code']) . '</small>' : ' <small class="coupon-tag" id="summaryCouponCode"></small>' ?></span><span class="val" id="summaryDiscount">&minus;<?= money($discount) ?></span></div>
     <div class="summary-row"><span>Shipping</span><span class="val" id="summaryShipping"><?= money($shippingInside) ?></span></div>
-    <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] + $shippingInside) ?></span></div>
+    <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></span></div>
+
+    <div class="coupon-box" id="couponBox" data-discount="<?= e((string) $discount) ?>">
+      <form class="coupon-form" id="couponForm" autocomplete="off"<?= $appliedCoupon ? ' hidden' : '' ?>>
+        <label for="couponCode" class="coupon-label">Have a coupon code?</label>
+        <div class="coupon-row">
+          <input id="couponCode" type="text" placeholder="Enter code" maxlength="40" autocapitalize="characters" spellcheck="false" enterkeyhint="done">
+          <button type="submit" class="btn btn-outline btn-sm" id="couponApply">Apply</button>
+        </div>
+      </form>
+      <div class="coupon-applied" id="couponApplied"<?= $appliedCoupon ? '' : ' hidden' ?>>
+        <span class="coupon-ok" aria-hidden="true">✓</span>
+        <span class="coupon-applied-text"><strong id="couponAppliedCode"><?= $appliedCoupon ? e($appliedCoupon['coupon']['code']) : '' ?></strong> applied<small id="couponAppliedDesc"><?= $appliedCoupon ? e(coupon_describe($appliedCoupon['coupon'])) : '' ?></small></span>
+        <button type="button" class="link-btn" id="couponRemove">Remove</button>
+      </div>
+      <div class="coupon-msg" id="couponMsg" role="status" aria-live="polite"></div>
+    </div>
   </div>
 
   <div class="checkout-bar">
-    <div class="bb-price"><small>Total</small><strong id="barTotal"><?= money($totals['subtotal'] + $shippingInside) ?></strong></div>
+    <div class="bb-price"><small>Total</small><strong id="barTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></strong></div>
     <button type="submit" form="checkoutForm" class="btn btn-primary">Place order</button>
   </div>
 </div>
@@ -233,27 +270,42 @@ require __DIR__ . '/includes/header.php';
 <script>
 (function () {
   var subtotal = <?= (float)$totals['subtotal'] ?>;
+  var discount = <?= (float) $discount ?>;
   var symbol = <?= json_encode(STORE_CURRENCY_SYMBOL) ?>;
   var radios = document.querySelectorAll('input[name="delivery_area"]');
   var shippingEl = document.getElementById('summaryShipping');
   var totalEl = document.getElementById('summaryTotal');
   var submitEl = document.getElementById('submitTotal');
   var barEl = document.getElementById('barTotal');
+  var discRow = document.getElementById('summaryDiscountRow');
+  var discEl = document.getElementById('summaryDiscount');
+  var discCode = document.getElementById('summaryCouponCode');
 
   function fmt(n) {
     return symbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
+  // Display only — the server recomputes the discount and total when the order is placed.
   function update() {
     var checked = document.querySelector('input[name="delivery_area"]:checked');
     var fee = checked ? parseFloat(checked.dataset.fee) : 0;
+    var total = Math.max(0, subtotal - discount) + fee;
     shippingEl.textContent = fmt(fee);
-    totalEl.textContent = fmt(subtotal + fee);
-    submitEl.textContent = fmt(subtotal + fee);
-    if (barEl) barEl.textContent = fmt(subtotal + fee);
+    totalEl.textContent = fmt(total);
+    submitEl.textContent = fmt(total);
+    if (barEl) barEl.textContent = fmt(total);
+    discRow.hidden = !(discount > 0);
+    discEl.textContent = '\u2212' + fmt(discount);
   }
 
   radios.forEach(function (r) { r.addEventListener('change', update); });
+  // main.js fires this when a coupon is applied or removed.
+  document.addEventListener('coupon:changed', function (e) {
+    discount = (e.detail && e.detail.discount) || 0;
+    discCode.textContent = (e.detail && e.detail.code) || '';
+    update();
+  });
+  update();
 })();
 </script>
 

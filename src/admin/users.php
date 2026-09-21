@@ -9,7 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userId = (int) ($_POST['user_id'] ?? 0);
     $action = $_POST['action'] ?? '';
     if ($action === 'toggle_status') {
-        db()->prepare("UPDATE users SET status = IF(status = 'active','disabled','active') WHERE id = ?")->execute([$userId]);
+        $cu = db()->prepare('SELECT id, name, email, status FROM users WHERE id = ?');
+        $cu->execute([$userId]);
+        if ($target = $cu->fetch()) {
+            db()->prepare("UPDATE users SET status = IF(status = 'active','disabled','active') WHERE id = ?")->execute([$userId]);
+            $nowDisabled = $target['status'] === 'active';
+            admin_log($nowDisabled ? 'customer.disable' : 'customer.enable', ($nowDisabled ? 'Disabled' : 'Re-enabled') . ' customer account ' . $target['name'] . ' (' . $target['email'] . ')', 'customer', (int) $target['id']);
+            flash_set('success', $target['name'] . '\'s account is now ' . ($nowDisabled ? 'disabled.' : 'active.'));
+        }
     }
     redirect('/admin/users.php');
 }

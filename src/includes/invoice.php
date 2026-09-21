@@ -60,7 +60,7 @@ function build_invoice_html(array $order, array $items): string {
     // --- shop card
     $storeHtml = '<div class="card-title">From</div>'
         . '<div class="name">' . e($store['name']) . '</div>'
-        . invoice_detail_line('Phone', e($store['phone']))
+        . invoice_detail_line('Phone', e(implode(' / ', store_phones())))
         . invoice_detail_line('Email', e($store['email']))
         . invoice_detail_line('Address', nl2br(e(trim($store['address']))));
 
@@ -75,6 +75,10 @@ function build_invoice_html(array $order, array $items): string {
     $nameHtml = ($logoHtml === '' || get_setting('brand_logo_show_name', '0') === '1') ? '<h1>' . e($store['name']) . '</h1>' : '';
 
     $shipLabel = 'Shipping (' . delivery_area_label($order['delivery_area']) . ')';
+    // Coupon discount, only when the order used one.
+    $discountRow = ((float) ($order['discount'] ?? 0)) > 0
+        ? '<tr><td>Discount' . (!empty($order['coupon_code']) ? ' (' . e($order['coupon_code']) . ')' : '') . '</td><td style="text-align:right;">&minus;' . invoice_money((float) $order['discount']) . '</td></tr>'
+        : '';
     $notes = !empty($order['notes']) ? '<div class="notes"><span class="muted">Order note:</span> ' . e($order['notes']) . '</div>' : '';
 
     return '<html><head><style>
@@ -121,6 +125,7 @@ function build_invoice_html(array $order, array $items): string {
 
     <table class="totals" style="width:260px;margin-left:auto;margin-top:8px;">
         <tr><td>Subtotal</td><td style="text-align:right;">' . invoice_money((float) $order['subtotal']) . '</td></tr>
+        ' . $discountRow . '
         <tr><td>' . e($shipLabel) . '</td><td style="text-align:right;">' . ($order['shipping_fee'] > 0 ? invoice_money((float) $order['shipping_fee']) : 'Free') . '</td></tr>
         <tr class="grand"><td><strong>Total</strong></td><td style="text-align:right;"><strong>' . invoice_money((float) $order['total']) . '</strong></td></tr>
     </table>

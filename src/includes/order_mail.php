@@ -47,7 +47,9 @@ function send_order_confirmation(int $orderId): void {
         $body = '<p>Hi ' . e(explode(' ', $order['shipping_name'])[0]) . ',</p>'
             . '<p>Thank you for your order! We\'ve received it and will get it ready. Your order number is <strong>#' . e($order['order_number']) . '</strong>.</p>'
             . '<table style="width:100%;border-collapse:collapse;font-size:14px;">' . $rows . '</table>'
-            . '<p style="text-align:right;margin:10px 0 0;">Shipping (' . e(delivery_area_label($order['delivery_area'])) . '): ' . e(money((float) $order['shipping_fee'])) . '<br>'
+            . '<p style="text-align:right;margin:10px 0 0;">'
+            . (((float) ($order['discount'] ?? 0)) > 0 ? 'Discount' . (!empty($order['coupon_code']) ? ' (' . e($order['coupon_code']) . ')' : '') . ': &minus;' . e(money((float) $order['discount'])) . '<br>' : '')
+            . 'Shipping (' . e(delivery_area_label($order['delivery_area'])) . '): ' . e(money((float) $order['shipping_fee'])) . '<br>'
             . '<strong>Total to pay on delivery: ' . e(money((float) $order['total'])) . '</strong></p>'
             . '<p style="color:#4a5670;font-size:14px;">Delivering to: ' . e($order['shipping_name']) . ', ' . e($order['shipping_line1']) . ', ' . e($order['shipping_city']) . '</p>'
             . (!empty($order['user_id']) ? order_email_button(base_url() . '/order-detail.php?order=' . $order['order_number'], 'View your order') : '');

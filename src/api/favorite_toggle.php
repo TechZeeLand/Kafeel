@@ -25,4 +25,4 @@ if (!$stmt->fetch()) {
 
 $user = current_user();
 $favorited = favorite_toggle($user['id'], $productId);
-echo json_encode(['ok' => true, 'favorited' => $favorited]);
+echo json_encode(['ok' => true, 'favorited' => $favorited, 'wish_count' => product_wish_count($productId)]);

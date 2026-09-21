@@ -40,6 +40,8 @@ require __DIR__ . '/includes/header.php';
         <?php endforeach; ?>
       </tbody>
     </table></div>
+    <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($order['subtotal']) ?></span></div>
+    <?php if ((float) $order['discount'] > 0): ?><div class="summary-row discount-row"><span>Discount<?= $order['coupon_code'] ? ' <small class="coupon-tag">' . e($order['coupon_code']) . '</small>' : '' ?></span><span class="val">&minus;<?= money($order['discount']) ?></span></div><?php endif; ?>
     <div class="summary-row"><span>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>)</span><span class="val"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></span></div>
     <div class="summary-row total"><span>Total</span><span class="val"><?= money($order['total']) ?></span></div>
     <p style="margin-top:18px;font-size:0.9rem;color:var(--ink-soft);">

@@ -29,6 +29,12 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
       <span class="price"><?= money($p['price']) ?></span>
       <?php if ($__onSale): ?><span class="compare"><?= money($p['compare_price']) ?></span><?php endif; ?>
     </div>
+    <?php if ((int) ($p['review_count'] ?? 0) > 0 || (int) ($p['wish_count'] ?? 0) > 0): ?>
+    <div class="card-social">
+      <?php if ((int) ($p['review_count'] ?? 0) > 0): ?><span class="cs-rating" title="<?= e(number_format((float) $p['review_avg'], 1)) ?> out of 5"><?= stars_html((float) $p['review_avg']) ?><span>(<?= (int) $p['review_count'] ?>)</span></span><?php endif; ?>
+      <?php if ((int) ($p['wish_count'] ?? 0) > 0): ?><span class="cs-wish" title="Saved to <?= (int) $p['wish_count'] ?> wishlist<?= (int) $p['wish_count'] === 1 ? '' : 's' ?>"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg><?= (int) $p['wish_count'] ?></span><?php endif; ?>
+    </div>
+    <?php endif; ?>
   </div>
   <?php if ($__stock > 0 && $__hasVariants): ?>
   <div class="add-form">

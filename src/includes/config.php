@@ -55,11 +55,13 @@ if (!defined('DB_HOST')) {
     // --- Contact / social links ---
     define('CONTACT_EMAIL', env_val('CONTACT_EMAIL', 'hello@kafeelshopbd.com'));
     define('CONTACT_PHONE', env_val('CONTACT_PHONE', ''));
+    define('CONTACT_PHONE_2', env_val('CONTACT_PHONE_2', '')); // optional second number
     define('STORE_ADDRESS', env_val('STORE_ADDRESS', ''));
     define('SOCIAL_FACEBOOK', env_val('SOCIAL_FACEBOOK', 'https://www.facebook.com/kafeelshopbd'));
     define('SOCIAL_FACEBOOK_MESSENGER', env_val('SOCIAL_FACEBOOK_MESSENGER', 'https://www.m.me/kafeelshopbd'));
     define('SOCIAL_INSTAGRAM', env_val('SOCIAL_INSTAGRAM', 'https://www.instagram.com/kafeelbd/'));
     define('SOCIAL_YOUTUBE', env_val('SOCIAL_YOUTUBE', 'https://www.youtube.com/@Kafeelbd'));
+    define('SOCIAL_WHATSAPP', env_val('SOCIAL_WHATSAPP', '')); // a wa.me link, or just the number
 
     define('UPLOAD_DIR', __DIR__ . '/../uploads/products');
     define('UPLOAD_URL', '/uploads/products');

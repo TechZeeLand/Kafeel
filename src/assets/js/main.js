@@ -96,7 +96,9 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrf() },
       body: JSON.stringify(data)
-    }).then(function (r) { return r.json(); });
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, message: 'Something went wrong — please refresh the page.' }; });
+    });
   }
 
   /* ---------------------------------------------------- cart badge ----- */
@@ -134,6 +136,16 @@
   });
 
   /* -------------------------------------------------- favorite toggle -- */
+  function updateWishCount(productId, count) {
+    document.querySelectorAll('[data-wish-count="' + productId + '"]').forEach(function (el) {
+      var n = parseInt(count, 10) || 0;
+      var num = el.querySelector('[data-wish-num]');
+      if (num) num.textContent = n;
+      var word = el.querySelector('[data-wish-word]');
+      if (word) word.textContent = n === 1 ? 'person has' : 'people have';
+      el.hidden = n < 1;
+    });
+  }
   document.querySelectorAll('.js-fav-toggle').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.preventDefault();
@@ -142,13 +154,22 @@
         .then(function (res) {
           if (res.ok) {
             btn.classList.toggle('active', res.favorited);
+            // Product-page button carries a text label; card hearts are icon-only.
+            if (btn.classList.contains('btn')) {
+              btn.textContent = res.favorited ? '\u2665 Saved' : (btn.getAttribute('data-off-label') || '\u2661 Save for later');
+            } else {
+              var svg = btn.querySelector('svg');
+              if (svg) svg.setAttribute('fill', res.favorited ? 'currentColor' : 'none');
+            }
+            if (typeof res.wish_count !== 'undefined') updateWishCount(productId, res.wish_count);
             toast(res.favorited ? 'Saved to your wishlist' : 'Removed from wishlist');
           } else if (res.login_required) {
             window.location.href = '/login.php';
           } else {
             toast(res.message || 'Something went wrong');
           }
-        });
+        })
+        .catch(function () { toast('Network error — please try again'); });
     });
   });
 
@@ -175,8 +196,9 @@
       var itemId = input.getAttribute('data-item-id');
       postJSON('/api/cart_update.php', { item_id: itemId, quantity: input.value })
         .then(function (res) {
-          if (res.ok) { window.location.reload(); }
-        });
+          if (res.ok) { window.location.reload(); } else { toast(res.message || 'Could not update the cart'); }
+        })
+        .catch(function () { toast('Network error — please try again'); });
     });
   });
   document.querySelectorAll('.js-cart-remove').forEach(function (btn) {
@@ -184,8 +206,8 @@
       e.preventDefault();
       var itemId = btn.getAttribute('data-item-id');
       postJSON('/api/cart_remove.php', { item_id: itemId }).then(function (res) {
-        if (res.ok) { window.location.reload(); }
-      });
+        if (res.ok) { window.location.reload(); } else { toast(res.message || 'Could not remove that item'); }
+      }).catch(function () { toast('Network error — please try again'); });
     });
   });
 
@@ -286,6 +308,59 @@
       galThumbs[n].scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     }, { passive: true });
     galSync();
+  }
+
+  /* ------------------------------------------------------- coupon box --- */
+  var couponBox = document.getElementById('couponBox');
+  if (couponBox) {
+    var cForm = document.getElementById('couponForm'), cInput = document.getElementById('couponCode');
+    var cApplyBtn = document.getElementById('couponApply'), cApplied = document.getElementById('couponApplied');
+    var cCode = document.getElementById('couponAppliedCode'), cDesc = document.getElementById('couponAppliedDesc');
+    var cMsg = document.getElementById('couponMsg'), cRemove = document.getElementById('couponRemove');
+    var cMsgSet = function (text, kind) { cMsg.textContent = text || ''; cMsg.className = 'coupon-msg' + (text ? ' ' + kind : ''); };
+    var cChanged = function (discount, code) {
+      document.dispatchEvent(new CustomEvent('coupon:changed', { detail: { discount: discount, code: code } }));
+    };
+    cInput.addEventListener('input', function () { cInput.value = cInput.value.toUpperCase(); if (cMsg.textContent) cMsgSet(''); });
+    cForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var code = cInput.value.trim();
+      if (!code) { cMsgSet('Please enter a coupon code.', 'err'); cInput.focus(); return; }
+      cApplyBtn.disabled = true;
+      postJSON('/api/coupon_apply.php', { code: code })
+        .then(function (res) {
+          if (res.ok) {
+            cCode.textContent = res.code; cDesc.textContent = res.description || '';
+            cForm.hidden = true; cApplied.hidden = false; cInput.value = '';
+            cMsgSet('');
+            cChanged(res.discount, res.code);
+          } else { cMsgSet(res.message || 'That coupon could not be applied.', 'err'); cInput.select(); }
+        })
+        .catch(function () { cMsgSet('Network error — please try again.', 'err'); })
+        .finally(function () { cApplyBtn.disabled = false; });
+    });
+    cRemove.addEventListener('click', function () {
+      cRemove.disabled = true;
+      postJSON('/api/coupon_apply.php', { remove: true })
+        .then(function (res) {
+          if (res.ok) {
+            cApplied.hidden = true; cForm.hidden = false; cMsgSet('Coupon removed.', 'ok');
+            cChanged(0, '');
+            cInput.focus();
+          } else { cMsgSet(res.message || 'Could not remove the coupon.', 'err'); }
+        })
+        .catch(function () { cMsgSet('Network error — please try again.', 'err'); })
+        .finally(function () { cRemove.disabled = false; });
+    });
+  }
+
+  /* ---------------- account tabs: bring the current one into view (phones) --- */
+  var acctActive = document.querySelector('.account-nav a.active');
+  if (acctActive && acctActive.scrollIntoView) {
+    var acctNav = acctActive.parentNode;
+    if (acctNav.scrollWidth > acctNav.clientWidth) {
+      acctNav.scrollLeft = Math.max(0, acctActive.offsetLeft - (acctNav.clientWidth - acctActive.offsetWidth) / 2);
+    }
   }
 
   /* ------------------------------------------------- search suggestions -- */

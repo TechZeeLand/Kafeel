@@ -75,6 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo = db();
+        // Snapshot of the colour/size/stock table before saving, so the log can say whether it changed.
+        $variantsBefore = $product ? json_encode(variant_editor_data((int) $product['id'])) : null;
         try {
             $pdo->beginTransaction();
             $mainImage = $newMain ?: ($product['image_main'] ?? null);
@@ -104,6 +106,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($newGallery as $k => $path) $ins->execute([$productId, $path, $next + 1 + $k]);
             }
             $pdo->commit();
+
+            // ---- audit log (after the save has really succeeded) ----
+            $catName = fn ($cid) => $cid ? (array_column($categories, 'name', 'id')[(int) $cid] ?? ('#' . (int) $cid)) : 'None';
+            $finalStock = $variantTotal !== null ? $variantTotal : max(0, $stock);
+            $newVals = ['name' => $name, 'category' => $catName($categoryId), 'sku' => $sku, 'slug' => $slug, 'short_desc' => $shortDesc, 'tags' => $tags, 'description' => $description,
+                'price' => $price, 'compare_price' => $comparePrice, 'stock' => $finalStock, 'weight_grams' => $weightGrams, 'height_mm' => $heightMm, 'width_mm' => $widthMm,
+                'depth_mm' => $depthMm, 'color' => $color, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no'];
+            if ($product) {
+                $oldVals = $product;
+                $oldVals['category'] = $catName($product['category_id']);
+                $oldVals['is_active'] = $product['is_active'] ? 'yes' : 'no';
+                $oldVals['is_featured'] = $product['is_featured'] ? 'yes' : 'no';
+                $diff = admin_log_diff($oldVals, $newVals, ['name' => 'Name', 'category' => 'Category', 'sku' => 'SKU', 'slug' => 'URL slug', 'short_desc' => 'Short description', 'description' => 'Description',
+                    'tags' => 'Tags', 'price' => 'Price', 'compare_price' => 'Compare-at price', 'stock' => 'Stock', 'weight_grams' => 'Weight (g)', 'height_mm' => 'Height (mm)', 'width_mm' => 'Width (mm)',
+                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured']);
+                if ($variantsBefore !== json_encode(variant_editor_data($productId))) $diff['Colours / sizes / per-variant stock'] = ['(before)', 'edited'];
+                if ($newMain) $diff['Main photo'] = ['(old photo)', 'replaced'];
+                if ($newGallery) $diff['Gallery photos'] = ['—', count($newGallery) . ' added'];
+                admin_log('product.update', 'Edited product "' . admin_log_clip($name, 80) . '"' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'product', $productId, $diff ? ['changes' => $diff] : []);
+            } else {
+                admin_log('product.create', 'Created product "' . admin_log_clip($name, 80) . '" at ' . money($price), 'product', $productId,
+                    array_filter(['sku' => $sku, 'category' => $catName($categoryId), 'stock' => $finalStock, 'visible_in_shop' => $isActive ? 'yes' : 'no']));
+            }
 
             delete_upload_if_unused($oldMain);
             flash_set('success', $product ? 'Product updated.' : 'Product created.');

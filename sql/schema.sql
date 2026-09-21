@@ -160,6 +160,26 @@ CREATE TABLE IF NOT EXISTS favorites (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------
+-- coupons (percentage or fixed-amount discount codes)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coupons (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,
+  type ENUM('percent','fixed') NOT NULL DEFAULT 'percent',
+  value DECIMAL(10,2) NOT NULL DEFAULT 0,
+  max_discount DECIMAL(10,2) DEFAULT NULL,
+  min_subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
+  starts_at DATETIME DEFAULT NULL,
+  expires_at DATETIME DEFAULT NULL,
+  usage_limit INT DEFAULT NULL,
+  per_customer_limit INT DEFAULT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  note VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------
 -- orders
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS orders (
@@ -170,6 +190,9 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method ENUM('cod','bank_transfer') NOT NULL DEFAULT 'cod',
   delivery_area ENUM('inside_dhaka','suburbs','outside_dhaka') NOT NULL DEFAULT 'inside_dhaka',
   subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
+  discount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  coupon_id INT DEFAULT NULL,
+  coupon_code VARCHAR(40) DEFAULT NULL,
   shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_name VARCHAR(120) NOT NULL,
@@ -182,7 +205,9 @@ CREATE TABLE IF NOT EXISTS orders (
   notes VARCHAR(255) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  KEY idx_orders_coupon (coupon_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -202,13 +227,18 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- Timestamped log of every status an order has passed through, so the
 -- storefront and admin can show a real "22 Feb 2026, 3:00 AM: Shipped"
--- style timeline instead of just the current status.
+-- style timeline instead of just the current status. from_status and
+-- changed_by(_name) say what it changed from and which admin did it; those
+-- are only ever shown in the admin portal.
 CREATE TABLE IF NOT EXISTS order_status_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_id INT NOT NULL,
+  from_status VARCHAR(20) DEFAULT NULL,
   status ENUM('pending','processing','shipped','completed','cancelled') NOT NULL,
   note VARCHAR(255) DEFAULT NULL,
   changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  changed_by INT DEFAULT NULL,
+  changed_by_name VARCHAR(120) DEFAULT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -218,6 +248,47 @@ CREATE TABLE IF NOT EXISTS settings (
   setting_key VARCHAR(60) PRIMARY KEY,
   setting_value TEXT,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------
+-- product reviews (customers who received the product can review it)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  user_id INT DEFAULT NULL,
+  author_name VARCHAR(120) NOT NULL,
+  rating TINYINT NOT NULL,
+  title VARCHAR(120) DEFAULT NULL,
+  body TEXT NOT NULL,
+  status ENUM('published','hidden') NOT NULL DEFAULT 'published',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_review (user_id, product_id),
+  KEY idx_product_status (product_id, status, created_at),
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------
+-- admin activity log: one row per admin action (append-only, no UI to edit or delete)
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS admin_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT DEFAULT NULL,
+  admin_name VARCHAR(120) NOT NULL,
+  admin_username VARCHAR(60) DEFAULT NULL,
+  action VARCHAR(60) NOT NULL,
+  target_type VARCHAR(40) DEFAULT NULL,
+  target_id INT DEFAULT NULL,
+  summary VARCHAR(255) NOT NULL,
+  details TEXT DEFAULT NULL,
+  ip VARCHAR(45) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_created (created_at),
+  KEY idx_admin (admin_id, created_at),
+  KEY idx_action (action, created_at),
+  KEY idx_target (target_type, target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------
@@ -269,4 +340,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '4');
+('schema_version', '5');

@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sent = true;
             $_SESSION['contact_last_sent'] = time();
         } else {
-            $errors[] = "We couldn't send your message right now. Please try DMing us or emailing " . $store['email'] . ' directly.';
+            $errors[] = "We couldn't send your message right now. Please try messaging us or emailing " . $store['email'] . ' directly.';
         }
     }
 }
@@ -48,14 +48,15 @@ require __DIR__ . '/includes/header.php';
       $dm = [];
       if (isset($socials['messenger'])) $dm[] = '<a href="' . e($socials['messenger']['url']) . '" target="_blank" rel="noopener"><strong>Facebook Messenger</strong></a>';
       if (isset($socials['instagram'])) $dm[] = '<a href="' . e($socials['instagram']['url']) . '" target="_blank" rel="noopener"><strong>Instagram</strong></a>';
+      if (isset($socials['whatsapp'])) $dm[] = '<a href="' . e($socials['whatsapp']['url']) . '" target="_blank" rel="noopener"><strong>WhatsApp</strong></a>';
       ?>
-      <?php if ($dm): ?>DM us on <?= implode(' or ', $dm) ?>.<?php endif; ?>
+      <?php if ($dm): ?>Message us on <?= count($dm) > 1 ? implode(', ', array_slice($dm, 0, -1)) . ' or ' . end($dm) : $dm[0] ?>.<?php endif; ?>
       <?php if ($store['email'] !== ''): ?>You can also send a direct mail and our staff will reach out to you.<?php endif; ?>
     </p>
 
     <ul class="contact-list">
-      <?php if ($store['phone'] !== ''): ?>
-        <li><?= ui_icon('phone', 20) ?><div><small>Call us</small><a href="<?= e(tel_href($store['phone'])) ?>"><?= e($store['phone']) ?></a></div></li>
+      <?php $phones = store_phones(); if ($phones): ?>
+        <li><?= ui_icon('phone', 20) ?><div><small>Call us</small><?php foreach ($phones as $i => $ph): ?><?= $i ? '<br>' : '' ?><a href="<?= e(tel_href($ph)) ?>"><?= e($ph) ?></a><?php endforeach; ?></div></li>
       <?php endif; ?>
       <?php if ($store['email'] !== ''): ?>
         <li><?= ui_icon('mail', 20) ?><div><small>Email</small><a href="mailto:<?= e($store['email']) ?>"><?= e($store['email']) ?></a></div></li>

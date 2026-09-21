@@ -40,10 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($category) {
                 db()->prepare('UPDATE categories SET name=?, slug=?, description=?, image=?, sort_order=?, is_active=? WHERE id=?')
                     ->execute([$name, $slug, $description ?: null, $image, $sortOrder, $isActive, $category['id']]);
+                $diff = admin_log_diff(['name' => $category['name'], 'description' => $category['description'], 'sort_order' => $category['sort_order'], 'is_active' => $category['is_active'] ? 'yes' : 'no', 'slug' => $category['slug']],
+                    ['name' => $name, 'description' => $description, 'sort_order' => $sortOrder, 'is_active' => $isActive ? 'yes' : 'no', 'slug' => $slug],
+                    ['name' => 'Name', 'description' => 'Description', 'sort_order' => 'Sort order', 'is_active' => 'Visible in shop', 'slug' => 'URL slug']);
+                if ($uploaded) $diff['Image'] = ['(old image)', 'replaced'];
+                admin_log('category.update', 'Edited category "' . $name . '"' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'category', (int) $category['id'], $diff ? ['changes' => $diff] : []);
                 flash_set('success', 'Category updated.');
             } else {
                 db()->prepare('INSERT INTO categories (name, slug, description, image, sort_order, is_active) VALUES (?,?,?,?,?,?)')
                     ->execute([$name, $slug, $description ?: null, $image, $sortOrder, $isActive]);
+                admin_log('category.create', 'Created category "' . $name . '"', 'category', (int) db()->lastInsertId());
                 flash_set('success', 'Category created.');
             }
             redirect('/admin/categories.php');

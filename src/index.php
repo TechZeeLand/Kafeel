@@ -36,8 +36,7 @@ require __DIR__ . '/includes/header.php';
       <h1>Gear for the pocket, the bag, and everywhere in between.</h1>
       <p class="lead">Carefully chosen EDC gear, bags and full-grain leather goods — the kind of things you reach for daily and never think to replace.</p>
       <div class="hero-actions">
-        <?php if (isset($heroCats[0])): ?><a href="/category.php?slug=<?= e($heroCats[0]['slug']) ?>" class="btn btn-primary">Shop <?= e($heroCats[0]['name']) ?></a><?php else: ?><a href="/search.php?sort=newest" class="btn btn-primary">Shop all products</a><?php endif; ?>
-        <?php if (isset($heroCats[1])): ?><a href="/category.php?slug=<?= e($heroCats[1]['slug']) ?>" class="btn btn-outline">Shop <?= e($heroCats[1]['name']) ?></a><?php endif; ?>
+        <a href="/search.php?sort=newest" class="btn btn-primary">Shop all products</a>
       </div>
     </div>
     <div class="hero-card">

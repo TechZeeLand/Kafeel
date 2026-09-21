@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db()->prepare('UPDATE admins SET password_hash = ? WHERE id = ?')->execute([password_hash($new, PASSWORD_DEFAULT), $admin['id']]);
         login_throttle_clear('admin_pw', (string) $admin['username']);
         session_regenerate_id(true);
+        admin_log('auth.password', 'Changed their own password');
         flash_set('success', 'Password changed.');
         redirect('/admin/account.php');
     }

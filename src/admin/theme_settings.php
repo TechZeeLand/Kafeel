@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach (['theme_primary', 'theme_secondary', 'theme_dark'] as $k) {
             db()->prepare('DELETE FROM settings WHERE setting_key = ?')->execute([$k]);
         }
+        admin_log('theme.reset', 'Reset the theme colours to the defaults');
         flash_set('success', 'Theme colors reset to the defaults.');
         redirect('/admin/theme_settings.php');
     }
@@ -28,9 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $seasonalEffect = in_array($_POST['seasonal_effect'] ?? '', ['snow', 'leaves', 'rain'], true) ? $_POST['seasonal_effect'] : 'snow';
 
     if (!$errors) {
+        $t0 = theme_settings();
+        $s0 = ['on' => get_setting('seasonal_enabled', '0') === '1' ? 'yes' : 'no', 'effect' => (string) get_setting('seasonal_effect', 'snow')];
         foreach ($vals as $k => $v) set_setting($k, $v);
         set_setting('seasonal_enabled', $seasonalEnabled ? '1' : '0');
         set_setting('seasonal_effect', $seasonalEffect);
+        $diff = admin_log_diff(['p' => $t0['primary'], 's' => $t0['secondary'], 'd' => $t0['dark'], 'on' => $s0['on'], 'fx' => $s0['effect']],
+            ['p' => $vals['theme_primary'], 's' => $vals['theme_secondary'], 'd' => $vals['theme_dark'], 'on' => $seasonalEnabled ? 'yes' : 'no', 'fx' => $seasonalEffect],
+            ['p' => 'Primary colour', 's' => 'Secondary colour', 'd' => 'Header/footer colour', 'on' => 'Seasonal effect on', 'fx' => 'Effect']);
+        admin_log('theme.update', 'Edited the theme' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), null, null, $diff ? ['changes' => $diff] : []);
         flash_set('success', 'Theme saved — it is live on the storefront now.');
         redirect('/admin/theme_settings.php');
     }

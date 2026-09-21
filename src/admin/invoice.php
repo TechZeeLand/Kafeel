@@ -18,4 +18,6 @@ $itemsStmt->execute([$order['id']]);
 $items = $itemsStmt->fetchAll();
 
 $mode = ($_GET['download'] ?? '') === '1' ? 'D' : 'I';
+// An invoice carries the customer's name, phone and address, so opening one is recorded.
+admin_log('order.invoice', ($mode === 'D' ? 'Downloaded' : 'Opened') . ' the invoice for order ' . $order['order_number'], 'order', (int) $order['id']);
 output_order_invoice($order, $items, $mode);

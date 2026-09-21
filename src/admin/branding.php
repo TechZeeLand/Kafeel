@@ -37,18 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($stored as $url) brand_delete_file($url);
     } else {
         $notes = [];
+        $changes = [];
         foreach ($slots as $key => [$setting]) {
             $old = (string) get_setting($setting, '');
             if (isset($stored[$key])) {
                 set_setting($setting, $stored[$key]);
                 if ($old !== '') brand_delete_file($old);
+                $changes[ucfirst(str_replace('_', ' ', $key))] = [$old !== '' ? '(previous file)' : '—', 'new file uploaded'];
             } elseif (!empty($_POST['remove_' . $key]) && $old !== '') {
                 set_setting($setting, '');
                 brand_delete_file($old);
+                $changes[ucfirst(str_replace('_', ' ', $key))] = ['(file)', 'removed'];
             }
         }
+        $oldShow = get_setting('brand_logo_show_name', '0') === '1';
+        $oldDesc = (string) get_setting('site_description', '');
         set_setting('brand_logo_show_name', !empty($_POST['show_name']) ? '1' : '0');
         set_setting('site_description', $desc);
+        $changes += admin_log_diff(['show' => $oldShow ? 'yes' : 'no', 'desc' => $oldDesc], ['show' => !empty($_POST['show_name']) ? 'yes' : 'no', 'desc' => $desc], ['show' => 'Show store name next to logo', 'desc' => 'Site description']);
+        admin_log('branding.update', 'Edited branding' . ($changes ? ': ' . admin_log_diff_summary($changes) : ' (saved, nothing changed)'), null, null, $changes ? ['changes' => $changes] : []);
         brand_rebuild_derived();
 
         if (isset($stored['banner']) && ($d = image_dims($stored['banner'])) && ($d[0] < 600 || $d[1] < 315)) {

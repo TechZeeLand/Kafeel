@@ -14,8 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $s->execute([$id, $id, $id]);
     foreach ($s->fetchAll() as $r) if ($r['p']) $paths[] = $r['p'];
 
+    $pi = db()->prepare('SELECT name, sku FROM products WHERE id = ?');
+    $pi->execute([$id]);
+    $gone = $pi->fetch();
+
     db()->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
     foreach ($paths as $p) delete_upload_if_unused($p);
+    if ($gone) admin_log('product.delete', 'Deleted product "' . $gone['name'] . '"', 'product', $id, array_filter(['sku' => $gone['sku']]));
     flash_set('success', 'Product deleted.');
 }
 redirect('/admin/products.php');

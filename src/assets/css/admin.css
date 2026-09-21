@@ -293,3 +293,38 @@ mark.hit { background: color-mix(in srgb, var(--brass) 30%, transparent); color:
   .admin-sidebar nav a { flex-shrink: 0; white-space: nowrap; }
   .admin-user { flex-wrap: wrap; gap: 6px 14px; }
 }
+
+/* ==========================================================================
+   Phase 5: activity log, order timeline attribution, stars, log/coupon bits
+   ========================================================================== */
+.stars { display: inline-block; font-size: 14px; line-height: 1; white-space: nowrap; vertical-align: -2px; }
+.stars::before {
+  content: "\2605\2605\2605\2605\2605";
+  background: linear-gradient(90deg, #e0a526 calc(var(--rating, 0) / 5 * 100%), rgba(32,41,59,.2) calc(var(--rating, 0) / 5 * 100%));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+
+.timeline .tl-by { margin-top: 2px; font-size: 0.82rem; color: var(--ink-soft); }
+.timeline .tl-by strong { color: var(--ink); }
+
+.log-filters .log-date { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--ink-soft); }
+.log-filters .log-date input { padding: 8px 8px; border: 1px solid var(--line); border-radius: 6px; font-family: inherit; font-size: .84rem; background: #fff; }
+.log-table td { vertical-align: top; }
+.log-table .log-when { white-space: nowrap; }
+.log-table .log-what { min-width: 260px; overflow-wrap: anywhere; }
+.log-details { margin-top: 6px; font-size: .82rem; }
+.log-details summary { cursor: pointer; color: var(--accent-text); font-weight: 600; width: max-content; }
+.log-diff { width: 100%; max-width: 560px; margin-top: 6px; border-collapse: collapse; font-size: .8rem; }
+.log-diff th { text-align: left; font-weight: 600; color: var(--ink-faint); padding: 3px 8px; border-bottom: 1px solid var(--line); }
+.log-diff td { padding: 4px 8px; border-bottom: 1px dashed var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.log-diff .was { color: var(--rust); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--rust) 50%, transparent); }
+.log-diff .now { color: var(--sage-text); font-weight: 600; }
+.log-kv { margin-top: 4px; color: var(--ink-soft); }
+.log-kv span { color: var(--ink-faint); margin-right: 4px; }
+.log-kv span::after { content: ":"; }
+
+@media (max-width: 860px) {
+  .log-filters .search { max-width: none; flex-basis: 100%; }
+  .log-filters select, .log-filters .log-date { flex: 1 1 140px; }
+}
+.log-table .log-admin { white-space: nowrap; }

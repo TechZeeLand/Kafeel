@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $section = $_POST['section'] ?? '';
 
     if ($section === 'topbar') {
+        $tb0 = topbar_settings();
         $text = mb_substr(trim($_POST['topbar_text'] ?? ''), 0, 200);
         $link = trim($_POST['topbar_link'] ?? '');
         $enabled = !empty($_POST['topbar_enabled']);
@@ -20,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             set_setting('topbar_enabled', $enabled ? '1' : '0');
             set_setting('topbar_text', $text);
             set_setting('topbar_link', $link);
+            admin_log('settings.announcement', $enabled ? 'Announcement bar switched on: "' . admin_log_clip($text, 100) . '"' : 'Announcement bar switched off',
+                null, null, ['changes' => admin_log_diff(['on' => $tb0['enabled'] ? 'yes' : 'no', 'text' => $tb0['text'], 'link' => $tb0['link']], ['on' => $enabled ? 'yes' : 'no', 'text' => $text, 'link' => $link], ['on' => 'Shown', 'text' => 'Message', 'link' => 'Link'])]);
             flash_set('success', $enabled ? 'Announcement bar saved and showing on every page.' : 'Announcement bar is switched off.');
             redirect('/admin/settings.php#topbar');
         }
@@ -35,19 +38,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($u !== '' && !preg_match('~^https?://[^\s]+$~i', $u)) $errors[] = $label . ' link must start with https:// (or leave it empty to hide it).';
             $links[$k] = $u;
         }
+        // WhatsApp accepts a wa.me link or just a phone number, and is stored as a clean https link.
+        $wa = whatsapp_link_normalize((string) ($_POST['social_whatsapp'] ?? ''));
+        if ($wa === null) $errors[] = 'WhatsApp: enter a wa.me link (like https://wa.me/8801XXXXXXXXX) or just the phone number, or leave it empty to hide it.';
+        else $links['whatsapp'] = $wa;
+        foreach (['store_phone' => 'The phone number', 'store_phone2' => 'The second phone number'] as $pk => $plabel) {
+            $pv = trim($_POST[$pk] ?? '');
+            if ($pv !== '' && !preg_match('/^\+?[\d\s().-]{5,40}$/', $pv)) $errors[] = $plabel . ' should only contain digits, spaces, + ( ) - or a dot.';
+        }
         if (!$errors) {
+            $before = store_info();
+            $beforeSocial = array_map(fn ($x) => $x['url'], store_socials());
             set_setting('store_name', mb_substr(trim($_POST['store_name'] ?? ''), 0, 80));
             set_setting('store_tagline', mb_substr(trim($_POST['store_tagline'] ?? ''), 0, 80));
             set_setting('store_phone', mb_substr(trim($_POST['store_phone'] ?? ''), 0, 40));
+            set_setting('store_phone2', mb_substr(trim($_POST['store_phone2'] ?? ''), 0, 40));
             set_setting('store_email', $email);
             set_setting('store_address', mb_substr(trim(str_replace("\r", '', $_POST['store_address'] ?? '')), 0, 300));
             foreach ($links as $k => $u) set_setting('social_' . $k, mb_substr($u, 0, 255));
+            $oldV = ['name' => $before['name'], 'tagline' => $before['tagline'], 'phone' => $before['phone'], 'phone2' => $before['phone2'], 'email' => $before['email'], 'address' => $before['address']];
+            $newV = ['name' => trim($_POST['store_name'] ?? ''), 'tagline' => trim($_POST['store_tagline'] ?? ''), 'phone' => trim($_POST['store_phone'] ?? ''), 'phone2' => trim($_POST['store_phone2'] ?? ''),
+                     'email' => $email, 'address' => trim(str_replace("\r", '', $_POST['store_address'] ?? ''))];
+            $labels = ['name' => 'Store name', 'tagline' => 'Tagline', 'phone' => 'Phone', 'phone2' => 'Second phone', 'email' => 'Email', 'address' => 'Address'];
+            foreach ($links as $k => $u) { $oldV['social_' . $k] = $beforeSocial[$k] ?? ''; $newV['social_' . $k] = $u; $labels['social_' . $k] = ucfirst($k) . ' link'; }
+            $diff = admin_log_diff($oldV, $newV, $labels);
+            admin_log('settings.store', 'Edited store details' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), null, null, $diff ? ['changes' => $diff] : []);
             flash_set('success', 'Store details saved — they now show across the whole site: header, footer, contact page, legal pages, emails and invoices.');
             redirect('/admin/settings.php#store');
         }
     }
 
     if ($section === 'smtp') {
+        $smtp0 = smtp_settings();
         $port = (int) ($_POST['smtp_port'] ?? 0);
         $from = trim($_POST['smtp_from_email'] ?? '');
         $secure = in_array($_POST['smtp_secure'] ?? '', ['tls', 'ssl', 'none'], true) ? $_POST['smtp_secure'] : 'tls';
@@ -63,6 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             elseif (($_POST['smtp_pass'] ?? '') !== '') set_setting('smtp_pass', $_POST['smtp_pass']);
             set_setting('smtp_from_email', $from);
             set_setting('smtp_from_name', mb_substr(trim($_POST['smtp_from_name'] ?? ''), 0, 80));
+            $sNew = ['host' => trim($_POST['smtp_host'] ?? ''), 'port' => $port ? (string) $port : '', 'secure' => $secure === 'none' ? '' : $secure, 'user' => trim($_POST['smtp_user'] ?? ''),
+                     'from' => $from, 'from_name' => trim($_POST['smtp_from_name'] ?? '')];
+            $sOld = ['host' => $smtp0['host'], 'port' => (string) $smtp0['port'], 'secure' => $smtp0['secure'], 'user' => $smtp0['user'], 'from' => $smtp0['from_email'], 'from_name' => $smtp0['from_name']];
+            $diff = admin_log_diff($sOld, $sNew, ['host' => 'SMTP server', 'port' => 'Port', 'secure' => 'Encryption', 'user' => 'Username', 'from' => 'From address', 'from_name' => 'From name']);
+            // The password itself is never written to the log — only the fact that it changed.
+            if (!empty($_POST['smtp_pass_clear'])) $diff['Password'] = ['(saved)', 'cleared'];
+            elseif (($_POST['smtp_pass'] ?? '') !== '') $diff['Password'] = ['(hidden)', 'changed'];
+            admin_log('settings.email', 'Edited email (SMTP) settings' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), null, null, $diff ? ['changes' => $diff] : []);
             flash_set('success', 'Email settings saved. Send a test email below to make sure they work.');
             redirect('/admin/settings.php#smtp');
         }
@@ -75,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $ok = send_email($to, $to, 'Test email from ' . store_info()['name'],
                 email_wrap('It works!', '<p>This is a test message sent from your store\'s admin panel. If you\'re reading it, your email settings are correct and order/verification emails will be delivered.</p>'));
+            admin_log('settings.test_email', ($ok ? 'Sent' : 'Tried to send') . ' a test email to ' . $to . ($ok ? '' : ' (failed)'));
             if ($ok) { flash_set('success', 'Test email sent to ' . $to . '. Check the inbox (and spam folder).'); }
             else { flash_set('error', 'The test email failed: ' . (mail_last_error() ?: 'unknown error')); }
             redirect('/admin/settings.php#smtp');
@@ -131,6 +162,9 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div class="field-row">
       <div class="field"><label for="store_phone">Phone number</label><input type="text" id="store_phone" name="store_phone" value="<?= e($section === 'store' ? ($_POST['store_phone'] ?? '') : $store['phone']) ?>" maxlength="40" placeholder="+880 1XXX-XXXXXX"></div>
+      <div class="field"><label for="store_phone2">Second phone number <span class="muted" style="font-weight:400;">(optional)</span></label><input type="text" id="store_phone2" name="store_phone2" value="<?= e($section === 'store' ? ($_POST['store_phone2'] ?? '') : $store['phone2']) ?>" maxlength="40" placeholder="+880 1XXX-XXXXXX"><div class="hint">Shown next to the main number in the footer, contact page and invoices. Leave empty to hide.</div></div>
+    </div>
+    <div class="field-row">
       <div class="field"><label for="store_email">Email</label><input type="email" id="store_email" name="store_email" value="<?= e($section === 'store' ? ($_POST['store_email'] ?? '') : $store['email']) ?>"><div class="hint">Also where messages from the contact form are delivered.</div></div>
     </div>
     <div class="field"><label for="store_address">Address</label><textarea id="store_address" name="store_address" rows="3" maxlength="300" placeholder="House, road, area&#10;City"><?= e($section === 'store' ? ($_POST['store_address'] ?? '') : $store['address']) ?></textarea></div>
@@ -138,8 +172,8 @@ require __DIR__ . '/includes/header.php';
     <h3 class="subhead">Social links</h3>
     <p class="help">Shown as icons in the footer, mobile menu and contact page. Leave one empty to hide it.</p>
     <div class="field-row">
-      <?php foreach (['facebook' => ['Facebook page', 'https://www.facebook.com/yourpage'], 'messenger' => ['Messenger', 'https://m.me/yourpage'], 'instagram' => ['Instagram', 'https://www.instagram.com/yourname/'], 'youtube' => ['YouTube', 'https://www.youtube.com/@yourchannel']] as $k => [$label, $ph]): ?>
-        <div class="field"><label for="social_<?= $k ?>"><?= e($label) ?></label><input type="url" id="social_<?= $k ?>" name="social_<?= $k ?>" value="<?= e($section === 'store' ? ($_POST['social_' . $k] ?? '') : ($socials[$k]['url'] ?? '')) ?>" placeholder="<?= e($ph) ?>"></div>
+      <?php foreach (['facebook' => ['Facebook page', 'https://www.facebook.com/yourpage'], 'messenger' => ['Messenger', 'https://m.me/yourpage'], 'instagram' => ['Instagram', 'https://www.instagram.com/yourname/'], 'youtube' => ['YouTube', 'https://www.youtube.com/@yourchannel'], 'whatsapp' => ['WhatsApp', 'https://wa.me/8801XXXXXXXXX']] as $k => [$label, $ph]): ?>
+        <div class="field"><label for="social_<?= $k ?>"><?= e($label) ?></label><input type="<?= $k === 'whatsapp' ? 'text' : 'url' ?>" id="social_<?= $k ?>" name="social_<?= $k ?>" value="<?= e($section === 'store' ? ($_POST['social_' . $k] ?? '') : ($socials[$k]['url'] ?? '')) ?>" placeholder="<?= e($ph) ?>"><?php if ($k === 'whatsapp'): ?><div class="hint">A wa.me link, or just the number (01XXXXXXXXX works) — it's turned into a link for you. Shown with the other social icons.</div><?php endif; ?></div>
       <?php endforeach; ?>
     </div>
   </div>

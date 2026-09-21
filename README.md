@@ -319,6 +319,11 @@ Kafeel/
     └── *.php                    # storefront pages
 ```
 
+## Phase 5 features
+
+Coupons, product reviews, wishlist counts, second phone + WhatsApp link, admin activity log and order-status
+attribution, plus mobile fixes. See [CHANGES-phase5.md](CHANGES-phase5.md) for details and deploy notes.
+
 ## Running behind a domain / reverse proxy
 
 If you're putting this behind Nginx Proxy Manager, Caddy, or Traefik:

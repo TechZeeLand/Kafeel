@@ -17,6 +17,9 @@ $__ico = [
     'brush' => '<svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2H17a5 5 0 0 0 5-5c0-4.4-4.5-8-10-8z"/></svg>',
     'gear' => '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     'image' => '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    'star' => '<svg viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z"/></svg>',
+    'ticket' => '<svg viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>',
+    'log' => '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
     'key' => '<svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
 ];
 ?><!DOCTYPE html>
@@ -45,12 +48,15 @@ $__ico = [
       <?= nav_link('/admin/categories.php', 'Categories', ['categories.php', 'category_form.php'], $__path, $__ico['tag']) ?>
       <div class="section-label">Sales</div>
       <?= nav_link('/admin/orders.php', 'Orders', ['orders.php', 'order_detail.php'], $__path, $__ico['cart']) ?>
+      <?= nav_link('/admin/coupons.php', 'Coupons', ['coupons.php', 'coupon_form.php'], $__path, $__ico['ticket']) ?>
+      <?= nav_link('/admin/reviews.php', 'Reviews', ['reviews.php'], $__path, $__ico['star']) ?>
       <div class="section-label">People</div>
       <?= nav_link('/admin/users.php', 'Customers', ['users.php'], $__path, $__ico['users']) ?>
       <div class="section-label">Site</div>
       <?= nav_link('/admin/branding.php', 'Branding & sharing', ['branding.php'], $__path, $__ico['image']) ?>
       <?= nav_link('/admin/settings.php', 'Settings & email', ['settings.php'], $__path, $__ico['gear']) ?>
       <?= nav_link('/admin/theme_settings.php', 'Theme & effects', ['theme_settings.php'], $__path, $__ico['brush']) ?>
+      <?php if (admin_is_owner()): ?><?= nav_link('/admin/logs.php', 'Activity log', ['logs.php'], $__path, $__ico['log']) ?><?php endif; ?>
       <?= nav_link('/admin/account.php', 'My account', ['account.php'], $__path, $__ico['key']) ?>
     </nav>
   </aside>
@@ -61,7 +67,7 @@ $__ico = [
       <div class="admin-user">
         <span class="who">Signed in as <strong><?= e($__admin['name']) ?></strong></span>
         <a href="/" target="_blank" class="link">View store ↗</a>
-        <a href="/admin/logout.php" class="logout">Log out</a>
+        <a href="/admin/logout.php?csrf_token=<?= e(csrf_token()) ?>" class="logout">Log out</a>
       </div>
     </div>
     <div class="admin-content">

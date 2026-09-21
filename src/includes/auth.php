@@ -1,8 +1,9 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+/** Signed in AND still an active account (asks the database, so a deleted or disabled customer is signed out at once). */
 function is_logged_in(): bool {
-    return !empty($_SESSION['user_id']);
+    return current_user() !== null;
 }
 
 function current_user(): ?array {
@@ -11,11 +12,15 @@ function current_user(): ?array {
         if (empty($_SESSION['user_id'])) {
             $user = null;
         } else {
-            $stmt = db()->prepare('SELECT id, name, email, phone, email_verified, created_at FROM users WHERE id = ?');
+            $stmt = db()->prepare('SELECT id, name, email, phone, email_verified, status, created_at FROM users WHERE id = ?');
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch() ?: null;
-            if (!$user) {
+            // Deleted, or disabled by an admin since they signed in: end the session right away
+            // (attempt_login() only checks status at sign-in, so without this a disabled customer
+            // would stay signed in for as long as their 30-day session cookie lasts).
+            if (!$user || $user['status'] !== 'active') {
                 unset($_SESSION['user_id']);
+                $user = null;
             }
         }
     }

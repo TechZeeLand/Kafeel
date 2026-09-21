@@ -49,7 +49,10 @@ $offset = ($page - 1) * $perPage;
 
 $stmt = db()->prepare(
     "SELECT p.*, c.name AS category_name, ($effStock) AS eff_stock,
-            (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id) AS variant_count
+            (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id) AS variant_count,
+            (SELECT COUNT(*) FROM favorites fw WHERE fw.product_id = p.id) AS wish_count,
+            (SELECT COUNT(*) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'published') AS review_count,
+            (SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'published') AS review_avg
      FROM products p LEFT JOIN categories c ON c.id = p.category_id
      WHERE $whereSql ORDER BY p.created_at DESC, p.id DESC LIMIT $perPage OFFSET $offset"
 );
@@ -99,10 +102,10 @@ require __DIR__ . '/includes/header.php';
 
   <div class="table-wrap">
     <table class="admin-table">
-      <thead><tr><th style="width:64px;"></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;"></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th title="How many customers have it in their wishlist">Wishlists</th><th>Rating</th><th>Status</th><th></th></tr></thead>
       <tbody>
       <?php if (!$products): ?>
-        <tr class="empty-row"><td colspan="7"><?= $q !== '' || $cat || $filter !== 'all' ? 'No products match those filters.' : 'No products yet — add your first one.' ?></td></tr>
+        <tr class="empty-row"><td colspan="9"><?= $q !== '' || $cat || $filter !== 'all' ? 'No products match those filters.' : 'No products yet — add your first one.' ?></td></tr>
       <?php endif; ?>
       <?php foreach ($products as $p): $stockN = (int) $p['eff_stock']; ?>
         <tr>
@@ -114,6 +117,8 @@ require __DIR__ . '/includes/header.php';
           <td><?= e($p['category_name'] ?? '—') ?></td>
           <td class="mono"><?= e(money((float) $p['price'])) ?><?php if ($p['compare_price']): ?><div class="muted small" style="text-decoration:line-through;"><?= e(money((float) $p['compare_price'])) ?></div><?php endif; ?></td>
           <td><?php if ($stockN <= 0): ?><span class="pill pill-rust">Out</span><?php elseif ($stockN <= 5): ?><span class="stock-low mono"><?= $stockN ?> left</span><?php else: ?><span class="mono"><?= $stockN ?></span><?php endif; ?></td>
+          <td class="mono"><?= (int) $p['wish_count'] > 0 ? '♥ ' . (int) $p['wish_count'] : '<span class="muted">0</span>' ?></td>
+          <td class="small" style="white-space:nowrap;"><?php if ((int) $p['review_count'] > 0): ?><?= stars_html((float) $p['review_avg']) ?> <span class="muted">(<?= (int) $p['review_count'] ?>)</span><?php else: ?><span class="muted">—</span><?php endif; ?></td>
           <td><?= $p['is_active'] ? '<span class="pill pill-sage">Visible</span>' : '<span class="pill pill-ink">Hidden</span>' ?></td>
           <td class="actions">
             <span class="btn-group">

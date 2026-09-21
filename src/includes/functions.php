@@ -37,11 +37,26 @@ function require_csrf(): void {
  * trips the lock first.
  */
 function client_ip(): string {
-    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $remote = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    // Behind a reverse proxy (Nginx Proxy Manager, Caddy, Traefik, Cloudflare…) REMOTE_ADDR is
+    // the proxy, i.e. the same for every visitor — that would put everyone in one throttle
+    // bucket and stamp the proxy's address on every audit-log entry. So when the direct peer
+    // is a private/loopback address (= our own proxy), read the visitor from X-Forwarded-For:
+    // the right-most public address, since each proxy appends the peer it saw and only the
+    // entries added by our own proxies can be trusted. A visitor connecting straight to the
+    // container has a public REMOTE_ADDR, so a forged header from them is never consulted.
+    $isPrivate = fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    if ($isPrivate($remote) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $chain = array_reverse(array_map('trim', explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])));
+        foreach ($chain as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP) && !$isPrivate($ip)) return $ip;
+        }
+    }
+    return $remote;
 }
 
 /** Returns seconds remaining before another attempt is allowed, or null if clear. */
-function login_throttle_check(string $bucket, string $identifier): ?int {
+function login_throttle_check(string $bucket, string $identifier, int $limit = 5): ?int {
     // Everything is computed inside the database so it can never disagree
     // with the timestamps it stored (PHP's clock/timezone is not involved).
     $stmt = db()->prepare(
@@ -52,7 +67,7 @@ function login_throttle_check(string $bucket, string $identifier): ?int {
     );
     $stmt->execute([$bucket, strtolower($identifier), client_ip()]);
     $row = $stmt->fetch();
-    if ($row && (int) $row['cnt'] >= 5 && (int) $row['remaining'] > 0) {
+    if ($row && (int) $row['cnt'] >= $limit && (int) $row['remaining'] > 0) {
         return (int) $row['remaining'];
     }
     return null;
@@ -356,6 +371,13 @@ function favorite_ids_for_user(int $userId): array {
     return array_map('intval', array_column($stmt->fetchAll(), 'product_id'));
 }
 
+/** How many customers have this product in their wishlist. */
+function product_wish_count(int $productId): int {
+    $stmt = db()->prepare('SELECT COUNT(*) FROM favorites WHERE product_id = ?');
+    $stmt->execute([$productId]);
+    return (int) $stmt->fetchColumn();
+}
+
 function favorite_toggle(int $userId, int $productId): bool {
     $pdo = db();
     $stmt = $pdo->prepare('SELECT id FROM favorites WHERE user_id = ? AND product_id = ?');
@@ -631,7 +653,10 @@ function product_search_sql(string $q): array {
 
 /** Extra SELECT columns product cards need to handle products that have variants. */
 const PRODUCT_LIST_EXTRA = ', (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id AND pv.is_active = 1) AS variant_count,
-    (SELECT COALESCE(SUM(pv.stock), 0) FROM product_variants pv WHERE pv.product_id = p.id AND pv.is_active = 1) AS variant_stock';
+    (SELECT COALESCE(SUM(pv.stock), 0) FROM product_variants pv WHERE pv.product_id = p.id AND pv.is_active = 1) AS variant_stock,
+    (SELECT COUNT(*) FROM favorites fw WHERE fw.product_id = p.id) AS wish_count,
+    (SELECT COUNT(*) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = \'published\') AS review_count,
+    (SELECT AVG(pr2.rating) FROM product_reviews pr2 WHERE pr2.product_id = p.id AND pr2.status = \'published\') AS review_avg';
 
 function product_variants_for(int $productId, bool $activeOnly = true): array {
     $sql = 'SELECT * FROM product_variants WHERE product_id = ?' . ($activeOnly ? ' AND is_active = 1' : '') . ' ORDER BY sort_order, id';
@@ -695,16 +720,29 @@ function order_stock_adjust(PDO $pdo, int $orderId, int $direction): bool {
 
 /* --------------------------------------------------- order tracking - */
 
-/** Appends a status-history row (used at order creation and every admin status change). */
-function order_status_add(int $orderId, string $status, ?string $note = null): void {
-    db()->prepare('INSERT INTO order_status_history (order_id, status, note) VALUES (?,?,?)')
-        ->execute([$orderId, $status, $note]);
+/**
+ * Appends a status-history row (used at order creation and every admin status change).
+ * $from is the status the order had before, and $admin (id + name) is who changed it —
+ * both are recorded for the admin portal only; customers never see them.
+ * @param array{id:int,name:string}|null $admin
+ */
+function order_status_add(int $orderId, string $status, ?string $note = null, ?string $from = null, ?array $admin = null): void {
+    db()->prepare('INSERT INTO order_status_history (order_id, from_status, status, note, changed_by, changed_by_name) VALUES (?,?,?,?,?,?)')
+        ->execute([$orderId, $from, $status, $note, $admin['id'] ?? null, isset($admin['name']) ? mb_substr((string) $admin['name'], 0, 120) : null]);
 }
 
-function order_status_history(int $orderId): array {
-    $stmt = db()->prepare('SELECT * FROM order_status_history WHERE order_id = ? ORDER BY changed_at ASC, id ASC');
+/**
+ * An order's status timeline, oldest first. By default only the customer-safe columns are
+ * returned; pass $forAdmin = true (admin portal only) to also get from_status / changed_by_name.
+ */
+function order_status_history(int $orderId, bool $forAdmin = false): array {
+    $cols = $forAdmin ? 'id, order_id, from_status, status, note, changed_at, changed_by, changed_by_name' : 'id, order_id, status, note, changed_at';
+    $stmt = db()->prepare("SELECT $cols FROM order_status_history WHERE order_id = ? ORDER BY changed_at ASC, id ASC");
     $stmt->execute([$orderId]);
     return $stmt->fetchAll();
 }
 
 require_once __DIR__ . '/branding.php';
+require_once __DIR__ . '/admin_log.php';
+require_once __DIR__ . '/coupons.php';
+require_once __DIR__ . '/reviews.php';

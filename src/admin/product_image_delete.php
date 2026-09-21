@@ -25,10 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             db()->prepare('DELETE FROM product_images WHERE id = ?')->execute([$imageId]);
         }
+        admin_log('product.photo_main', 'Changed the main photo of ' . admin_log_product_name($productId), 'product', $productId);
         flash_set('success', 'Main photo changed.');
     } elseif ($img) {
         db()->prepare('DELETE FROM product_images WHERE id = ?')->execute([$imageId]);
         delete_upload_if_unused($img['image_path']);
+        admin_log('product.photo_delete', 'Removed a photo from ' . admin_log_product_name($productId), 'product', $productId);
         flash_set('success', 'Photo removed.');
     }
     redirect('/admin/product_form.php?id=' . $productId);

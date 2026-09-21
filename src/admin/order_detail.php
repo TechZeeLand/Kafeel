@@ -19,9 +19,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (in_array($newStatus, $validStatuses, true)) {
         if ($newStatus !== $order['status']) {
             $pdo = db();
+            $admin = current_admin();
+            $fromStatus = $order['status'];
             $pdo->beginTransaction();
             try {
-                $wasCancelled = $order['status'] === 'cancelled';
+                // Re-read the status under a lock so two admins acting at once can't both "move" the same order,
+                // and so the recorded "from" status is what the order really was.
+                $lock = $pdo->prepare('SELECT status FROM orders WHERE id = ? FOR UPDATE');
+                $lock->execute([$order['id']]);
+                $fromStatus = (string) $lock->fetchColumn();
+                if ($fromStatus === $newStatus) {
+                    $pdo->rollBack();
+                    flash_set('info', 'Someone else already set this order to ' . ucfirst($newStatus) . '.');
+                    redirect('/admin/order_detail.php?id=' . $order['id']);
+                }
+                $wasCancelled = $fromStatus === 'cancelled';
                 $nowCancelled = $newStatus === 'cancelled';
                 // Cancelling returns the items to stock; reviving a cancelled order takes them out again.
                 if ($nowCancelled && !$wasCancelled) {
@@ -30,13 +42,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Not enough stock left to reactivate this order.');
                 }
                 $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$newStatus, $order['id']]);
-                order_status_add($order['id'], $newStatus, $note ?: null);
+                // Records what it changed from and who did it — shown in this admin page only.
+                order_status_add((int) $order['id'], $newStatus, $note ?: null, $fromStatus, ['id' => (int) $admin['id'], 'name' => $admin['name']]);
                 $pdo->commit();
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 flash_set('error', $e->getMessage());
                 redirect('/admin/order_detail.php?id=' . $order['id']);
             }
+            admin_log('order.status', 'Order ' . $order['order_number'] . ': ' . (ORDER_STATUS_LABELS[$fromStatus] ?? $fromStatus) . ' → ' . (ORDER_STATUS_LABELS[$newStatus] ?? $newStatus),
+                'order', (int) $order['id'], array_filter(['from' => $fromStatus, 'to' => $newStatus, 'note' => $note ?: null]));
 
             // Email the customer (registered or guest, whichever email we have).
             require_once __DIR__ . '/../includes/order_mail.php';
@@ -60,7 +75,12 @@ if ($order['user_id']) {
     $customer = $custStmt->fetch();
 }
 
-$history = order_status_history($order['id']);
+// Admin view: includes what each change was from and who made it.
+$history = order_status_history((int) $order['id'], true);
+// Older rows (from before this was tracked) have no 'from': work it out from the row before.
+$__prev = null;
+foreach ($history as &$__h) { if (empty($__h['from_status']) && $__prev !== null) $__h['from_status'] = $__prev; $__prev = $__h['status']; }
+unset($__h);
 $statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 
 $pageTitle = 'Order ' . $order['order_number'];
@@ -83,6 +103,7 @@ require __DIR__ . '/includes/header.php';
   <div class="panel-body" style="border-top:1px solid var(--line);">
     <div style="display:flex;justify-content:flex-end;gap:26px;font-size:0.92rem;">
       <div>Subtotal: <strong class="mono"><?= money($order['subtotal']) ?></strong></div>
+      <?php if ((float) $order['discount'] > 0): ?><div>Discount<?= $order['coupon_code'] ? ' (' . e($order['coupon_code']) . ')' : '' ?>: <strong class="mono" style="color:var(--sage);">&minus;<?= money($order['discount']) ?></strong></div><?php endif; ?>
       <div>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>): <strong class="mono"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></strong></div>
       <div>Total: <strong class="mono"><?= money($order['total']) ?></strong></div>
     </div>
@@ -138,9 +159,17 @@ require __DIR__ . '/includes/header.php';
       <ul class="timeline">
         <?php foreach ($history as $h): ?>
           <li>
+            <?php if (!empty($h['from_status'])): ?>
+              <span style="color:var(--ink-faint);"><?= e($statusLabels[$h['from_status']] ?? ucfirst($h['from_status'])) ?> →</span>
+            <?php endif; ?>
             <strong><?= e($statusLabels[$h['status']] ?? ucfirst($h['status'])) ?></strong>
             <span style="color:var(--ink-faint);"> — <?= e(fmt_dt($h['changed_at'], 'j M Y, g:i A')) ?></span>
-            <?php if ($h['note']): ?><div style="color:var(--ink-faint);font-size:0.85rem;"><?= e($h['note']) ?></div><?php endif; ?>
+            <div class="tl-by">
+              <?php if (!empty($h['changed_by_name'])): ?>Updated by <strong><?= e($h['changed_by_name']) ?></strong>
+              <?php elseif (empty($h['from_status'])): ?>Order placed by the customer
+              <?php else: ?>Updated by — <span title="Recorded before admin names were tracked">(not recorded)</span><?php endif; ?>
+            </div>
+            <?php if ($h['note']): ?><div style="color:var(--ink-faint);font-size:0.85rem;">Note: <?= e($h['note']) ?></div><?php endif; ?>
           </li>
         <?php endforeach; ?>
       </ul>

@@ -33,12 +33,43 @@ function store_info(): array {
         'tagline' => trim((string) (get_setting('store_tagline') ?? DEFAULT_TAGLINE)),
         'description' => trim((string) setting_or('site_description', DEFAULT_SITE_DESCRIPTION)),
         'phone' => trim((string) setting_or('store_phone', CONTACT_PHONE)),
+        'phone2' => trim((string) setting_or('store_phone2', CONTACT_PHONE_2)),
         'email' => trim((string) setting_or('store_email', CONTACT_EMAIL)),
         'address' => trim((string) setting_or('store_address', STORE_ADDRESS)),
     ];
 }
 
 function store_name(): string { return store_info()['name']; }
+
+/** The store's phone numbers that are set — the main one, then the optional second one. @return string[] */
+function store_phones(): array {
+    $i = store_info();
+    return array_values(array_filter([$i['phone'], $i['phone2']], fn ($p) => $p !== ''));
+}
+
+/**
+ * Turns what an admin typed for the WhatsApp field into a clean https link, or null when it
+ * isn't one. Accepts a wa.me / api.whatsapp.com / chat.whatsapp.com / whatsapp.com link, or just a
+ * phone number (a Bangladeshi 01XXXXXXXXX is converted to the international form wa.me needs).
+ * Empty input returns '' (= hide the icon).
+ */
+function whatsapp_link_normalize(string $input): ?string {
+    $input = trim($input);
+    if ($input === '') return '';
+    if (preg_match('/^\+?[\d\s().-]{7,25}$/', $input)) {
+        $d = preg_replace('/\D/', '', $input);
+        if (str_starts_with($d, '00')) $d = substr($d, 2);
+        elseif (strlen($d) === 11 && str_starts_with($d, '01')) $d = '880' . substr($d, 1);
+        return (strlen($d) >= 8 && strlen($d) <= 15) ? 'https://wa.me/' . $d : null;
+    }
+    if (!preg_match('~^https?://~i', $input)) $input = 'https://' . $input;
+    $parts = parse_url($input);
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    $host = preg_replace('/^www\./', '', $host);
+    if (!in_array($host, ['wa.me', 'api.whatsapp.com', 'chat.whatsapp.com', 'whatsapp.com'], true)) return null;
+    if (!filter_var($input, FILTER_VALIDATE_URL) || preg_match('/\s/', $input)) return null;
+    return preg_replace('~^http://~i', 'https://', $input);
+}
 
 /**
  * Social profile links, only the ones that are set. Here an empty saved value
@@ -52,6 +83,7 @@ function store_socials(): array {
         'messenger' => ['Messenger', 'social_messenger', SOCIAL_FACEBOOK_MESSENGER],
         'instagram' => ['Instagram', 'social_instagram', SOCIAL_INSTAGRAM],
         'youtube' => ['YouTube', 'social_youtube', SOCIAL_YOUTUBE],
+        'whatsapp' => ['WhatsApp', 'social_whatsapp', SOCIAL_WHATSAPP],
     ];
     $out = [];
     foreach ($defs as $k => [$label, $key, $env]) {
@@ -113,14 +145,15 @@ function social_icon(string $key, int $size = 18): string {
         'facebook' => '<path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.45 2.91h-2.33V22c4.78-.76 8.44-4.92 8.44-9.94z"/>',
         'instagram' => '<path fill-rule="evenodd" d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2zm0 2A3.5 3.5 0 0 0 4 7.5v9A3.5 3.5 0 0 0 7.5 20h9a3.5 3.5 0 0 0 3.5-3.5v-9A3.5 3.5 0 0 0 16.5 4h-9zM12 7.3a4.7 4.7 0 1 1 0 9.4 4.7 4.7 0 0 1 0-9.4zm0 2a2.7 2.7 0 1 0 0 5.4 2.7 2.7 0 0 0 0-5.4zm5.1-3.6a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2z"/>',
         'youtube' => '<path fill-rule="evenodd" d="M23 12s0-3.6-.46-5.3a3 3 0 0 0-2.1-2.1C18.6 4 12 4 12 4s-6.6 0-8.44.6a3 3 0 0 0-2.1 2.1C1 8.4 1 12 1 12s0 3.6.46 5.3a3 3 0 0 0 2.1 2.1C5.4 20 12 20 12 20s6.6 0 8.44-.6a3 3 0 0 0 2.1-2.1C23 15.6 23 12 23 12zM9.8 8.6v6.8L15.8 12z"/>',
+        'whatsapp' => '<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>',
         'messenger' => '<path fill-rule="evenodd" d="M12 2C6.4 2 2 6.2 2 11.4c0 2.9 1.4 5.5 3.6 7.2V22l3.3-1.8c.9.2 2 .4 3.1.4 5.6 0 10-4.2 10-9.4S17.6 2 12 2zm1 12.6-2.5-2.6-4.9 2.7 5.4-5.7 2.6 2.6 4.8-2.6-5.4 5.6z"/>',
     ];
     return '<svg class="i i-' . $key . '" viewBox="0 0 24 24" width="' . $size . '" height="' . $size . '" fill="currentColor" aria-hidden="true" focusable="false">' . ($paths[$key] ?? '') . '</svg>';
 }
 
-/** The round social-link buttons (facebook / instagram / youtube). Empty string if none are set. */
+/** The round social-link buttons (facebook / instagram / youtube / whatsapp). Empty string if none are set. */
 function social_row_html(string $class = 'social-row'): string {
-    $links = array_intersect_key(store_socials(), array_flip(['facebook', 'instagram', 'youtube']));
+    $links = array_intersect_key(store_socials(), array_flip(['facebook', 'instagram', 'youtube', 'whatsapp']));
     if (!$links) return '';
     $h = '<div class="' . e($class) . '">';
     foreach ($links as $k => $l) {
@@ -550,6 +583,8 @@ function render_head_meta(): string {
             '@context' => 'https://schema.org', '@type' => 'Product', 'name' => $seo['title'], 'description' => $desc,
             'image' => $imgs ?: [$share['url']], 'sku' => $seo['sku'] ?? null, 'category' => $seo['category'] ?? null,
             'brand' => ['@type' => 'Brand', 'name' => $s['name']],
+            'aggregateRating' => (!empty($seo['review_count']) && !empty($seo['rating']))
+                ? ['@type' => 'AggregateRating', 'ratingValue' => number_format((float) $seo['rating'], 1, '.', ''), 'reviewCount' => (int) $seo['review_count'], 'bestRating' => 5, 'worstRating' => 1] : null,
             'offers' => ['@type' => 'Offer', 'url' => $url, 'priceCurrency' => STORE_CURRENCY_CODE, 'price' => number_format((float) $seo['price'], 2, '.', ''),
                 'availability' => 'https://schema.org/' . (!empty($seo['in_stock']) ? 'InStock' : 'OutOfStock'), 'itemCondition' => 'https://schema.org/NewCondition'],
         ], fn ($v) => $v !== null && $v !== '');
@@ -559,9 +594,9 @@ function render_head_meta(): string {
         $org = ['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => $s['name'], 'url' => abs_url('/'), 'description' => $desc];
         if ($logo && !is_svg_url($logo)) $org['logo'] = abs_url($logo);
         if ($s['email'] !== '') $org['email'] = $s['email'];
-        if ($s['phone'] !== '') $org['telephone'] = $s['phone'];
+        if ($ph = store_phones()) $org['telephone'] = count($ph) === 1 ? $ph[0] : $ph;
         if ($s['address'] !== '') $org['address'] = str_replace("\n", ', ', $s['address']);
-        if ($same = array_values(array_map(fn ($x) => $x['url'], array_diff_key(store_socials(), ['messenger' => 1])))) $org['sameAs'] = $same;
+        if ($same = array_values(array_map(fn ($x) => $x['url'], array_diff_key(store_socials(), ['messenger' => 1, 'whatsapp' => 1])))) $org['sameAs'] = $same;
         $ld[] = $org;
         $ld[] = ['@context' => 'https://schema.org', '@type' => 'WebSite', 'name' => $s['name'], 'url' => abs_url('/'),
             'potentialAction' => ['@type' => 'SearchAction', 'target' => abs_url('/search.php?q={search_term_string}'), 'query-input' => 'required name=search_term_string']];
@@ -574,7 +609,7 @@ function render_head_meta(): string {
 function store_contact_extra_html(): string {
     $s = store_info();
     $bits = [];
-    if ($s['phone'] !== '') $bits[] = 'Phone: <a href="' . e(tel_href($s['phone'])) . '">' . e($s['phone']) . '</a>';
+    if ($ph = store_phones()) $bits[] = 'Phone: ' . implode(' / ', array_map(fn ($p) => '<a href="' . e(tel_href($p)) . '">' . e($p) . '</a>', $ph));
     if ($s['address'] !== '') $bits[] = 'Address: ' . e(str_replace("\n", ', ', $s['address']));
     return $bits ? '<p>' . implode(' · ', $bits) . '</p>' : '';
 }
