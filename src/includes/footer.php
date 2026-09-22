@@ -22,14 +22,6 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
         <?= social_row_html() ?>
       </div>
       <div>
-        <h4>Shop</h4>
-        <ul>
-          <?php foreach ($__categories as $c): ?>
-            <li><a href="/category.php?slug=<?= e($c['slug']) ?>"><?= e($c['name']) ?></a></li>
-          <?php endforeach; ?>
-        </ul>
-      </div>
-      <div>
         <h4>Support</h4>
         <ul>
           <li><a href="/contact.php">Contact us</a></li>
@@ -49,7 +41,7 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
     </div>
     <div class="footer-bottom">
       <span>© <?= date('Y') ?> <?= e($__store['name']) ?>. All rights reserved.</span>
-      <span>Delivered in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days · Cash on delivery only</span>
+      <span>Developed by <a href="https://github.com/TechZeeLand">TechZeeLand</a></span>
     </div>
   </div>
 </footer>

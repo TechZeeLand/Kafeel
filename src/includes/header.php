@@ -63,12 +63,6 @@ $__activeCat = $_GET['slug'] ?? '';
     <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false"><span></span></button>
     <a href="/" class="brand" aria-label="<?= e($__store['name']) ?> — home"><?= brand_inner('header') ?></a>
 
-    <nav class="main-nav" aria-label="Main">
-      <a href="/" class="<?= $__isHome ? 'active' : '' ?>">Home</a>
-      <a href="/about.php" class="<?= $__currentPath === '/about.php' ? 'active' : '' ?>">About</a>
-      <a href="/contact.php" class="<?= $__currentPath === '/contact.php' ? 'active' : '' ?>">Contact</a>
-    </nav>
-
     <form class="search-form" id="siteSearch" action="/search.php" method="get" role="search" data-suggest>
       <input type="search" name="q" placeholder="Search products…" value="<?= e($_GET['q'] ?? '') ?>" autocomplete="off" enterkeyhint="search" aria-label="Search products">
       <div class="suggest" id="searchSuggest" hidden></div>

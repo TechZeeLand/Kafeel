@@ -33,8 +33,8 @@ require __DIR__ . '/includes/header.php';
   <div class="wrap">
     <div>
       <span class="hero-eyebrow">No. 001 — Field-tested essentials</span>
-      <h1>Gear for the pocket, the bag, and everywhere in between.</h1>
-      <p class="lead">Carefully chosen EDC gear, bags and full-grain leather goods — the kind of things you reach for daily and never think to replace.</p>
+      <h1>The bag you carry carries a significant fragment of your personality.</h1>
+      <p class="lead">Carefully chosen materials for the perfect outcome — the kind of thing you reach for daily and never think to replace.</p>
       <div class="hero-actions">
         <a href="/search.php?sort=newest" class="btn btn-primary">Shop all products</a>
       </div>
@@ -44,7 +44,7 @@ require __DIR__ . '/includes/header.php';
       <h3>Why people keep coming back</h3>
       <ul>
         <li>Hand-picked catalog, no filler products</li>
-        <li>Cash on delivery, nothing to pay upfront</li>
+        <li>Cash on delivery or pay using online methods</li>
         <li>Delivered in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days nationwide</li>
         <li>Simple returns within 7 days</li>
       </ul>
@@ -116,7 +116,7 @@ require __DIR__ . '/includes/header.php';
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/></svg></span>
         <h3>Pay when it arrives</h3>
-        <p>Cash on delivery on every order — see and check your item before you pay a taka.</p>
+        <p>Cash on delivery on every order if you prefer — see and check your item before you pay a taka.</p>
       </div>
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-8h10l4 8"/><path d="M3 12v6a1 1 0 0 0 1 1h1"/><path d="M21 12v6a1 1 0 0 1-1 1h-1"/><circle cx="8" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg></span>
