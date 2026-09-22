@@ -67,7 +67,7 @@ $__ico = [
     <div class="admin-topbar">
       <h1><?= e($pageTitle ?? 'Admin') ?></h1>
       <div class="admin-user">
-        <span class="who">Signed in as <strong><?= e($__admin['name']) ?></strong></span>
+        <span class="who"><?= staff_avatar_html((int) $__admin['id'], (string) $__admin['name'], $__admin['photo_v'] ?? null, 28) ?><span>Signed in as <strong><?= e($__admin['name']) ?></strong></span></span>
         <a href="/" target="_blank" class="link">View store ↗</a>
         <a href="/admin/logout.php?csrf_token=<?= e(csrf_token()) ?>" class="logout">Log out</a>
       </div>

@@ -15,7 +15,7 @@ require __DIR__ . '/includes/header.php';
 <div class="wrap">
 <?php if (!$totals['items']): ?>
   <div class="empty-state">
-    <div class="icon">🛒</div>
+    <div class="icon"><?= ui_icon('cart', 22) ?></div>
     <h2>Your cart is empty</h2>
     <p>Looks like you haven't added anything yet.</p>
     <a class="btn btn-primary" href="/">Start shopping</a>

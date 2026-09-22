@@ -71,3 +71,35 @@ Each person has: Name, Number, Email, Address, Blood group, Gender, NID number (
 **Things to know:** NID numbers and documents are stored unencrypted in the database, protected by access control and logging,
 so keep database backups private. Documents live in the database, so backups grow by their size. The default `admin`
 account should be given a real name and a new password (My account) like any other.
+
+
+## Staff profile additions (migration 007)
+Four more fields on every staff member, and a bug fix found while building them:
+
+- **Profile picture** — required for every staff member. Uploaded as JPG or PNG, automatically
+  centre-cropped to a square, resized to 480×480, EXIF rotation corrected, and all metadata (e.g.
+  GPS location) stripped — what's stored is always a clean re-encoded image, never the original
+  file. Shown as an avatar in the staff list, the admin header, and on My account; falls back to
+  the person's initials until a picture is added.
+- **Date of birth** — required, validated as a real calendar date not in the future. No minimum
+  age is enforced, as requested. Shown with a computed age on My account.
+- **Facebook profile link** — required. Validated as a genuine facebook.com / fb.com / fb.me
+  profile link: look-alike domains, `javascript:` links, and Facebook's own share/login/redirect
+  endpoints (open-redirect vectors) are all rejected.
+- **ID type** — the ID field is now "NID or birth certificate", with a type selector. NID enforces
+  10/13/17 digits (Bangladesh's real NID lengths); a birth certificate number accepts 10–17 digits.
+  Still unique per person, still masked in lists, still never written to the activity log.
+
+All four join the existing required fields, so "Details incomplete" on the staff list now also
+flags a missing photo, DOB, or Facebook link.
+
+### Bug found and fixed: large combined uploads could fail silently
+Uploading a profile picture (up to 8MB) together with a document (up to 5MB) in one submission
+could exceed the server's `post_max_size` (12MB). PHP responds to that by silently discarding the
+entire submission before the app ever runs — which looked like an unrelated "security check
+failed" error, not a file-size problem. Fixed two ways:
+- `docker/php/uploads.ini`: `post_max_size` raised from 12M to 30M, giving real headroom for the
+  largest realistic combination of fields.
+- `require_csrf()` now recognises this specific failure signature (empty `$_POST`/`$_FILES` with a
+  non-zero `Content-Length`) and shows "That upload was too large..." instead of the generic CSRF
+  message, as a safety net for any deployment with tighter limits.

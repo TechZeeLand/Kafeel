@@ -60,17 +60,18 @@ require __DIR__ . '/includes/header.php';
 
   <div class="table-wrap">
     <table class="admin-table">
-      <thead><tr><th>Name</th><th>Role</th><th>Number</th><th>Email</th><th>NID</th><th>Status</th><th title="Has an attached document">Doc</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Role</th><th>Number</th><th>Email</th><th>ID</th><th>Status</th><th title="Facebook profile">FB</th><th title="Has an attached document">Doc</th><th></th></tr></thead>
       <tbody>
-        <?php if (!$rows): ?><tr class="empty-row"><td colspan="8">No staff match.</td></tr><?php endif; ?>
-        <?php foreach ($rows as $r): $self = (int) $r['id'] === (int) $me['id']; $incomplete = !$r['phone'] || !$r['email'] || !$r['address'] || !$r['blood_group'] || !$r['gender'] || !$r['nid_number']; ?>
+        <?php if (!$rows): ?><tr class="empty-row"><td colspan="9">No staff match.</td></tr><?php endif; ?>
+        <?php foreach ($rows as $r): $self = (int) $r['id'] === (int) $me['id']; $incomplete = staff_incomplete($r); ?>
           <tr>
-            <td><a href="/admin/staff_form.php?id=<?= (int) $r['id'] ?>" style="font-weight:600;"><?= e($r['name']) ?></a><?php if ($self): ?> <span class="pill pill-brass">You</span><?php endif; ?><br><span class="muted small">@<?= e($r['username']) ?></span><?php if ($incomplete): ?><br><span class="small" style="color:var(--rust);">Details incomplete</span><?php endif; ?></td>
+            <td><div class="name-cell"><?= staff_avatar_html((int) $r['id'], $r['name'], $r['photo_v'], 38) ?><div><a href="/admin/staff_form.php?id=<?= (int) $r['id'] ?>" style="font-weight:600;"><?= e($r['name']) ?></a><?php if ($self): ?> <span class="pill pill-brass">You</span><?php endif; ?><br><span class="muted small">@<?= e($r['username']) ?></span><?php if ($incomplete): ?><br><span class="small" style="color:var(--rust);">Details incomplete</span><?php endif; ?></div></div></td>
             <td><span class="pill <?= $r['role'] === 'owner' ? 'pill-brass' : 'pill-ink' ?>"><?= $r['role'] === 'owner' ? 'Owner' : 'Staff' ?></span></td>
             <td class="mono small"><?= e($r['phone'] ?: '—') ?></td>
             <td class="small"><?= e($r['email'] ?: '—') ?></td>
-            <td class="mono small"><?= e(staff_mask_nid($r['nid_number'])) ?></td>
+            <td class="mono small"><?php if ($r['id_number']): ?><span class="muted"><?= e(STAFF_ID_TYPES[$r['id_type']] ?? 'ID') ?></span><br><?= e(staff_mask_id($r['id_number'])) ?><?php else: ?>—<?php endif; ?></td>
             <td><span class="pill <?= $r['status'] === 'active' ? 'pill-sage' : 'pill-rust' ?>"><?= $r['status'] === 'active' ? 'Active' : 'Disabled' ?></span><?php if ($r['must_change_password']): ?><br><span class="muted small">must set password</span><?php endif; ?></td>
+            <td><?php if ($r['facebook_url']): ?><a href="<?= e($r['facebook_url']) ?>" target="_blank" rel="noopener noreferrer nofollow" title="Open Facebook profile" style="font-weight:700;">f</a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
             <td><?= (int) $r['has_doc'] ? '📎' : '<span class="muted">—</span>' ?></td>
             <td class="actions" style="white-space:nowrap;">
               <a href="/admin/staff_form.php?id=<?= (int) $r['id'] ?>" class="btn btn-outline btn-sm">Edit</a>

@@ -50,6 +50,10 @@ $val = fn ($v) => ($v !== null && $v !== '') ? e((string) $v) : '<span class="mu
 <div class="panel" style="max-width:720px;">
   <div class="panel-head"><h2>My details</h2><span class="pill <?= $mine['role'] === 'owner' ? 'pill-brass' : 'pill-ink' ?>"><?= $mine['role'] === 'owner' ? 'Owner' : 'Staff' ?></span></div>
   <div class="panel-body">
+    <div class="profile-head">
+      <?= staff_avatar_html((int) $admin['id'], $mine['name'], $mine['photo_v'], 84) ?>
+      <div><strong><?= e($mine['name']) ?></strong><br><span class="muted">@<?= e($mine['username']) ?></span></div>
+    </div>
     <dl class="detail-list">
       <div><dt>Name</dt><dd><?= $val($mine['name']) ?></dd></div>
       <div><dt>Username</dt><dd class="mono"><?= $val($mine['username']) ?></dd></div>
@@ -57,7 +61,9 @@ $val = fn ($v) => ($v !== null && $v !== '') ? e((string) $v) : '<span class="mu
       <div><dt>Email</dt><dd><?= $val($mine['email']) ?></dd></div>
       <div><dt>Gender</dt><dd><?= $val($mine['gender']) ?></dd></div>
       <div><dt>Blood group</dt><dd><?= $val($mine['blood_group']) ?></dd></div>
-      <div><dt>NID number</dt><dd class="mono"><?= $val($mine['nid_number']) ?></dd></div>
+      <div><dt>Date of birth</dt><dd><?php if ($mine['date_of_birth']): ?><?= e(date('j M Y', strtotime($mine['date_of_birth']))) ?> <span class="muted small">(<?= (int) staff_age($mine['date_of_birth']) ?> years)</span><?php else: ?><span class="muted">Not added yet</span><?php endif; ?></dd></div>
+      <div><dt><?= e(STAFF_ID_TYPES[$mine['id_type']] ?? 'ID') ?> number</dt><dd class="mono"><?= $val($mine['id_number']) ?></dd></div>
+      <div class="wide"><dt>Facebook</dt><dd><?php if ($mine['facebook_url']): ?><a href="<?= e($mine['facebook_url']) ?>" target="_blank" rel="noopener noreferrer nofollow" style="text-decoration:underline;"><?= e(preg_replace('~^https://(www\.)?~', '', $mine['facebook_url'])) ?></a><?php else: ?><span class="muted">Not added yet</span><?php endif; ?></dd></div>
       <div><dt>Member since</dt><dd><?= e(fmt_dt($mine['created_at'], 'd M Y')) ?></dd></div>
       <div class="wide"><dt>Address</dt><dd><?= $mine['address'] ? nl2br(e($mine['address'])) : '<span class="muted">Not added yet</span>' ?></dd></div>
       <div class="wide"><dt>Document</dt><dd>

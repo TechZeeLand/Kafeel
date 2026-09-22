@@ -346,3 +346,14 @@ mark.hit { background: color-mix(in srgb, var(--brass) 30%, transparent); color:
 
 .stat-grid.stat-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 640px) { .stat-grid.stat-grid-3 { grid-template-columns: 1fr; } }
+
+/* ---- avatars & profile ---- */
+.avatar { display: inline-block; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: #e9e4d6; vertical-align: middle; }
+.avatar-initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #6b5a2f; background: #eadfc4; letter-spacing: .02em; line-height: 1; }
+.topbar .who, .admin-topbar .who, .who { display: inline-flex; align-items: center; gap: 8px; }
+.name-cell { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+.profile-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.photo-field { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 20px; }
+.photo-field .photo-meta { flex: 1; min-width: 0; }
+.photo-field .photo-meta label { display: block; font-weight: 600; margin-bottom: 6px; }
+@media (max-width: 640px) { .photo-field { flex-direction: column; align-items: flex-start; } }

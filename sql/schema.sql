@@ -51,12 +51,15 @@ CREATE TABLE IF NOT EXISTS admins (
   address VARCHAR(500) DEFAULT NULL,
   blood_group VARCHAR(4) DEFAULT NULL,
   gender VARCHAR(10) DEFAULT NULL,
-  nid_number VARCHAR(20) DEFAULT NULL,
+  id_number VARCHAR(20) DEFAULT NULL,
+  id_type VARCHAR(20) NOT NULL DEFAULT 'nid',
+  date_of_birth DATE DEFAULT NULL,
+  facebook_url VARCHAR(255) DEFAULT NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_admin_email (email),
-  UNIQUE KEY uniq_admin_nid (nid_number)
+  UNIQUE KEY uniq_admin_nid (id_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- One optional private document per staff member. Kept in the database (not in the public
@@ -73,6 +76,19 @@ CREATE TABLE IF NOT EXISTS admin_documents (
   UNIQUE KEY uniq_doc_admin (admin_id),
   FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One profile picture per staff member (resized, metadata stripped). Private: served only to owners and to that person.
+CREATE TABLE IF NOT EXISTS admin_photos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  mime VARCHAR(50) NOT NULL,
+  size INT NOT NULL,
+  data MEDIUMBLOB NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_photo_admin (admin_id),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 -- ---------------------------------------------------------------
 -- catalog
@@ -366,4 +382,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '6');
+('schema_version', '7');

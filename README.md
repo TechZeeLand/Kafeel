@@ -322,7 +322,7 @@ Kafeel/
 ## Phase 5 features
 
 Coupons, product reviews, wishlist counts, second phone + WhatsApp link, admin activity log and order-status
-attribution, staff management (owners add/edit/disable staff; staff see their own details read-only), plus mobile fixes. See [CHANGES-phase5.md](CHANGES-phase5.md) for details and deploy notes.
+attribution, staff management (owners add/edit/disable staff, each with a photo, date of birth, Facebook link, and NID or birth-certificate number; staff see their own details read-only), plus mobile fixes. See [CHANGES-phase5.md](CHANGES-phase5.md) for details and deploy notes.
 
 ## Running behind a domain / reverse proxy
 

@@ -40,7 +40,7 @@ require __DIR__ . '/includes/header.php';
       </div>
     </div>
     <div class="hero-card">
-      <span class="stamp">EST.<br>TODAY</span>
+      <span class="stamp">EST.<br>2026</span>
       <h3>Why people keep coming back</h3>
       <ul>
         <li>Hand-picked catalog, no filler products</li>

@@ -13,7 +13,7 @@ if ($id) {
 }
 $isSelf = $editing && (int) $editing['id'] === (int) $me['id'];
 $errors = []; $pwErrors = [];
-$f = $editing ?: ['username' => '', 'name' => '', 'role' => 'staff', 'phone' => '', 'email' => '', 'address' => '', 'blood_group' => '', 'gender' => '', 'nid_number' => ''];
+$f = $editing ?: ['username' => '', 'name' => '', 'role' => 'staff', 'phone' => '', 'email' => '', 'address' => '', 'blood_group' => '', 'gender' => '', 'id_type' => 'nid', 'id_number' => '', 'date_of_birth' => '', 'facebook_url' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
@@ -40,6 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         [$doc, $docErr] = staff_check_document($_FILES['document'] ?? null);
         if ($docErr) $errors[] = $docErr;
+        // Every staff member needs a profile picture: one must be uploaded now unless they already have one.
+        [$photo, $photoErr] = staff_check_photo($_FILES['photo'] ?? null);
+        if ($photoErr) $errors[] = $photoErr;
+        elseif (!$photo && (!$editing || empty($editing['photo_v']))) $errors[] = 'Please add a profile picture.';
         $f = array_merge($f, $c);
 
         if (!$errors) {
@@ -47,14 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $pdo->beginTransaction();
                 if ($editing) {
-                    $pdo->prepare('UPDATE admins SET username=?, name=?, role=?, phone=?, email=?, address=?, blood_group=?, gender=?, nid_number=? WHERE id=?')
-                        ->execute([$c['username'], $c['name'], $c['role'], $c['phone'], $c['email'], $c['address'], $c['blood_group'], $c['gender'], $c['nid_number'], $editing['id']]);
+                    $pdo->prepare('UPDATE admins SET username=?, name=?, role=?, phone=?, email=?, address=?, blood_group=?, gender=?, id_type=?, id_number=?, date_of_birth=?, facebook_url=? WHERE id=?')
+                        ->execute([$c['username'], $c['name'], $c['role'], $c['phone'], $c['email'], $c['address'], $c['blood_group'], $c['gender'], $c['id_type'], $c['id_number'], $c['date_of_birth'], $c['facebook_url'], $editing['id']]);
                     $targetId = (int) $editing['id'];
                 } else {
-                    $pdo->prepare('INSERT INTO admins (username, name, password_hash, role, phone, email, address, blood_group, gender, nid_number, must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,1)')
-                        ->execute([$c['username'], $c['name'], password_hash($pw, PASSWORD_DEFAULT), $c['role'], $c['phone'], $c['email'], $c['address'], $c['blood_group'], $c['gender'], $c['nid_number']]);
+                    $pdo->prepare('INSERT INTO admins (username, name, password_hash, role, phone, email, address, blood_group, gender, id_type, id_number, date_of_birth, facebook_url, must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)')
+                        ->execute([$c['username'], $c['name'], password_hash($pw, PASSWORD_DEFAULT), $c['role'], $c['phone'], $c['email'], $c['address'], $c['blood_group'], $c['gender'], $c['id_type'], $c['id_number'], $c['date_of_birth'], $c['facebook_url']]);
                     $targetId = (int) $pdo->lastInsertId();
                 }
+                $photoChange = null;
+                if ($photo) { staff_save_photo($targetId, $photo); $photoChange = $editing && !empty($editing['photo_v']) ? 'replaced' : 'added'; }
                 $docChange = null;
                 if ($doc) { staff_save_document($targetId, $doc, (int) $me['id']); $docChange = $editing && staff_document_meta($targetId) ? 'replaced' : 'added'; }
                 elseif ($editing && !empty($_POST['remove_document']) && staff_document_meta($targetId)) { staff_delete_document($targetId); $docChange = 'removed'; }
@@ -62,17 +68,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Throwable $ex) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 error_log('[staff_form] ' . $ex->getMessage());
-                $errors[] = $ex instanceof PDOException && $ex->getCode() === '23000' ? 'That username, email or NID number is already in use.' : 'Could not save — a database error occurred.';
+                $errors[] = $ex instanceof PDOException && $ex->getCode() === '23000' ? 'That username, email or ID number is already in use.' : 'Could not save — a database error occurred.';
             }
             if (!$errors) {
                 if ($editing) {
-                    $old = $editing; $new = $c; $old['nid'] = staff_mask_nid($editing['nid_number']); $new['nid'] = staff_mask_nid($c['nid_number']);   // the full NID never goes in the log
-                    $diff = admin_log_diff($old, $new, ['username' => 'Username', 'name' => 'Name', 'role' => 'Role', 'phone' => 'Number', 'email' => 'Email', 'address' => 'Address', 'blood_group' => 'Blood group', 'gender' => 'Gender', 'nid' => 'NID number']);
+                    $old = $editing; $new = $c;
+                    $old['idn'] = staff_mask_id($editing['id_number']); $new['idn'] = staff_mask_id($c['id_number']);            // the full ID number never goes in the log
+                    $old['id_type'] = STAFF_ID_TYPES[$editing['id_type']] ?? $editing['id_type']; $new['id_type'] = STAFF_ID_TYPES[$c['id_type']];
+                    $diff = admin_log_diff($old, $new, ['username' => 'Username', 'name' => 'Name', 'role' => 'Role', 'phone' => 'Number', 'email' => 'Email', 'address' => 'Address', 'blood_group' => 'Blood group', 'gender' => 'Gender',
+                        'date_of_birth' => 'Date of birth', 'facebook_url' => 'Facebook', 'id_type' => 'ID type', 'idn' => 'ID number']);
+                    if ($photoChange) $diff['Profile picture'] = ['—', $photoChange];
                     if ($docChange) $diff['Document'] = ['—', $docChange];
                     admin_log('staff.update', 'Edited the details of ' . $c['name'] . ' (@' . $c['username'] . ')' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'staff', $targetId, $diff ? ['changes' => $diff] : []);
                     flash_set('success', 'Details saved.');
                 } else {
-                    admin_log('staff.create', 'Added ' . $c['name'] . ' (@' . $c['username'] . ') as ' . ($c['role'] === 'owner' ? 'an owner' : 'staff'), 'staff', $targetId, ['role' => $c['role'], 'document' => $doc ? 'attached' : 'none']);
+                    admin_log('staff.create', 'Added ' . $c['name'] . ' (@' . $c['username'] . ') as ' . ($c['role'] === 'owner' ? 'an owner' : 'staff'), 'staff', $targetId, ['role' => $c['role'], 'document' => $doc ? 'attached' : 'none', 'profile_picture' => 'added']);
                     flash_set('success', $c['name'] . ' was added. They will choose their own password at first sign-in.');
                 }
                 redirect('/admin/staff.php');
@@ -110,13 +120,22 @@ require __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <h3 class="form-section">Personal details</h3>
+    <div class="photo-field">
+      <?php if ($editing && !empty($editing['photo_v'])): ?><img id="photoPreview" class="avatar" src="/admin/staff_photo.php?id=<?= (int) $editing['id'] ?>&amp;v=<?= (int) $editing['photo_v'] ?>" alt="" width="96" height="96" style="width:96px;height:96px;">
+      <?php else: ?><span id="photoPreview" class="avatar avatar-initials" style="width:96px;height:96px;font-size:34px;"><?= e(staff_initials($f['name'] !== '' ? $f['name'] : '+')) ?></span><?php endif; ?>
+      <div class="photo-meta">
+        <label for="photo">Profile picture</label>
+        <input type="file" id="photo" name="photo" accept="image/jpeg,image/png" <?= ($editing && !empty($editing['photo_v'])) ? '' : 'required' ?>>
+        <div class="hint">Required. A clear face photo, JPG or PNG. It is cropped to a square and resized automatically.<?= ($editing && !empty($editing['photo_v'])) ? ' Choose a file only to replace the current one.' : '' ?></div>
+      </div>
+    </div>
     <div class="field-row">
       <div class="field"><label for="name">Full name</label><input id="name" name="name" value="<?= e($f['name']) ?>" required maxlength="120"></div>
       <div class="field"><label for="phone">Number</label><input id="phone" name="phone" type="tel" value="<?= e((string) $f['phone']) ?>" required maxlength="40" placeholder="+880 1XXX-XXXXXX"></div>
     </div>
     <div class="field-row">
       <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="<?= e((string) $f['email']) ?>" required maxlength="160"></div>
-      <div class="field"><label for="nid_number">NID number</label><input id="nid_number" name="nid_number" value="<?= e((string) $f['nid_number']) ?>" required inputmode="numeric" maxlength="24" style="font-family:var(--font-mono);"><div class="hint">10, 13 or 17 digits. Shown masked in lists and never written to the activity log.</div></div>
+      <div class="field"><label for="date_of_birth">Date of birth</label><input id="date_of_birth" name="date_of_birth" type="date" value="<?= e((string) $f['date_of_birth']) ?>" required min="1920-01-01" max="<?= e(date('Y-m-d')) ?>"></div>
     </div>
     <div class="field-row">
       <div class="field"><label for="gender">Gender</label>
@@ -124,6 +143,12 @@ require __DIR__ . '/includes/header.php';
       <div class="field"><label for="blood_group">Blood group</label>
         <select id="blood_group" name="blood_group" required><option value="">Choose…</option><?php foreach (STAFF_BLOOD_GROUPS as $b): ?><option <?= $f['blood_group'] === $b ? 'selected' : '' ?>><?= e($b) ?></option><?php endforeach; ?></select></div>
     </div>
+    <div class="field-row">
+      <div class="field"><label for="id_type">ID type</label>
+        <select id="id_type" name="id_type" required><?php foreach (STAFF_ID_TYPES as $k => $label): ?><option value="<?= e($k) ?>" <?= $f['id_type'] === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+      <div class="field"><label for="id_number" id="idNumberLabel">NID number</label><input id="id_number" name="id_number" value="<?= e((string) $f['id_number']) ?>" required inputmode="numeric" maxlength="24" style="font-family:var(--font-mono);"><div class="hint" id="idHint">10, 13 or 17 digits. Shown masked in lists and never written to the activity log.</div></div>
+    </div>
+    <div class="field"><label for="facebook_url">Facebook profile link</label><input id="facebook_url" name="facebook_url" type="url" value="<?= e((string) $f['facebook_url']) ?>" required maxlength="255" placeholder="https://www.facebook.com/their.name"><div class="hint">Required. Open their Facebook profile and paste the address from the browser.</div></div>
     <div class="field"><label for="address">Address</label><textarea id="address" name="address" rows="3" required maxlength="500"><?= e((string) $f['address']) ?></textarea></div>
 
     <h3 class="form-section">Document <span class="muted" style="font-weight:400;">(optional)</span></h3>
@@ -160,6 +185,16 @@ require __DIR__ . '/includes/header.php';
 (function () {
   function gen(len) { var c = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = new Uint32Array(len), o = ''; (window.crypto || window.msCrypto).getRandomValues(b); for (var i = 0; i < len; i++) o += c[b[i] % c.length]; return o; }
   [['genPw', 'password'], ['genPw2', 'new_password']].forEach(function (p) { var btn = document.getElementById(p[0]); if (btn) btn.addEventListener('click', function () { document.getElementById(p[1]).value = gen(14); }); });
+  var idType = document.getElementById('id_type'), idLabel = document.getElementById('idNumberLabel'), idHint = document.getElementById('idHint');
+  function syncId() { var nid = idType.value === 'nid'; idLabel.textContent = nid ? 'NID number' : 'Birth certificate number'; idHint.textContent = (nid ? '10, 13 or 17 digits' : '10 to 17 digits') + '. Shown masked in lists and never written to the activity log.'; }
+  idType.addEventListener('change', syncId); syncId();
+  var photo = document.getElementById('photo'), prev = document.getElementById('photoPreview');
+  photo.addEventListener('change', function () {
+    var f = photo.files[0]; if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { alert('That picture is over 8 MB. Please choose a smaller one.'); photo.value = ''; return; }
+    var img = document.createElement('img'); img.id = 'photoPreview'; img.className = 'avatar'; img.alt = ''; img.style.cssText = 'width:96px;height:96px;'; img.src = URL.createObjectURL(f);
+    prev.replaceWith(img); prev = img;
+  });
   var file = document.getElementById('document');
   file.addEventListener('change', function () { if (file.files[0] && file.files[0].size > 5 * 1024 * 1024) { alert('That file is over 5 MB. Please choose a smaller one.'); file.value = ''; } });
 })();

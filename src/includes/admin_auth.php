@@ -11,7 +11,7 @@ function current_admin(): ?array {
         if (empty($_SESSION['admin_id'])) {
             $admin = null;
         } else {
-            $stmt = db()->prepare('SELECT id, username, name, role, status, must_change_password FROM admins WHERE id = ?');
+            $stmt = db()->prepare('SELECT id, username, name, role, status, must_change_password, (SELECT UNIX_TIMESTAMP(ph.updated_at) FROM admin_photos ph WHERE ph.admin_id = admins.id) AS photo_v FROM admins WHERE id = ?');
             $stmt->execute([$_SESSION['admin_id']]);
             $admin = $stmt->fetch() ?: null;
         }
@@ -36,7 +36,7 @@ function require_admin(): void {
         redirect('/admin/login.php');
     }
     // Given a temporary password by an owner? The only pages open until it is changed are My account and sign-out.
-    if (!empty($me['must_change_password']) && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['account.php', 'logout.php'], true)) {
+    if (!empty($me['must_change_password']) && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['account.php', 'logout.php', 'staff_photo.php', 'staff_document.php'], true)) {
         flash_set('info', 'Please choose your own password before continuing.');
         redirect('/admin/account.php');
     }
