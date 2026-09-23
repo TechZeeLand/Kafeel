@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/admin_auth.php';
-require_admin();
+require_owner(); // Staff accounts must not see or change store branding, mail/payment settings, or theming.
 
 /**
  * Admin → Branding & sharing.

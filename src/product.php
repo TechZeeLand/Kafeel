@@ -251,7 +251,7 @@ require __DIR__ . '/includes/header.php';
       <?php endif; ?>
       <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
       <div><b>Delivery time:</b> <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days</div>
-      <div><b>Payment:</b> Cash on delivery or online advance payment (bKash/Nagad/bank transfer)</div>
+      <div><b>Payment:</b> Cash on delivery <span style="color:var(--ink-faint);">(online payment coming soon)</span></div>
       <?php if ($warranty = warranty_label($product['warranty_days'] ?? null)): ?>
         <div><b>Warranty:</b> <?= e($warranty) ?></div>
       <?php endif; ?>

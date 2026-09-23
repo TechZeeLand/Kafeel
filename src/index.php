@@ -70,7 +70,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div class="item">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/></svg></span>
-      Cash on delivery or online
+      Cash on delivery
     </div>
     <div class="item">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg></span>
@@ -126,7 +126,7 @@ require __DIR__ . '/includes/header.php';
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/></svg></span>
         <h3>Pay your way</h3>
-        <p>Cash on delivery if you'd rather check your item before you pay, or an online advance payment via bKash, Nagad or bank transfer if that's easier.</p>
+        <p>Cash on delivery on every order — see and check your item before you pay a taka. Online payment is on the way.</p>
       </div>
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-8h10l4 8"/><path d="M3 12v6a1 1 0 0 0 1 1h1"/><path d="M21 12v6a1 1 0 0 1-1 1h-1"/><circle cx="8" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg></span>

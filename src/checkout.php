@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $state = trim($_POST['shipping_state'] ?? '');
     $zip = trim($_POST['shipping_zip'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
-    // We accept cash on delivery as well as an online advance payment (bKash / Nagad / bank
-    // transfer, arranged manually with the buyer after checkout — no gateway is wired up yet).
-    $payment = in_array($_POST['payment_method'] ?? '', ['cod', 'bank_transfer'], true) ? $_POST['payment_method'] : 'cod';
+    // No online payment gateway is set up yet, so cash on delivery is the only method actually
+    // processed for now — the "Online Payment" radio below is shown as a preview only.
+    $payment = 'cod';
     $deliveryArea = in_array($_POST['delivery_area'] ?? '', ['inside_dhaka', 'suburbs', 'outside_dhaka'], true) ? $_POST['delivery_area'] : 'inside_dhaka';
     $saveAddress = !empty($_POST['save_address']);
 
@@ -202,32 +202,31 @@ require __DIR__ . '/includes/header.php';
 
       <div class="field">
         <label>Delivery area</label>
-        <div class="checkbox-row" style="margin-bottom:8px;">
+        <label class="radio-option">
           <input type="radio" name="delivery_area" value="inside_dhaka" id="da_inside" data-fee="<?= e((string)$shippingInside) ?>" <?= ($_POST['delivery_area'] ?? 'inside_dhaka') === 'inside_dhaka' ? 'checked' : '' ?>>
-          <label for="da_inside" style="margin:0;font-weight:400;">Inside Dhaka — <?= money($shippingInside) ?></label>
-        </div>
-        <div class="checkbox-row" style="margin-bottom:8px;">
+          <span class="radio-option-label">Inside Dhaka — <?= money($shippingInside) ?></span>
+        </label>
+        <label class="radio-option">
           <input type="radio" name="delivery_area" value="suburbs" id="da_suburbs" data-fee="<?= e((string)$shippingSuburbs) ?>" <?= ($_POST['delivery_area'] ?? '') === 'suburbs' ? 'checked' : '' ?>>
-          <label for="da_suburbs" style="margin:0;font-weight:400;">Dhaka Suburbs — <?= money($shippingSuburbs) ?></label>
-        </div>
-        <div class="checkbox-row">
+          <span class="radio-option-label">Dhaka Suburbs — <?= money($shippingSuburbs) ?></span>
+        </label>
+        <label class="radio-option">
           <input type="radio" name="delivery_area" value="outside_dhaka" id="da_outside" data-fee="<?= e((string)$shippingOutside) ?>" <?= ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'checked' : '' ?>>
-          <label for="da_outside" style="margin:0;font-weight:400;">Outside Dhaka — <?= money($shippingOutside) ?></label>
-        </div>
+          <span class="radio-option-label">Outside Dhaka — <?= money($shippingOutside) ?></span>
+        </label>
         <div class="hint">+<?= money(SHIPPING_EXTRA_PER_KG) ?> added per additional kg once your parcel passes <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg.</div>
       </div>
 
       <div class="field">
         <label>Payment method</label>
-        <div class="checkbox-row" style="margin-bottom:8px;">
-          <input type="radio" name="payment_method" value="cod" id="pm_cod" <?= ($_POST['payment_method'] ?? 'cod') === 'cod' ? 'checked' : '' ?>>
-          <label for="pm_cod" style="margin:0;font-weight:400;">Cash on delivery — pay when your order arrives</label>
-        </div>
-        <div class="checkbox-row">
-          <input type="radio" name="payment_method" value="bank_transfer" id="pm_advance" <?= ($_POST['payment_method'] ?? '') === 'bank_transfer' ? 'checked' : '' ?>>
-          <label for="pm_advance" style="margin:0;font-weight:400;">Online advance payment — bKash, Nagad or bank transfer</label>
-        </div>
-        <div class="hint">Choosing advance payment? We'll message you with the bKash/Nagad number or bank details right after you place the order.</div>
+        <label class="radio-option">
+          <input type="radio" name="payment_method" value="cod" id="pm_cod" checked disabled>
+          <span class="radio-option-label">Cash on delivery — pay when your order arrives</span>
+        </label>
+        <label class="radio-option is-disabled" title="Not available yet">
+          <input type="radio" id="pm_online" disabled>
+          <span class="radio-option-label">Online Payment <span style="color:var(--ink-faint);font-size:.85em;">— coming soon</span></span>
+        </label>
       </div>
 
       <?php if ($__user): ?>

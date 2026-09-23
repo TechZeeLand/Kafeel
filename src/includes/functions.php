@@ -323,14 +323,12 @@ function delivery_area_label(string $area): string {
 }
 
 /**
- * Human label for an orders.payment_method value. Kept in one place so the
- * storefront, admin and invoice always describe payment the same way — we
- * accept both cash on delivery and an online advance payment (bKash / Nagad
- * / bank transfer, collected manually; there's no payment gateway wired up
- * yet), so "cod" and "bank_transfer" are the only two methods stored today.
+ * Human label for an orders.payment_method value. Kept in one place so the storefront, admin
+ * and invoice always describe payment the same way. Only "cod" is actually processed today —
+ * "bank_transfer" exists in the schema for when an online payment gateway is wired up.
  */
 function payment_method_label(string $method): string {
-    return $method === 'cod' ? 'Cash on delivery' : 'Online advance payment';
+    return $method === 'cod' ? 'Cash on delivery' : 'Online Payment';
 }
 
 /** "12-month warranty" / "45-day warranty" — the friendliest whole unit that exactly fits the day count. Null/0 = no warranty. */

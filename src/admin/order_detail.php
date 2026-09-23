@@ -11,8 +11,48 @@ $order = $stmt->fetch();
 if (!$order) { flash_set('error', 'Order not found.'); redirect('/admin/orders.php'); }
 
 $validStatuses = ['pending', 'processing', 'shipped', 'completed', 'cancelled'];
+$validAreas = ['inside_dhaka', 'suburbs', 'outside_dhaka'];
+$detailErrors = [];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') === 'edit_details') {
+    require_csrf();
+    $d = [
+        'shipping_name' => trim($_POST['shipping_name'] ?? ''),
+        'shipping_phone' => trim($_POST['shipping_phone'] ?? ''),
+        'customer_email' => trim($_POST['customer_email'] ?? ''),
+        'shipping_line1' => trim($_POST['shipping_line1'] ?? ''),
+        'shipping_city' => trim($_POST['shipping_city'] ?? ''),
+        'shipping_state' => trim($_POST['shipping_state'] ?? ''),
+        'shipping_zip' => trim($_POST['shipping_zip'] ?? ''),
+        'notes' => trim($_POST['notes'] ?? ''),
+    ];
+    $deliveryArea = in_array($_POST['delivery_area'] ?? '', $validAreas, true) ? $_POST['delivery_area'] : $order['delivery_area'];
+    $shippingFee = is_numeric($_POST['shipping_fee'] ?? null) ? max(0, round((float) $_POST['shipping_fee'], 2)) : (float) $order['shipping_fee'];
+
+    if ($d['shipping_name'] === '') $detailErrors[] = 'Recipient name can\'t be empty.';
+    if ($d['shipping_phone'] === '') $detailErrors[] = 'Phone can\'t be empty.';
+    if ($d['customer_email'] !== '' && !filter_var($d['customer_email'], FILTER_VALIDATE_EMAIL)) $detailErrors[] = 'That email address doesn\'t look valid.';
+    if ($d['shipping_line1'] === '') $detailErrors[] = 'Address line can\'t be empty.';
+    if ($d['shipping_city'] === '') $detailErrors[] = 'City can\'t be empty.';
+
+    if (!$detailErrors) {
+        $newTotal = round((float) $order['subtotal'] - (float) $order['discount'] + $shippingFee, 2);
+        db()->prepare(
+            'UPDATE orders SET shipping_name=?, shipping_phone=?, customer_email=?, shipping_line1=?, shipping_city=?, shipping_state=?, shipping_zip=?, delivery_area=?, shipping_fee=?, total=?, notes=? WHERE id=?'
+        )->execute([$d['shipping_name'], $d['shipping_phone'], $d['customer_email'] ?: null, $d['shipping_line1'], $d['shipping_city'], $d['shipping_state'] ?: null, $d['shipping_zip'] ?: null, $deliveryArea, $shippingFee, $newTotal, $d['notes'] ?: null, $order['id']]);
+
+        $diff = admin_log_diff(
+            ['name' => $order['shipping_name'], 'phone' => $order['shipping_phone'], 'email' => $order['customer_email'], 'line1' => $order['shipping_line1'], 'city' => $order['shipping_city'], 'state' => $order['shipping_state'], 'zip' => $order['shipping_zip'], 'area' => delivery_area_label($order['delivery_area']), 'shipping_fee' => money((float) $order['shipping_fee']), 'notes' => $order['notes']],
+            ['name' => $d['shipping_name'], 'phone' => $d['shipping_phone'], 'email' => $d['customer_email'], 'line1' => $d['shipping_line1'], 'city' => $d['shipping_city'], 'state' => $d['shipping_state'], 'zip' => $d['shipping_zip'], 'area' => delivery_area_label($deliveryArea), 'shipping_fee' => money($shippingFee), 'notes' => $d['notes']],
+            ['name' => 'Recipient name', 'phone' => 'Phone', 'email' => 'Email', 'line1' => 'Address', 'city' => 'City', 'state' => 'State/area', 'zip' => 'ZIP', 'area' => 'Delivery area', 'shipping_fee' => 'Shipping fee', 'notes' => 'Notes']
+        );
+        admin_log('order.edit_details', 'Order ' . $order['order_number'] . ' details edited' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'order', (int) $order['id'], $diff ? ['changes' => $diff] : []);
+        flash_set('success', 'Order details updated.');
+        redirect('/admin/order_detail.php?id=' . $order['id']);
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') !== 'edit_details') {
     require_csrf();
     $newStatus = $_POST['status'] ?? '';
     $note = trim($_POST['note'] ?? '');
@@ -123,6 +163,41 @@ require __DIR__ . '/includes/header.php';
       <p style="color:var(--ink-faint);font-size:0.85rem;">Payment method: <?= e(payment_method_label($order['payment_method'])) ?></p>
       <?php if ($customer): ?><p style="color:var(--ink-faint);font-size:0.85rem;">Account: <?= e($customer['name']) ?> (<?= e($customer['email']) ?>)</p>
       <?php else: ?><p style="color:var(--ink-faint);font-size:0.85rem;">Guest checkout</p><?php endif; ?>
+
+      <details class="log-details">
+        <summary>Edit shipping details</summary>
+        <form method="post" style="margin-top:12px;">
+          <?= csrf_field() ?>
+          <input type="hidden" name="form_action" value="edit_details">
+          <?php if ($detailErrors): ?><div class="alert alert-error"><?php foreach ($detailErrors as $e2): ?><div><?= e($e2) ?></div><?php endforeach; ?></div><?php endif; ?>
+          <div class="field-row">
+            <div class="field"><label for="shipping_name">Recipient name</label><input id="shipping_name" name="shipping_name" value="<?= e($order['shipping_name']) ?>"></div>
+            <div class="field"><label for="shipping_phone">Phone</label><input id="shipping_phone" name="shipping_phone" value="<?= e($order['shipping_phone']) ?>"></div>
+          </div>
+          <div class="field"><label for="customer_email">Email <span class="muted" style="font-weight:400;">(optional)</span></label><input type="email" id="customer_email" name="customer_email" value="<?= e($order['customer_email'] ?? '') ?>"></div>
+          <div class="field"><label for="shipping_line1">Address</label><input id="shipping_line1" name="shipping_line1" value="<?= e($order['shipping_line1']) ?>"></div>
+          <div class="field-row">
+            <div class="field"><label for="shipping_city">City</label><input id="shipping_city" name="shipping_city" value="<?= e($order['shipping_city']) ?>"></div>
+            <div class="field"><label for="shipping_state">State/area <span class="muted" style="font-weight:400;">(optional)</span></label><input id="shipping_state" name="shipping_state" value="<?= e($order['shipping_state'] ?? '') ?>"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="shipping_zip">ZIP <span class="muted" style="font-weight:400;">(optional)</span></label><input id="shipping_zip" name="shipping_zip" value="<?= e($order['shipping_zip'] ?? '') ?>"></div>
+            <div class="field">
+              <label for="delivery_area">Delivery area</label>
+              <select id="delivery_area" name="delivery_area">
+                <?php foreach ($validAreas as $a): ?><option value="<?= e($a) ?>" <?= $order['delivery_area'] === $a ? 'selected' : '' ?>><?= e(delivery_area_label($a)) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="shipping_fee">Shipping fee</label>
+            <input type="number" min="0" step="0.01" id="shipping_fee" name="shipping_fee" value="<?= e($order['shipping_fee']) ?>">
+            <div class="hint">Changing the delivery area above doesn't recalculate this on its own — adjust it here if the fee should change too. The order total is recalculated from this automatically.</div>
+          </div>
+          <div class="field"><label for="notes">Notes <span class="muted" style="font-weight:400;">(optional)</span></label><input id="notes" name="notes" value="<?= e($order['notes'] ?? '') ?>"></div>
+          <button type="submit" class="btn btn-outline">Save details</button>
+        </form>
+      </details>
     </div>
   </div>
 

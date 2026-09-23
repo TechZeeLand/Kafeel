@@ -55,9 +55,11 @@ $__ico = [
       <?= nav_link('/admin/users.php', 'Customers', ['users.php'], $__path, $__ico['users']) ?>
       <?php if (admin_is_owner()): ?><?= nav_link('/admin/staff.php', 'Staff', ['staff.php', 'staff_form.php'], $__path, $__ico['badge']) ?><?php endif; ?>
       <div class="section-label">Site</div>
+      <?php if (admin_is_owner()): ?>
       <?= nav_link('/admin/branding.php', 'Branding & sharing', ['branding.php'], $__path, $__ico['image']) ?>
       <?= nav_link('/admin/settings.php', 'Settings & email', ['settings.php'], $__path, $__ico['gear']) ?>
       <?= nav_link('/admin/theme_settings.php', 'Theme & effects', ['theme_settings.php'], $__path, $__ico['brush']) ?>
+      <?php endif; ?>
       <?php if (admin_is_owner()): ?><?= nav_link('/admin/logs.php', 'Activity log', ['logs.php'], $__path, $__ico['log']) ?><?php endif; ?>
       <?= nav_link('/admin/account.php', 'My account', ['account.php'], $__path, $__ico['key']) ?>
     </nav>

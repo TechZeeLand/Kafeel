@@ -57,6 +57,9 @@
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
@@ -64,6 +67,10 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
+/* Pushes the footer to the bottom of the viewport on short pages (404, empty states, etc.)
+   instead of it floating right under sparse content. */
+#main { flex: 1 0 auto; }
+.site-footer { flex-shrink: 0; }
 img { max-width: 100%; display: block; }
 a { color: inherit; text-decoration: none; }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; margin: 0 0 0.5em; letter-spacing: -0.01em; }
@@ -254,6 +261,17 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brass); outline: none; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--ink-soft); }
+/* A clickable radio-choice row (delivery area, payment method, ...). The whole row is the
+   label, so tap targets are generous and the radio stays aligned with the first line of text
+   even when the label wraps — the plain checkbox-row above only worked reliably for one-liners. */
+.radio-option { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.radio-option:last-child { margin-bottom: 0; }
+.radio-option:hover { border-color: var(--ink-faint); }
+.radio-option:has(input:checked) { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 7%, transparent); }
+.radio-option input[type="radio"] { width: 18px; height: 18px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--brass); }
+.radio-option .radio-option-label { margin: 0; font-weight: 400; font-size: 0.92rem; line-height: 1.4; }
+.radio-option.is-disabled { cursor: not-allowed; opacity: .55; }
+.radio-option.is-disabled:hover { border-color: var(--line); }
 
 .timeline { list-style:none; margin:0; padding:0; }
 .timeline li { position:relative; padding:0 0 18px 22px; border-left:2px solid var(--line); font-size:0.92rem; }

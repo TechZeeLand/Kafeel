@@ -26,7 +26,7 @@ require __DIR__ . '/includes/header.php';
     <div class="icon">✅</div>
     <h2>Thank you — your order is confirmed</h2>
     <p>Order <strong class="mono"><?= e($order['order_number']) ?></strong> has been placed and is being prepared.
-    <?php if ($order['payment_method'] === 'cod'): ?>Pay by cash when it arrives.<?php else: ?>We'll message you the bKash, Nagad or bank transfer details shortly to collect the advance payment.<?php endif; ?>
+    <?php if ($order['payment_method'] === 'cod'): ?>Pay by cash when it arrives.<?php else: ?>We'll be in touch about your online payment shortly.<?php endif; ?>
     Expect delivery in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days.</p>
   </div>
 
