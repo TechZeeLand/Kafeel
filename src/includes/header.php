@@ -2,7 +2,9 @@
 require_once __DIR__ . '/auth.php';
 $__user = current_user();
 $__cartCount = cart_count();
-$__categories = db()->query('SELECT id, name, slug FROM categories WHERE is_active = 1 ORDER BY sort_order, name')->fetchAll();
+// Top-level only: subcategories (e.g. "Men" / "Women" under "Bags & Carry") show as
+// chips on their parent's own category page instead of crowding this nav.
+$__categories = db()->query('SELECT id, name, slug FROM categories WHERE is_active = 1 AND parent_id IS NULL ORDER BY sort_order, name')->fetchAll();
 $__currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $__isHome = $__currentPath === '/' || $__currentPath === '/index.php';
 $__store = store_info();
@@ -62,6 +64,12 @@ $__activeCat = $_GET['slug'] ?? '';
   <div class="wrap header-row">
     <button class="nav-toggle" id="navToggle" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false"><span></span></button>
     <a href="/" class="brand" aria-label="<?= e($__store['name']) ?> — home"><?= brand_inner('header') ?></a>
+
+    <nav class="main-nav" aria-label="Main">
+      <a href="/" class="<?= $__isHome ? 'active' : '' ?>">Home</a>
+      <a href="/about.php" class="<?= $__currentPath === '/about.php' ? 'active' : '' ?>">About</a>
+      <a href="/contact.php" class="<?= $__currentPath === '/contact.php' ? 'active' : '' ?>">Contact</a>
+    </nav>
 
     <form class="search-form" id="siteSearch" action="/search.php" method="get" role="search" data-suggest>
       <input type="search" name="q" placeholder="Search products…" value="<?= e($_GET['q'] ?? '') ?>" autocomplete="off" enterkeyhint="search" aria-label="Search products">

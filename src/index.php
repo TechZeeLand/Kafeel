@@ -18,11 +18,21 @@ $newest = db()->query(
      WHERE p.is_active = 1 ORDER BY p.created_at DESC LIMIT 8"
 )->fetchAll();
 
+// Top-level categories only (subcategories are reached from their parent's page). The count
+// includes products filed directly under a subcategory too, so a parent tile is never shown as
+// empty just because all its products actually live one level down.
 $categoriesWithCount = db()->query(
-    "SELECT c.id, c.name, c.slug, c.image, COUNT(p.id) AS product_count
-     FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.is_active = 1
-     WHERE c.is_active = 1 GROUP BY c.id ORDER BY c.sort_order, c.name"
+    "SELECT c.id, c.name, c.slug, c.image
+     FROM categories c WHERE c.is_active = 1 AND c.parent_id IS NULL ORDER BY c.sort_order, c.name"
 )->fetchAll();
+foreach ($categoriesWithCount as &$__c) {
+    $__ids = category_descendant_ids((int) $__c['id']);
+    $__in = implode(',', array_fill(0, count($__ids), '?'));
+    $__cs = db()->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ($__in) AND is_active = 1");
+    $__cs->execute($__ids);
+    $__c['product_count'] = (int) $__cs->fetchColumn();
+}
+unset($__c);
 
 // Hero buttons point at the first two live categories, so renaming/removing a category can never leave a dead link.
 $heroCats = array_slice($categoriesWithCount, 0, 2);
@@ -60,7 +70,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div class="item">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/></svg></span>
-      Cash on delivery
+      Cash on delivery or online
     </div>
     <div class="item">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg></span>
@@ -115,8 +125,8 @@ require __DIR__ . '/includes/header.php';
       </div>
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/></svg></span>
-        <h3>Pay when it arrives</h3>
-        <p>Cash on delivery on every order if you prefer — see and check your item before you pay a taka.</p>
+        <h3>Pay your way</h3>
+        <p>Cash on delivery if you'd rather check your item before you pay, or an online advance payment via bKash, Nagad or bank transfer if that's easier.</p>
       </div>
       <div class="why-card">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l4-8h10l4 8"/><path d="M3 12v6a1 1 0 0 0 1 1h1"/><path d="M21 12v6a1 1 0 0 1-1 1h-1"/><circle cx="8" cy="19" r="2"/><circle cx="16" cy="19" r="2"/></svg></span>

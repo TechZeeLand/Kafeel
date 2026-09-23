@@ -12,6 +12,9 @@ if ($id) {
     if (!$category) { flash_set('error', 'Category not found.'); redirect('/admin/categories.php'); }
 }
 
+// A category can't be parented to itself or to one of its own subcategories (that would loop forever).
+$__blockedParents = $id ? category_descendant_ids($id) : [];
+
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
@@ -19,8 +22,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description'] ?? '');
     $sortOrder = (int) ($_POST['sort_order'] ?? 0);
     $isActive = !empty($_POST['is_active']) ? 1 : 0;
+    $parentId = (int) ($_POST['parent_id'] ?? 0) ?: null;
 
     if (strlen($name) < 2) $errors[] = 'Please enter a category name.';
+    if ($parentId !== null) {
+        if (in_array($parentId, $__blockedParents, true)) $errors[] = 'A category can\'t be its own parent, or a subcategory of itself.';
+        else {
+            $pc = db()->prepare('SELECT id FROM categories WHERE id = ?');
+            $pc->execute([$parentId]);
+            if (!$pc->fetch()) $errors[] = 'That parent category doesn\'t exist.';
+        }
+    }
 
     if (!$errors) {
         $slug = slugify($name);
@@ -37,19 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uploaded = handle_product_image_upload('image');
             if ($uploaded) $image = $uploaded;
 
+            $parentName = fn ($pid) => $pid ? (db()->query('SELECT name FROM categories WHERE id = ' . (int) $pid)->fetchColumn() ?: '#' . (int) $pid) : 'None (top level)';
             if ($category) {
-                db()->prepare('UPDATE categories SET name=?, slug=?, description=?, image=?, sort_order=?, is_active=? WHERE id=?')
-                    ->execute([$name, $slug, $description ?: null, $image, $sortOrder, $isActive, $category['id']]);
-                $diff = admin_log_diff(['name' => $category['name'], 'description' => $category['description'], 'sort_order' => $category['sort_order'], 'is_active' => $category['is_active'] ? 'yes' : 'no', 'slug' => $category['slug']],
-                    ['name' => $name, 'description' => $description, 'sort_order' => $sortOrder, 'is_active' => $isActive ? 'yes' : 'no', 'slug' => $slug],
-                    ['name' => 'Name', 'description' => 'Description', 'sort_order' => 'Sort order', 'is_active' => 'Visible in shop', 'slug' => 'URL slug']);
+                db()->prepare('UPDATE categories SET parent_id=?, name=?, slug=?, description=?, image=?, sort_order=?, is_active=? WHERE id=?')
+                    ->execute([$parentId, $name, $slug, $description ?: null, $image, $sortOrder, $isActive, $category['id']]);
+                $diff = admin_log_diff(['parent' => $parentName($category['parent_id']), 'name' => $category['name'], 'description' => $category['description'], 'sort_order' => $category['sort_order'], 'is_active' => $category['is_active'] ? 'yes' : 'no', 'slug' => $category['slug']],
+                    ['parent' => $parentName($parentId), 'name' => $name, 'description' => $description, 'sort_order' => $sortOrder, 'is_active' => $isActive ? 'yes' : 'no', 'slug' => $slug],
+                    ['parent' => 'Parent category', 'name' => 'Name', 'description' => 'Description', 'sort_order' => 'Sort order', 'is_active' => 'Visible in shop', 'slug' => 'URL slug']);
                 if ($uploaded) $diff['Image'] = ['(old image)', 'replaced'];
                 admin_log('category.update', 'Edited category "' . $name . '"' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'category', (int) $category['id'], $diff ? ['changes' => $diff] : []);
                 flash_set('success', 'Category updated.');
             } else {
-                db()->prepare('INSERT INTO categories (name, slug, description, image, sort_order, is_active) VALUES (?,?,?,?,?,?)')
-                    ->execute([$name, $slug, $description ?: null, $image, $sortOrder, $isActive]);
-                admin_log('category.create', 'Created category "' . $name . '"', 'category', (int) db()->lastInsertId());
+                db()->prepare('INSERT INTO categories (parent_id, name, slug, description, image, sort_order, is_active) VALUES (?,?,?,?,?,?,?)')
+                    ->execute([$parentId, $name, $slug, $description ?: null, $image, $sortOrder, $isActive]);
+                admin_log('category.create', 'Created category "' . $name . '"' . ($parentId ? ' under "' . $parentName($parentId) . '"' : ''), 'category', (int) db()->lastInsertId());
                 flash_set('success', 'Category created.');
             }
             redirect('/admin/categories.php');
@@ -72,11 +85,22 @@ require __DIR__ . '/includes/header.php';
       <div class="field"><label for="name">Category name</label><input id="name" name="name" required value="<?= e($category['name'] ?? ($_POST['name'] ?? '')) ?>"></div>
       <div class="field"><label for="description">Description</label><textarea id="description" name="description" rows="3"><?= e($category['description'] ?? ($_POST['description'] ?? '')) ?></textarea></div>
       <div class="field-row">
-        <div class="field"><label for="sort_order">Sort order</label><input type="number" id="sort_order" name="sort_order" value="<?= e((string)($category['sort_order'] ?? 0)) ?>"><div class="hint">Lower numbers appear first in menus.</div></div>
         <div class="field">
-          <label>&nbsp;</label>
-          <label style="display:flex;align-items:center;gap:6px;font-weight:400;padding-top:10px;"><input type="checkbox" name="is_active" <?= ($category['is_active'] ?? 1) ? 'checked' : '' ?>> Active (visible in store)</label>
+          <label for="parent_id">Parent category <span class="muted" style="font-weight:400;">(optional)</span></label>
+          <?php $__selectedParent = (int) ($_POST['parent_id'] ?? $category['parent_id'] ?? 0); ?>
+          <select id="parent_id" name="parent_id">
+            <option value="">— None (top level) —</option>
+            <?php foreach (category_flat_for_select() as $pc): ?>
+              <?php if (in_array((int) $pc['id'], $__blockedParents, true)) continue; ?>
+              <option value="<?= (int) $pc['id'] ?>" <?= $__selectedParent === (int) $pc['id'] ? 'selected' : '' ?>><?= str_repeat('— ', $pc['depth']) ?><?= e($pc['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <div class="hint">Makes this a subcategory, e.g. "Men" under "Bags &amp; Carry".</div>
         </div>
+        <div class="field"><label for="sort_order">Sort order</label><input type="number" id="sort_order" name="sort_order" value="<?= e((string)($category['sort_order'] ?? 0)) ?>"><div class="hint">Lower numbers appear first in menus.</div></div>
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" name="is_active" <?= ($category['is_active'] ?? 1) ? 'checked' : '' ?>> Active (visible in store)</label>
       </div>
       <div class="field">
         <label for="image">Category image</label>

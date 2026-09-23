@@ -99,7 +99,7 @@ require __DIR__ . '/includes/header.php';
             <td class="mono"><a href="/admin/order_detail.php?id=<?= (int) $o['id'] ?>" style="font-weight:600;"><?= hl_order($o['order_number'], $q) ?></a></td>
             <td><?= hl_order($o['shipping_name'], $q) ?><br><span class="muted small"><?= hl_order($o['shipping_phone'], $q) ?></span></td>
             <td class="mono"><?= (int) $o['item_count'] ?></td>
-            <td><?= $o['payment_method'] === 'cod' ? 'COD' : 'Bank transfer' ?></td>
+            <td><?= $o['payment_method'] === 'cod' ? 'COD' : 'Advance' ?></td>
             <td><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
             <td class="mono"><?= e(money((float) $o['total'])) ?></td>
             <td><?= e(fmt_dt($o['created_at'], 'd M Y')) ?><br><span class="muted small"><?= e(fmt_dt($o['created_at'], 'g:i A')) ?></span></td>

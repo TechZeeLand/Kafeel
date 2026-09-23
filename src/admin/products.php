@@ -58,7 +58,7 @@ $stmt = db()->prepare(
 );
 $stmt->execute($params);
 $products = $stmt->fetchAll();
-$categories = db()->query('SELECT id, name FROM categories ORDER BY name')->fetchAll();
+$categories = category_flat_for_select();
 
 function products_url(array $over = []): string {
     $q = array_filter(array_merge($_GET, $over), fn ($v) => $v !== '' && $v !== 0 && $v !== '0' && $v !== 'all');
@@ -87,7 +87,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <select name="cat" aria-label="Category" onchange="this.form.submit()">
       <option value="">All categories</option>
-      <?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= $cat === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
+      <?php foreach ($categories as $c): ?><option value="<?= (int) $c['id'] ?>" <?= $cat === (int) $c['id'] ? 'selected' : '' ?>><?= str_repeat('— ', $c['depth']) ?><?= e($c['name']) ?></option><?php endforeach; ?>
     </select>
     <?php if ($filter !== 'all'): ?><input type="hidden" name="filter" value="<?= e($filter) ?>"><?php endif; ?>
     <button class="btn btn-outline" type="submit">Search</button>

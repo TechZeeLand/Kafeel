@@ -95,13 +95,16 @@ CREATE TABLE IF NOT EXISTS admin_photos (
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  parent_id INT DEFAULT NULL,
   name VARCHAR(100) NOT NULL,
   slug VARCHAR(120) NOT NULL UNIQUE,
   description TEXT,
   image VARCHAR(255) DEFAULT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_cat_parent (parent_id),
+  FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS products (
@@ -121,6 +124,7 @@ CREATE TABLE IF NOT EXISTS products (
   width_mm INT DEFAULT NULL,
   depth_mm INT DEFAULT NULL,
   color VARCHAR(60) DEFAULT NULL,
+  warranty_days INT DEFAULT NULL,
   image_main VARCHAR(255) DEFAULT NULL,
   youtube_url VARCHAR(255) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -262,6 +266,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   price DECIMAL(10,2) NOT NULL,
   quantity INT NOT NULL,
   subtotal DECIMAL(10,2) NOT NULL,
+  warranty_days INT DEFAULT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
@@ -382,4 +387,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '7');
+('schema_version', '8');

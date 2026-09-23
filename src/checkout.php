@@ -41,7 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $state = trim($_POST['shipping_state'] ?? '');
     $zip = trim($_POST['shipping_zip'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
-    $payment = 'cod'; // Cash on delivery only, for now.
+    // We accept cash on delivery as well as an online advance payment (bKash / Nagad / bank
+    // transfer, arranged manually with the buyer after checkout — no gateway is wired up yet).
+    $payment = in_array($_POST['payment_method'] ?? '', ['cod', 'bank_transfer'], true) ? $_POST['payment_method'] : 'cod';
     $deliveryArea = in_array($_POST['delivery_area'] ?? '', ['inside_dhaka', 'suburbs', 'outside_dhaka'], true) ? $_POST['delivery_area'] : 'inside_dhaka';
     $saveAddress = !empty($_POST['save_address']);
 
@@ -77,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$coupon, $discount] = coupon_claim_for_order($pdo, coupon_session_code(), (float) $freshTotals['subtotal'], coupon_shopper($__user, $email, $phone));
             }
             $orderTotal = round((float) $freshTotals['subtotal'] - $discount + $shippingFee, 2);
-            $orderNumber = 'ED-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
+            $orderNumber = 'RA-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
                 'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, discount, coupon_id, coupon_code, shipping_fee, total,
                  shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
@@ -91,12 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderId = (int) $pdo->lastInsertId();
 
             $itemStmt = $pdo->prepare(
-                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal) VALUES (?,?,?,?,?,?,?,?)'
+                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal, warranty_days) VALUES (?,?,?,?,?,?,?,?,?)'
             );
             $productStockStmt = $pdo->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
             $variantStockStmt = $pdo->prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?');
             foreach ($freshTotals['items'] as $it) {
-                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity']]);
+                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity'], $it['warranty_days'] ?? null]);
                 // Conditional UPDATE: if someone else bought the last units a moment ago
                 // it matches no row, and we abort instead of overselling.
                 $stmtStock = $it['variant_id'] ? $variantStockStmt : $productStockStmt;
@@ -217,10 +219,15 @@ require __DIR__ . '/includes/header.php';
 
       <div class="field">
         <label>Payment method</label>
-        <div class="checkbox-row">
-          <input type="radio" name="payment_method" value="cod" id="pm_cod" checked disabled>
+        <div class="checkbox-row" style="margin-bottom:8px;">
+          <input type="radio" name="payment_method" value="cod" id="pm_cod" <?= ($_POST['payment_method'] ?? 'cod') === 'cod' ? 'checked' : '' ?>>
           <label for="pm_cod" style="margin:0;font-weight:400;">Cash on delivery — pay when your order arrives</label>
         </div>
+        <div class="checkbox-row">
+          <input type="radio" name="payment_method" value="bank_transfer" id="pm_advance" <?= ($_POST['payment_method'] ?? '') === 'bank_transfer' ? 'checked' : '' ?>>
+          <label for="pm_advance" style="margin:0;font-weight:400;">Online advance payment — bKash, Nagad or bank transfer</label>
+        </div>
+        <div class="hint">Choosing advance payment? We'll message you with the bKash/Nagad number or bank details right after you place the order.</div>
       </div>
 
       <?php if ($__user): ?>

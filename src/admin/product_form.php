@@ -13,7 +13,7 @@ if ($id) {
     if (!$product) { flash_set('error', 'Product not found.'); redirect('/admin/products.php'); }
 }
 
-$categories = db()->query('SELECT id, name FROM categories ORDER BY name')->fetchAll();
+$categories = category_flat_for_select();
 $errors = [];
 $editorData = null; // set from POST when validation fails, so nothing typed is lost
 
@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $widthMm = int_or_null($_POST['width_mm'] ?? '');
     $depthMm = int_or_null($_POST['depth_mm'] ?? '');
     $color = trim($_POST['color'] ?? '');
+    $warrantyDays = int_or_null($_POST['warranty_days'] ?? '');
     $youtubeUrl = trim($_POST['youtube_url'] ?? '');
     $isActive = !empty($_POST['is_active']) ? 1 : 0;
     $isFeatured = !empty($_POST['is_featured']) ? 1 : 0;
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($price <= 0) $errors[] = 'Please enter a valid price.';
     if ($comparePrice !== null && $comparePrice <= $price) $errors[] = 'The "compare at" price should be higher than the selling price (or leave it empty).';
     if ($weightGrams <= 0) $errors[] = 'Please enter a valid weight in grams.';
+    if ($warrantyDays !== null && ($warrantyDays < 1 || $warrantyDays > 3650)) $errors[] = 'Warranty should be between 1 day and 10 years (3650 days), or left empty for no warranty.';
     if ($youtubeUrl !== '' && !is_youtube_url($youtubeUrl)) $errors[] = 'YouTube link must be a youtube.com or youtu.be URL.';
 
     // Colors / sizes / per-combination stock. Photos are stored as a side effect of parsing.
@@ -84,13 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($product) {
                 $pdo->prepare(
-                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
+                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, warranty_days=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
                 $productId = (int) $product['id'];
             } else {
                 $pdo->prepare(
-                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, weight_grams, height_mm, width_mm, depth_mm, color, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
+                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, weight_grams, height_mm, width_mm, depth_mm, color, warranty_days, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
                 $productId = (int) $pdo->lastInsertId();
             }
 
@@ -112,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $finalStock = $variantTotal !== null ? $variantTotal : max(0, $stock);
             $newVals = ['name' => $name, 'category' => $catName($categoryId), 'sku' => $sku, 'slug' => $slug, 'short_desc' => $shortDesc, 'tags' => $tags, 'description' => $description,
                 'price' => $price, 'compare_price' => $comparePrice, 'stock' => $finalStock, 'weight_grams' => $weightGrams, 'height_mm' => $heightMm, 'width_mm' => $widthMm,
-                'depth_mm' => $depthMm, 'color' => $color, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no'];
+                'depth_mm' => $depthMm, 'color' => $color, 'warranty_days' => $warrantyDays, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no'];
             if ($product) {
                 $oldVals = $product;
                 $oldVals['category'] = $catName($product['category_id']);
@@ -120,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldVals['is_featured'] = $product['is_featured'] ? 'yes' : 'no';
                 $diff = admin_log_diff($oldVals, $newVals, ['name' => 'Name', 'category' => 'Category', 'sku' => 'SKU', 'slug' => 'URL slug', 'short_desc' => 'Short description', 'description' => 'Description',
                     'tags' => 'Tags', 'price' => 'Price', 'compare_price' => 'Compare-at price', 'stock' => 'Stock', 'weight_grams' => 'Weight (g)', 'height_mm' => 'Height (mm)', 'width_mm' => 'Width (mm)',
-                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured']);
+                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'warranty_days' => 'Warranty (days)', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured']);
                 if ($variantsBefore !== json_encode(variant_editor_data($productId))) $diff['Colours / sizes / per-variant stock'] = ['(before)', 'edited'];
                 if ($newMain) $diff['Main photo'] = ['(old photo)', 'replaced'];
                 if ($newGallery) $diff['Gallery photos'] = ['—', count($newGallery) . ' added'];
@@ -144,9 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Values to show: the saved product, overlaid with whatever was just submitted.
 $f = $product ?: ['name' => '', 'slug' => '', 'sku' => '', 'category_id' => null, 'short_desc' => '', 'tags' => '', 'description' => '', 'price' => '', 'compare_price' => '',
-    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null];
+    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'warranty_days' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'youtube_url'] as $k) {
+    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'warranty_days', 'youtube_url'] as $k) {
         if (isset($_POST[$k])) $f[$k] = $_POST[$k];
     }
     $f['category_id'] = (int) ($_POST['category_id'] ?? 0) ?: null;
@@ -267,10 +269,17 @@ require __DIR__ . '/includes/header.php';
               <input type="text" id="sku" name="sku" value="<?= e($f['sku']) ?>" maxlength="60">
             </div>
           </div>
-          <div class="field" style="max-width:260px;margin-bottom:0;">
-            <label for="stock">Stock</label>
-            <input type="number" min="0" id="stock" name="stock" value="<?= e($f['stock']) ?>">
-            <div class="hint" id="stockHint">Units on hand. Ignored once you add colors or sizes below — stock is then tracked per combination.</div>
+          <div class="field-row" style="margin-bottom:0;">
+            <div class="field">
+              <label for="stock">Stock</label>
+              <input type="number" min="0" id="stock" name="stock" value="<?= e($f['stock']) ?>">
+              <div class="hint" id="stockHint">Units on hand. Ignored once you add colors or sizes below — stock is then tracked per combination.</div>
+            </div>
+            <div class="field">
+              <label for="warranty_days">Warranty <span class="muted" style="font-weight:400;">(optional)</span></label>
+              <div class="input-affix"><input type="number" min="1" max="3650" id="warranty_days" name="warranty_days" value="<?= e($f['warranty_days']) ?>" placeholder="e.g. 365"><span class="affix">days</span></div>
+              <div class="hint">Shown on the product page and on the invoice once the order ships. Leave empty for no warranty.</div>
+            </div>
           </div>
         </div>
       </section>
@@ -323,7 +332,7 @@ require __DIR__ . '/includes/header.php';
             <select id="category_id" name="category_id">
               <option value="">— None —</option>
               <?php foreach ($categories as $c): ?>
-                <option value="<?= (int) $c['id'] ?>" <?= (int) $f['category_id'] === (int) $c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option>
+                <option value="<?= (int) $c['id'] ?>" <?= (int) $f['category_id'] === (int) $c['id'] ? 'selected' : '' ?>><?= str_repeat('— ', $c['depth']) ?><?= e($c['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>

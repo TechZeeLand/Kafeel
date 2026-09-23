@@ -38,6 +38,9 @@ function build_invoice_html(array $order, array $items): string {
         if (!empty($it['variant_label'])) {
             $label .= '<br><span class="muted small">' . e($it['variant_label']) . '</span>';
         }
+        if ($warranty = warranty_label($it['warranty_days'] ?? null)) {
+            $label .= '<br><span class="muted small">' . e($warranty) . '</span>';
+        }
         $rowsHtml .= '<tr>'
             . '<td>' . $label . '</td>'
             . '<td style="text-align:right;">' . invoice_money((float) $it['price']) . '</td>'
@@ -107,7 +110,7 @@ function build_invoice_html(array $order, array $items): string {
         <td style="text-align:right;vertical-align:top;">
             <div style="font-size:13px;font-weight:bold;">#' . e($order['order_number']) . '</div>
             <div class="muted">Date: ' . e(fmt_dt($order['created_at'], 'd M Y')) . '</div>
-            <div class="muted">Payment: ' . e($order['payment_method'] === 'cod' ? 'Cash on delivery' : 'Bank transfer') . '</div>
+            <div class="muted">Payment: ' . e(payment_method_label($order['payment_method'])) . '</div>
             <div style="margin-top:6px;"><span class="status-badge">&nbsp;' . e(strtoupper($statusLabels[$order['status']] ?? $order['status'])) . '&nbsp;</span></div>
         </td>
     </tr></table>

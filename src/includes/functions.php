@@ -169,6 +169,70 @@ function redirect(string $path): void {
     exit;
 }
 
+/* -------------------------------------------------------- categories ------ */
+/**
+ * Categories can nest (e.g. "Men" / "Women" under "Bags & Carry") via
+ * categories.parent_id. These helpers build the tree, flatten it for
+ * <select> menus, and resolve "this category plus every descendant" so a
+ * parent category page can show products filed under its subcategories.
+ */
+
+/** Every category as parent → children, ordered by sort_order/name at each level. */
+function category_tree(bool $activeOnly = true): array {
+    $sql = 'SELECT id, parent_id, name, slug, description, image, sort_order, is_active FROM categories'
+        . ($activeOnly ? ' WHERE is_active = 1' : '') . ' ORDER BY sort_order, name';
+    $rows = db()->query($sql)->fetchAll();
+    $byParent = [];
+    foreach ($rows as $r) $byParent[(int) ($r['parent_id'] ?? 0)][] = $r;
+    $build = function (int $parentId) use (&$build, &$byParent): array {
+        $out = [];
+        foreach ($byParent[$parentId] ?? [] as $r) {
+            $r['children'] = $build((int) $r['id']);
+            $out[] = $r;
+        }
+        return $out;
+    };
+    return $build(0);
+}
+
+/** All categories (active + hidden — for admin use) as a flat, depth-ordered list, each row carrying 'depth'. Handy for an indented <select>. */
+function category_flat_for_select(): array {
+    $out = [];
+    $walk = function (array $nodes, int $depth) use (&$walk, &$out): void {
+        foreach ($nodes as $n) {
+            $n['depth'] = $depth;
+            $children = $n['children'] ?? [];
+            unset($n['children']);
+            $out[] = $n;
+            $walk($children, $depth + 1);
+        }
+    };
+    $walk(category_tree(false), 0);
+    return $out;
+}
+
+/** A category id plus every descendant id (children, grandchildren, …), so browsing a parent category also surfaces products filed under its subcategories. */
+function category_descendant_ids(int $id): array {
+    static $childrenOf = null;
+    if ($childrenOf === null) {
+        $childrenOf = [];
+        foreach (db()->query('SELECT id, parent_id FROM categories')->fetchAll() as $r) {
+            $childrenOf[(int) ($r['parent_id'] ?? 0)][] = (int) $r['id'];
+        }
+    }
+    $ids = [$id];
+    $queue = [$id];
+    while ($queue) {
+        $cur = array_shift($queue);
+        foreach ($childrenOf[$cur] ?? [] as $child) {
+            if (in_array($child, $ids, true)) continue; // guards against a corrupted/cyclic parent_id chain
+            $ids[] = $child;
+            $queue[] = $child;
+        }
+    }
+    return $ids;
+}
+
 /* -------------------------------------------------------- cart ------ */
 
 function cart_identity(): array {
@@ -188,7 +252,7 @@ function variant_label(array $variant): string {
 function cart_items(): array {
     // A cart line's photo and weight follow the chosen options: the color's
     // (or else the size's) preview image, and the size's weight override.
-    $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price,
+    $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price, p.warranty_days,
                    COALESCE(co.image, so.image, p.image_main) AS image_main,
                    p.stock AS product_stock, p.is_active AS product_active,
                    COALESCE(so.weight_grams, p.weight_grams) AS weight_grams,
@@ -256,6 +320,25 @@ function delivery_area_label(string $area): string {
     if ($area === 'outside_dhaka') return 'Outside Dhaka';
     if ($area === 'suburbs') return 'Dhaka Suburbs';
     return 'Inside Dhaka';
+}
+
+/**
+ * Human label for an orders.payment_method value. Kept in one place so the
+ * storefront, admin and invoice always describe payment the same way — we
+ * accept both cash on delivery and an online advance payment (bKash / Nagad
+ * / bank transfer, collected manually; there's no payment gateway wired up
+ * yet), so "cod" and "bank_transfer" are the only two methods stored today.
+ */
+function payment_method_label(string $method): string {
+    return $method === 'cod' ? 'Cash on delivery' : 'Online advance payment';
+}
+
+/** "12-month warranty" / "45-day warranty" — the friendliest whole unit that exactly fits the day count. Null/0 = no warranty. */
+function warranty_label(?int $days): ?string {
+    if (!$days || $days < 1) return null;
+    if ($days % 365 === 0) { $n = intdiv($days, 365); return $n . '-year warranty'; }
+    if ($days % 30 === 0) { $n = intdiv($days, 30); return $n . '-month warranty'; }
+    return $days . '-day warranty';
 }
 
 /** Base flat fee for a delivery zone, before the over-weight surcharge. */

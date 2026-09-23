@@ -62,6 +62,7 @@ if (!defined('DB_HOST')) {
     define('SOCIAL_INSTAGRAM', env_val('SOCIAL_INSTAGRAM', 'https://www.instagram.com/kafeelbd/'));
     define('SOCIAL_YOUTUBE', env_val('SOCIAL_YOUTUBE', 'https://www.youtube.com/@Kafeelbd'));
     define('SOCIAL_WHATSAPP', env_val('SOCIAL_WHATSAPP', '')); // a wa.me link, or just the number
+    define('SOCIAL_SIGNAL', env_val('SOCIAL_SIGNAL', '')); // a signal.me link, or just the number
 
     define('UPLOAD_DIR', __DIR__ . '/../uploads/products');
     define('UPLOAD_URL', '/uploads/products');

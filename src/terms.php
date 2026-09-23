@@ -16,7 +16,7 @@ require __DIR__ . '/includes/header.php';
     <p>All prices are shown in Bangladeshi Taka (৳) and include applicable taxes unless stated otherwise. Delivery charges are shown separately at checkout.</p>
 
     <h2>Payment</h2>
-    <p>We currently accept cash on delivery only — you pay the courier when your order arrives. No advance online payment is required to place an order.</p>
+    <p>We accept cash on delivery — pay the courier when your order arrives — as well as an online advance payment (bKash, Nagad or bank transfer) if you'd rather pay ahead. We'll share the payment details after you place the order.</p>
 
     <h2>Delivery</h2>
     <p>We aim to deliver within <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days of an order being placed. Delivery timelines can occasionally be affected by courier delays, weather, or remote locations, and are estimates rather than guarantees.</p>

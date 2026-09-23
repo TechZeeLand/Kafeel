@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wa = whatsapp_link_normalize((string) ($_POST['social_whatsapp'] ?? ''));
         if ($wa === null) $errors[] = 'WhatsApp: enter a wa.me link (like https://wa.me/8801XXXXXXXXX) or just the phone number, or leave it empty to hide it.';
         else $links['whatsapp'] = $wa;
+        // Signal accepts a signal.me link or just a phone number, same as WhatsApp above.
+        $sig = signal_link_normalize((string) ($_POST['social_signal'] ?? ''));
+        if ($sig === null) $errors[] = 'Signal: enter a signal.me link or just the phone number, or leave it empty to hide it.';
+        else $links['signal'] = $sig;
         foreach (['store_phone' => 'The phone number', 'store_phone2' => 'The second phone number'] as $pk => $plabel) {
             $pv = trim($_POST[$pk] ?? '');
             if ($pv !== '' && !preg_match('/^\+?[\d\s().-]{5,40}$/', $pv)) $errors[] = $plabel . ' should only contain digits, spaces, + ( ) - or a dot.';
@@ -172,8 +176,8 @@ require __DIR__ . '/includes/header.php';
     <h3 class="subhead">Social links</h3>
     <p class="help">Shown as icons in the footer, mobile menu and contact page. Leave one empty to hide it.</p>
     <div class="field-row">
-      <?php foreach (['facebook' => ['Facebook page', 'https://www.facebook.com/yourpage'], 'messenger' => ['Messenger', 'https://m.me/yourpage'], 'instagram' => ['Instagram', 'https://www.instagram.com/yourname/'], 'youtube' => ['YouTube', 'https://www.youtube.com/@yourchannel'], 'whatsapp' => ['WhatsApp', 'https://wa.me/8801XXXXXXXXX']] as $k => [$label, $ph]): ?>
-        <div class="field"><label for="social_<?= $k ?>"><?= e($label) ?></label><input type="<?= $k === 'whatsapp' ? 'text' : 'url' ?>" id="social_<?= $k ?>" name="social_<?= $k ?>" value="<?= e($section === 'store' ? ($_POST['social_' . $k] ?? '') : ($socials[$k]['url'] ?? '')) ?>" placeholder="<?= e($ph) ?>"><?php if ($k === 'whatsapp'): ?><div class="hint">A wa.me link, or just the number (01XXXXXXXXX works) — it's turned into a link for you. Shown with the other social icons.</div><?php endif; ?></div>
+      <?php foreach (['facebook' => ['Facebook page', 'https://www.facebook.com/yourpage'], 'messenger' => ['Messenger', 'https://m.me/yourpage'], 'instagram' => ['Instagram', 'https://www.instagram.com/yourname/'], 'youtube' => ['YouTube', 'https://www.youtube.com/@yourchannel'], 'whatsapp' => ['WhatsApp', 'https://wa.me/8801XXXXXXXXX'], 'signal' => ['Signal', 'https://signal.me/#p/+8801XXXXXXXXX']] as $k => [$label, $ph]): ?>
+        <div class="field"><label for="social_<?= $k ?>"><?= e($label) ?></label><input type="<?= in_array($k, ['whatsapp', 'signal'], true) ? 'text' : 'url' ?>" id="social_<?= $k ?>" name="social_<?= $k ?>" value="<?= e($section === 'store' ? ($_POST['social_' . $k] ?? '') : ($socials[$k]['url'] ?? '')) ?>" placeholder="<?= e($ph) ?>"><?php if ($k === 'whatsapp'): ?><div class="hint">A wa.me link, or just the number (01XXXXXXXXX works) — it's turned into a link for you. Shown with the other social icons.</div><?php endif; ?><?php if ($k === 'signal'): ?><div class="hint">A signal.me link, or just the number (01XXXXXXXXX works) — it's turned into a link for you. Shown with the other social icons.</div><?php endif; ?></div>
       <?php endforeach; ?>
     </div>
   </div>

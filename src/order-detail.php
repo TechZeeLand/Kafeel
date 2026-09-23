@@ -52,7 +52,7 @@ require __DIR__ . '/includes/header.php';
     <div class="panel" style="padding:20px;margin-bottom:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;">
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Status</div><span class="status-pill status-<?= e($order['status']) ?>"><?= e(ucfirst($order['status'])) ?></span></div>
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Placed on</div><?= fmt_dt($order['created_at'], 'd M Y, H:i') ?></div>
-      <div><div style="font-size:0.78rem;color:var(--ink-faint);">Payment</div><?= $order['payment_method'] === 'cod' ? 'Cash on delivery' : 'Bank transfer' ?></div>
+      <div><div style="font-size:0.78rem;color:var(--ink-faint);">Payment</div><?= e(payment_method_label($order['payment_method'])) ?></div>
       <div><div style="font-size:0.78rem;color:var(--ink-faint);">Total</div><strong class="mono"><?= money($order['total']) ?></strong></div>
     </div>
 
@@ -65,7 +65,7 @@ require __DIR__ . '/includes/header.php';
         <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
         <tbody>
           <?php foreach ($items as $it): ?>
-            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="/product.php?slug=<?= e($reviewSlugs[$it['product_id']]) ?>#reviews">★ Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
+            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="/product.php?slug=<?= e($reviewSlugs[$it['product_id']]) ?>#reviews">★ Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table></div>

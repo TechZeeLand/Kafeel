@@ -27,19 +27,36 @@ $perPage = 12;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $perPage;
 
-$countStmt = db()->prepare('SELECT COUNT(*) FROM products WHERE category_id = ? AND is_active = 1');
-$countStmt->execute([$category['id']]);
+// A parent category also shows products filed directly under its subcategories
+// (e.g. viewing "Bags & Carry" includes what's filed under "Men" and "Women").
+$catIds = category_descendant_ids((int) $category['id']);
+$catPlaceholders = implode(',', array_fill(0, count($catIds), '?'));
+
+$countStmt = db()->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ($catPlaceholders) AND is_active = 1");
+$countStmt->execute($catIds);
 $total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($total / $perPage));
 
 $stmt = db()->prepare(
     "SELECT p.*, c.name AS category_name" . PRODUCT_LIST_EXTRA . " FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
-     WHERE p.category_id = ? AND p.is_active = 1
+     WHERE p.category_id IN ($catPlaceholders) AND p.is_active = 1
      ORDER BY $sortSql LIMIT $perPage OFFSET $offset"
 );
-$stmt->execute([$category['id']]);
+$stmt->execute($catIds);
 $products = $stmt->fetchAll();
+
+// Subcategories (shown as chips) and the parent category (shown in the breadcrumb), if any.
+$subcatStmt = db()->prepare('SELECT id, name, slug FROM categories WHERE parent_id = ? AND is_active = 1 ORDER BY sort_order, name');
+$subcatStmt->execute([$category['id']]);
+$subcategories = $subcatStmt->fetchAll();
+
+$parentCategory = null;
+if ($category['parent_id']) {
+    $parentStmt = db()->prepare('SELECT name, slug FROM categories WHERE id = ? AND is_active = 1');
+    $parentStmt->execute([$category['parent_id']]);
+    $parentCategory = $parentStmt->fetch() ?: null;
+}
 
 $__user = current_user();
 $__favIds = $__user ? favorite_ids_for_user($__user['id']) : [];
@@ -48,13 +65,20 @@ require __DIR__ . '/includes/header.php';
 ?>
 
 <div class="wrap">
-  <div class="breadcrumb"><a href="/">Home</a> / <?= e($category['name']) ?></div>
+  <div class="breadcrumb"><a href="/">Home</a> / <?php if ($parentCategory): ?><a href="/category.php?slug=<?= e($parentCategory['slug']) ?>"><?= e($parentCategory['name']) ?></a> / <?php endif; ?><?= e($category['name']) ?></div>
 </div>
 
 <div class="page-header wrap">
-  <span class="eyebrow">Category</span>
+  <span class="eyebrow"><?= $parentCategory ? 'Category — ' . e($parentCategory['name']) : 'Category' ?></span>
   <h1><?= e($category['name']) ?></h1>
   <?php if ($category['description']): ?><p class="prose"><?= e($category['description']) ?></p><?php endif; ?>
+  <?php if ($subcategories): ?>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;">
+      <?php foreach ($subcategories as $sc): ?>
+        <a href="/category.php?slug=<?= e($sc['slug']) ?>" style="flex-shrink:0;padding:7px 14px;border-radius:999px;font-size:.82rem;font-weight:600;color:var(--ink-soft);border:1px solid var(--line);background:var(--paper-raised);white-space:nowrap;"><?= e($sc['name']) ?></a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="wrap">

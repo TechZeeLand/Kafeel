@@ -9,6 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ci = db()->prepare('SELECT name FROM categories WHERE id = ?');
     $ci->execute([$id]);
     $gone = $ci->fetchColumn();
+    // Any subcategories under this one become top-level categories rather than being deleted with it.
+    db()->prepare('UPDATE categories SET parent_id = NULL WHERE parent_id = ?')->execute([$id]);
     db()->prepare('DELETE FROM categories WHERE id = ?')->execute([$id]);
     if ($gone !== false) admin_log('category.delete', 'Deleted category "' . $gone . '"', 'category', $id);
     flash_set('success', 'Category deleted.');

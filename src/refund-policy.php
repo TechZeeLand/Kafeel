@@ -22,7 +22,7 @@ require __DIR__ . '/includes/header.php';
     <p>Reach out through the <a href="/contact.php">contact page</a>, DM us, or email <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> with your order number and the reason for the return. We'll confirm pickup or drop-off details with you.</p>
 
     <h2>Refunds</h2>
-    <p>Since we currently only accept cash on delivery, refunds for eligible returns are made via mobile banking transfer (bKash/Nagad) or bank transfer to your provided account, once the returned item is received and checked. Refunds are typically processed within a few business days of us receiving the item back.</p>
+    <p>If you paid cash on delivery, refunds for eligible returns are made via mobile banking transfer (bKash/Nagad) or bank transfer to your provided account, once the returned item is received and checked. If you paid by online advance payment, we refund to the same bKash/Nagad number or account you paid from. Refunds are typically processed within a few business days of us receiving the item back.</p>
 
     <h2>Cancellations</h2>
     <p>You can cancel an order any time before it ships by contacting us with your order number. Once an order has shipped, it falls under the return process above instead.</p>
