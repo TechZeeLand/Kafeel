@@ -66,9 +66,7 @@ $__activeCat = $_GET['slug'] ?? '';
     <a href="/" class="brand" aria-label="<?= e($__store['name']) ?> — home"><?= brand_inner('header') ?></a>
 
     <nav class="main-nav" aria-label="Main">
-      <a href="/" class="<?= $__isHome ? 'active' : '' ?>">Home</a>
-      <a href="/about.php" class="<?= $__currentPath === '/about.php' ? 'active' : '' ?>">About</a>
-      <a href="/contact.php" class="<?= $__currentPath === '/contact.php' ? 'active' : '' ?>">Contact</a>
+      
     </nav>
 
     <form class="search-form" id="siteSearch" action="/search.php" method="get" role="search" data-suggest>
