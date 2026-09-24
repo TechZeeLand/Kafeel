@@ -106,8 +106,8 @@ function store_socials(): array {
         'messenger' => ['Messenger', 'social_messenger', SOCIAL_FACEBOOK_MESSENGER],
         'instagram' => ['Instagram', 'social_instagram', SOCIAL_INSTAGRAM],
         'youtube' => ['YouTube', 'social_youtube', SOCIAL_YOUTUBE],
-        'whatsapp' => ['WhatsApp', 'social_whatsapp', SOCIAL_WHATSAPP],
         'signal' => ['Signal', 'social_signal', SOCIAL_SIGNAL],
+        'whatsapp' => ['WhatsApp', 'social_whatsapp', SOCIAL_WHATSAPP],
     ];
     $out = [];
     foreach ($defs as $k => [$label, $key, $env]) {
