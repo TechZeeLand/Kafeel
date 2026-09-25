@@ -24,20 +24,20 @@ require __DIR__ . '/includes/header.php';
 <div class="wrap section">
   <div class="empty-state">
     <?php if ($status === 'success'): ?>
-      <div class="icon">✅</div>
+      <div class="icon"><?= ui_icon('check-circle', 40) ?></div>
       <h2>Email verified</h2>
       <p>Your email address is confirmed. Thanks!</p>
-      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account.php' : '/login.php' ?>">Continue</a>
+      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account' : '/login' ?>">Continue</a>
     <?php elseif ($status === 'already'): ?>
-      <div class="icon">✅</div>
+      <div class="icon"><?= ui_icon('check-circle', 40) ?></div>
       <h2>Already verified</h2>
       <p>This email address was already confirmed.</p>
-      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account.php' : '/login.php' ?>">Continue</a>
+      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account' : '/login' ?>">Continue</a>
     <?php else: ?>
-      <div class="icon">⚠️</div>
+      <div class="icon"><?= ui_icon('alert', 40) ?></div>
       <h2>Link invalid or expired</h2>
       <p>This verification link isn't valid. If you're logged in, you can request a new one from your account page.</p>
-      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account.php' : '/login.php' ?>">Go to <?= is_logged_in() ? 'account' : 'login' ?></a>
+      <a class="btn btn-primary" href="<?= is_logged_in() ? '/account' : '/login' ?>">Go to <?= is_logged_in() ? 'account' : 'login' ?></a>
     <?php endif; ?>
   </div>
 </div>

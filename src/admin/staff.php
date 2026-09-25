@@ -72,7 +72,7 @@ require __DIR__ . '/includes/header.php';
             <td class="mono small"><?php if ($r['id_number']): ?><span class="muted"><?= e(STAFF_ID_TYPES[$r['id_type']] ?? 'ID') ?></span><br><?= e(staff_mask_id($r['id_number'])) ?><?php else: ?>—<?php endif; ?></td>
             <td><span class="pill <?= $r['status'] === 'active' ? 'pill-sage' : 'pill-rust' ?>"><?= $r['status'] === 'active' ? 'Active' : 'Disabled' ?></span><?php if ($r['must_change_password']): ?><br><span class="muted small">must set password</span><?php endif; ?></td>
             <td><?php if ($r['facebook_url']): ?><a href="<?= e($r['facebook_url']) ?>" target="_blank" rel="noopener noreferrer nofollow" title="Open Facebook profile" style="font-weight:700;">f</a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-            <td><?= (int) $r['has_doc'] ? '📎' : '<span class="muted">—</span>' ?></td>
+            <td><?= (int) $r['has_doc'] ? ui_icon('paperclip', 16) : '<span class="muted">—</span>' ?></td>
             <td class="actions" style="white-space:nowrap;">
               <a href="/admin/staff_form.php?id=<?= (int) $r['id'] ?>" class="btn btn-outline btn-sm">Edit</a>
               <?php if (!$self): ?>

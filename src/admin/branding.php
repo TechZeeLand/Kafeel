@@ -18,6 +18,7 @@ $slots = [
 ];
 
 $errors = [];
+$fieldErrors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
 
@@ -26,10 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 1) store any new uploads (nothing is saved unless every upload is fine)
     $stored = [];   // key => new url
+    $fieldErrors = []; // key => message, so each asset slot can show its own error inline
     foreach ($slots as $key => [$setting, $kind, $formats, $maxSide]) {
         try {
             if ($url = brand_upload($key, $kind, $formats, $maxSide)) $stored[$key] = $url;
         } catch (RuntimeException $e) {
+            $fieldErrors[$key] = $e->getMessage();
             $errors[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $e->getMessage();
         }
     }
@@ -96,18 +99,20 @@ require __DIR__ . '/includes/header.php';
       <p class="help">Upload your logo once. It replaces the round mark in the header, mobile menu, footer and admin, and is also used in emails and on invoices. The browser-tab icon, phone home-screen icon and the picture shown when a link is shared are made from it automatically — unless you upload a separate favicon or banner below.</p>
       <div class="asset-grid">
 
-        <div class="asset-slot" data-slot="logo">
+        <div class="asset-slot<?= isset($fieldErrors['logo']) ? ' has-error' : '' ?>" data-slot="logo">
           <div class="asset-head"><strong>Main logo</strong><span class="muted">JPG · PNG · WebP · GIF · SVG</span></div>
           <div class="asset-preview checker"><?php if ($cur['logo']): ?><img src="<?= e($cur['logo']) ?>" alt="Current logo"><?php else: ?><span class="empty">No logo yet — the round “<?= e(brand_initial()) ?>” mark is used</span><?php endif; ?></div>
           <input type="file" name="logo" id="f_logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+          <?php if (isset($fieldErrors['logo'])): ?><div class="alert alert-error slot-error"><?= e($fieldErrors['logo']) ?></div><?php endif; ?>
           <?php if ($cur['logo']): ?><label class="switch remove"><input type="checkbox" name="remove_logo" value="1"><span class="track"></span><span>Remove the logo</span></label><?php endif; ?>
-          <div class="hint">Best: a transparent PNG or SVG, around 400 px wide. Shown about 40 px tall in the header.</div>
+          <div class="hint">Best: a transparent PNG or SVG, around 400 px wide. Shown about 40 px tall in the header. Max <?= (int) (BRAND_MAX_UPLOAD_BYTES / 1048576) ?> MB.</div>
         </div>
 
-        <div class="asset-slot" data-slot="logo_dark">
+        <div class="asset-slot<?= isset($fieldErrors['logo_dark']) ? ' has-error' : '' ?>" data-slot="logo_dark">
           <div class="asset-head"><strong>Logo for dark backgrounds</strong><span class="muted">optional</span></div>
           <div class="asset-preview dark"><?php if ($cur['logo_dark']): ?><img src="<?= e($cur['logo_dark']) ?>" alt="Current dark-background logo"><?php elseif ($cur['logo']): ?><img src="<?= e($cur['logo']) ?>" alt="" class="on-plate-demo"><?php else: ?><span class="empty">Upload the main logo first</span><?php endif; ?></div>
           <input type="file" name="logo_dark" id="f_logo_dark" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" <?= $cur['logo'] ? '' : 'disabled' ?>>
+          <?php if (isset($fieldErrors['logo_dark'])): ?><div class="alert alert-error slot-error"><?= e($fieldErrors['logo_dark']) ?></div><?php endif; ?>
           <?php if ($cur['logo_dark']): ?><label class="switch remove"><input type="checkbox" name="remove_logo_dark" value="1"><span class="track"></span><span>Remove this version</span></label><?php endif; ?>
           <div class="hint">A light/white version, used in the footer, mobile menu, admin sidebar and dark mode. If you skip it, the main logo is placed on a small white plate there.</div>
         </div>
@@ -122,20 +127,22 @@ require __DIR__ . '/includes/header.php';
     <div class="panel-body">
       <div class="asset-grid">
 
-        <div class="asset-slot" data-slot="favicon">
+        <div class="asset-slot<?= isset($fieldErrors['favicon']) ? ' has-error' : '' ?>" data-slot="favicon">
           <div class="asset-head"><strong>Favicon / app icon</strong><span class="muted">PNG · SVG · JPG</span></div>
           <div class="asset-preview checker small"><?php if ($cur['favicon']): ?><img src="<?= e($cur['favicon']) ?>" alt="Current favicon" class="fav"><?php elseif ($cur['logo']): ?><img src="<?= e(brand_generated('i180') ?: $cur['logo']) ?>" alt="" class="fav"><span class="muted small-note">from your logo</span><?php else: ?><img src="/assets/img/favicon.svg" alt="" class="fav"><span class="muted small-note">default</span><?php endif; ?></div>
           <input type="file" name="favicon" id="f_favicon" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+          <?php if (isset($fieldErrors['favicon'])): ?><div class="alert alert-error slot-error"><?= e($fieldErrors['favicon']) ?></div><?php endif; ?>
           <?php if ($cur['favicon']): ?><label class="switch remove"><input type="checkbox" name="remove_favicon" value="1"><span class="track"></span><span>Remove (use the logo)</span></label><?php endif; ?>
-          <div class="hint">The small icon in the browser tab and on a phone's home screen. Use a square PNG, 512×512 px. A PNG is needed for the phone home-screen icon; an SVG only covers the tab.</div>
+          <div class="hint">The small icon in the browser tab and on a phone's home screen. Use a square PNG, 512×512 px. A PNG is needed for the phone home-screen icon; an SVG only covers the tab. Max <?= (int) (BRAND_MAX_UPLOAD_BYTES / 1048576) ?> MB.</div>
         </div>
 
-        <div class="asset-slot" data-slot="banner">
+        <div class="asset-slot<?= isset($fieldErrors['banner']) ? ' has-error' : '' ?>" data-slot="banner">
           <div class="asset-head"><strong>Share banner</strong><span class="muted">JPG · PNG · 1200×630</span></div>
           <div class="asset-preview wide"><img src="<?= e($cur['banner'] ?: $share['url']) ?>" alt="Current share image" id="bannerCur"></div>
           <input type="file" name="banner" id="f_banner" accept="image/png,image/jpeg">
+          <?php if (isset($fieldErrors['banner'])): ?><div class="alert alert-error slot-error"><?= e($fieldErrors['banner']) ?></div><?php endif; ?>
           <?php if ($cur['banner']): ?><label class="switch remove"><input type="checkbox" name="remove_banner" value="1"><span class="track"></span><span>Remove (use the logo)</span></label><?php endif; ?>
-          <div class="hint">The picture shown when any page other than a product is shared (WhatsApp, Facebook, Messenger, X…). Product links always show that product's own photo.</div>
+          <div class="hint">The picture shown when any page other than a product is shared (WhatsApp, Facebook, Messenger, X…). Product links always show that product's own photo. Straight-from-camera photos are fine — it's resized automatically. Max <?= (int) (BRAND_MAX_UPLOAD_BYTES / 1048576) ?> MB.</div>
         </div>
       </div>
     </div>
@@ -180,6 +187,12 @@ require __DIR__ . '/includes/header.php';
 
 <script>
 (function () {
+  // If the last save hit a problem, bring it into view instead of leaving the admin
+  // to wonder why nothing changed — errors render inline in their slot (and in the
+  // summary at the top), but on a long page it's easy to land below the fold.
+  var firstError = document.querySelector('.alert-error');
+  if (firstError) firstError.scrollIntoView({ block: 'center' });
+
   // Show a chosen file straight away in its slot (nothing is saved until you press Save).
   document.querySelectorAll('.asset-slot input[type=file]').forEach(function (inp) {
     inp.addEventListener('change', function () {
@@ -189,7 +202,13 @@ require __DIR__ . '/includes/header.php';
       if (!img) { box.innerHTML = ''; img = document.createElement('img'); box.appendChild(img); }
       img.classList.remove('on-plate-demo');
       var note = box.querySelector('.small-note, .empty'); if (note) note.remove();
-      img.src = URL.createObjectURL(f);
+      var oldSrc = img.src;
+      try {
+        img.src = URL.createObjectURL(f);
+      } catch (err) {
+        return; // very old/locked-down browser — the form still works, just skip the instant preview
+      }
+      if (oldSrc && oldSrc.indexOf('blob:') === 0) URL.revokeObjectURL(oldSrc);
       if (inp.name === 'banner') { var s = document.getElementById('scSiteImg'); if (s) s.src = img.src; }
     });
   });

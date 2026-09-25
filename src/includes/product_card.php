@@ -10,7 +10,7 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
 <div class="card-product">
   <div class="thumb">
     <span class="grommet"></span>
-    <a href="/product.php?slug=<?= e($p['slug']) ?>">
+    <a href="<?= e(product_url($p)) ?>">
       <img src="<?= e(product_image_src($p['image_main'])) ?>" alt="<?= e($p['name']) ?>" loading="lazy">
     </a>
     <button class="fav-btn js-fav-toggle <?= $__isFav ? 'active' : '' ?>" data-product-id="<?= (int)$p['id'] ?>" aria-label="Save to wishlist" type="button">
@@ -24,7 +24,7 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
   </div>
   <div class="body">
     <span class="cat-label"><?= e($p['category_name'] ?? 'Shop') ?></span>
-    <div class="name"><a href="/product.php?slug=<?= e($p['slug']) ?>"><?= e($p['name']) ?></a></div>
+    <div class="name"><a href="<?= e(product_url($p)) ?>"><?= e($p['name']) ?></a></div>
     <div class="price-row">
       <span class="price"><?= money($p['price']) ?></span>
       <?php if ($__onSale): ?><span class="compare"><?= money($p['compare_price']) ?></span><?php endif; ?>
@@ -38,7 +38,7 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
   </div>
   <?php if ($__stock > 0 && $__hasVariants): ?>
   <div class="add-form">
-    <a href="/product.php?slug=<?= e($p['slug']) ?>" class="btn btn-primary btn-block btn-sm">Choose options</a>
+    <a href="<?= e(product_url($p)) ?>" class="btn btn-primary btn-block btn-sm">Choose options</a>
   </div>
   <?php elseif ($__stock > 0): ?>
   <form class="add-form js-add-cart" method="post">

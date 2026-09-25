@@ -25,6 +25,7 @@ RUN mkdir -p /run/php \
     && sed -ri 's/^;?listen\.mode\s*=.*/listen.mode = 0660/' /usr/local/etc/php-fpm.d/www.conf
 
 COPY docker/nginx/default.conf /etc/nginx/sites-enabled/default.conf
+COPY docker/nginx/fastcgi-php.conf /etc/nginx/fastcgi-php.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 COPY docker/php/opcache-dev.ini /usr/local/etc/php/conf.d/opcache-dev.ini

@@ -65,7 +65,7 @@ require __DIR__ . '/includes/header.php';
 ?>
 
 <div class="wrap">
-  <div class="breadcrumb"><a href="/">Home</a> / <?php if ($parentCategory): ?><a href="/category.php?slug=<?= e($parentCategory['slug']) ?>"><?= e($parentCategory['name']) ?></a> / <?php endif; ?><?= e($category['name']) ?></div>
+  <div class="breadcrumb"><a href="/">Home</a> / <?php if ($parentCategory): ?><a href="<?= e(category_url($parentCategory)) ?>"><?= e($parentCategory['name']) ?></a> / <?php endif; ?><?= e($category['name']) ?></div>
 </div>
 
 <div class="page-header wrap">
@@ -75,7 +75,7 @@ require __DIR__ . '/includes/header.php';
   <?php if ($subcategories): ?>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;">
       <?php foreach ($subcategories as $sc): ?>
-        <a href="/category.php?slug=<?= e($sc['slug']) ?>" style="flex-shrink:0;padding:7px 14px;border-radius:999px;font-size:.82rem;font-weight:600;color:var(--ink-soft);border:1px solid var(--line);background:var(--paper-raised);white-space:nowrap;"><?= e($sc['name']) ?></a>
+        <a href="<?= e(category_url($sc)) ?>" style="flex-shrink:0;padding:7px 14px;border-radius:999px;font-size:.82rem;font-weight:600;color:var(--ink-soft);border:1px solid var(--line);background:var(--paper-raised);white-space:nowrap;"><?= e($sc['name']) ?></a>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
@@ -85,7 +85,6 @@ require __DIR__ . '/includes/header.php';
   <div class="filter-bar">
     <span class="count"><?= $total ?> product<?= $total === 1 ? '' : 's' ?></span>
     <form method="get">
-      <input type="hidden" name="slug" value="<?= e($slug) ?>">
       <select name="sort" onchange="this.form.submit()">
         <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
         <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Price: low to high</option>
@@ -101,7 +100,7 @@ require __DIR__ . '/includes/header.php';
     </div>
   <?php else: ?>
     <div class="empty-state">
-      <div class="icon">🗂️</div>
+      <div class="icon"><?= ui_icon('folder', 40) ?></div>
       <h2>No products here yet</h2>
       <p>Check back soon — we're stocking this category.</p>
     </div>
@@ -113,7 +112,7 @@ require __DIR__ . '/includes/header.php';
         <?php if ($i === $page): ?>
           <span class="current"><?= $i ?></span>
         <?php else: ?>
-          <a href="?slug=<?= e($slug) ?>&sort=<?= e($sort) ?>&page=<?= $i ?>"><?= $i ?></a>
+          <a href="<?= e(category_url($category)) ?>?sort=<?= e($sort) ?>&amp;page=<?= $i ?>"><?= $i ?></a>
         <?php endif; ?>
       <?php endfor; ?>
     </div>

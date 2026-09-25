@@ -69,7 +69,7 @@ $__activeCat = $_GET['slug'] ?? '';
       
     </nav>
 
-    <form class="search-form" id="siteSearch" action="/search.php" method="get" role="search" data-suggest>
+    <form class="search-form" id="siteSearch" action="/search" method="get" role="search" data-suggest>
       <input type="search" name="q" placeholder="Search products…" value="<?= e($_GET['q'] ?? '') ?>" autocomplete="off" enterkeyhint="search" aria-label="Search products">
       <div class="suggest" id="searchSuggest" hidden></div>
       <button type="submit" aria-label="Search"><?= ui_icon('search', 18) ?></button>
@@ -88,18 +88,18 @@ $__activeCat = $_GET['slug'] ?? '';
           <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
       </div>
-      <a href="<?= $__user ? '/wishlist.php' : '/login.php' ?>" class="icon-btn hide-sm"><?= ui_icon('heart', 21) ?><span class="lbl">Saved</span></a>
-      <a href="/cart.php" class="icon-btn" aria-label="Cart"><?= ui_icon('cart', 22) ?><span class="lbl">Cart</span><span class="badge" data-cart-badge<?= $__cartCount > 0 ? '' : ' hidden' ?>><?= $__cartCount ?></span></a>
-      <a href="<?= $__user ? '/account.php' : '/login.php' ?>" class="icon-btn hide-sm"><?= ui_icon('user', 21) ?><span class="lbl"><?= $__user ? e(explode(' ', $__user['name'])[0]) : 'Login' ?></span></a>
+      <a href="<?= $__user ? '/wishlist' : '/login' ?>" class="icon-btn hide-sm"><?= ui_icon('heart', 21) ?><span class="lbl">Saved</span></a>
+      <a href="/cart" class="icon-btn" aria-label="Cart"><?= ui_icon('cart', 22) ?><span class="lbl">Cart</span><span class="badge" data-cart-badge<?= $__cartCount > 0 ? '' : ' hidden' ?>><?= $__cartCount ?></span></a>
+      <a href="<?= $__user ? '/account' : '/login' ?>" class="icon-btn hide-sm"><?= ui_icon('user', 21) ?><span class="lbl"><?= $__user ? e(explode(' ', $__user['name'])[0]) : 'Login' ?></span></a>
     </div>
   </div>
 </header>
 
 <div class="cat-strip">
   <div class="wrap">
-    <a href="/search.php?sort=newest" class="<?= $__currentPath === '/search.php' && ($_GET['q'] ?? '') === '' ? 'active' : '' ?>">All products</a>
+    <a href="/search?sort=newest" class="<?= $__currentPath === '/search' && ($_GET['q'] ?? '') === '' ? 'active' : '' ?>">All products</a>
     <?php foreach ($__categories as $c): ?>
-      <a href="/category.php?slug=<?= e($c['slug']) ?>" class="<?= ($__currentPath === '/category.php' && $__activeCat === $c['slug']) ? 'active' : '' ?>"><?= e($c['name']) ?></a>
+      <a href="<?= e(category_url($c)) ?>" class="<?= ($__currentPath === '/category' && $__activeCat === $c['slug']) ? 'active' : '' ?>"><?= e($c['name']) ?></a>
     <?php endforeach; ?>
   </div>
 </div>
@@ -113,24 +113,24 @@ $__activeCat = $_GET['slug'] ?? '';
       <button type="button" class="mnav-close" data-nav-close aria-label="Close menu"><?= ui_icon('close', 22) ?></button>
     </div>
     <div class="mnav-body">
-      <form class="mnav-search" action="/search.php" method="get" role="search">
+      <form class="mnav-search" action="/search" method="get" role="search">
         <?= ui_icon('search', 18) ?>
         <input type="search" name="q" placeholder="Search products…" enterkeyhint="search" aria-label="Search products">
       </form>
 
       <nav class="mnav-links" aria-label="Menu">
         <a href="/" class="<?= $__isHome ? 'active' : '' ?>"><?= ui_icon('home') ?>Home<?= ui_icon('chevron', 16) ?></a>
-        <a href="/search.php?sort=newest"><?= ui_icon('grid') ?>All products<?= ui_icon('chevron', 16) ?></a>
-        <a href="/about.php" class="<?= $__currentPath === '/about.php' ? 'active' : '' ?>"><?= ui_icon('info') ?>About us<?= ui_icon('chevron', 16) ?></a>
-        <a href="/contact.php" class="<?= $__currentPath === '/contact.php' ? 'active' : '' ?>"><?= ui_icon('mail') ?>Contact<?= ui_icon('chevron', 16) ?></a>
-        <a href="/orders.php"><?= ui_icon('truck') ?>Track an order<?= ui_icon('chevron', 16) ?></a>
+        <a href="/search?sort=newest"><?= ui_icon('grid') ?>All products<?= ui_icon('chevron', 16) ?></a>
+        <a href="/about" class="<?= $__currentPath === '/about' ? 'active' : '' ?>"><?= ui_icon('info') ?>About us<?= ui_icon('chevron', 16) ?></a>
+        <a href="/contact" class="<?= $__currentPath === '/contact' ? 'active' : '' ?>"><?= ui_icon('mail') ?>Contact<?= ui_icon('chevron', 16) ?></a>
+        <a href="/orders"><?= ui_icon('truck') ?>Track an order<?= ui_icon('chevron', 16) ?></a>
       </nav>
 
       <?php if ($__categories): ?>
       <div class="mnav-title">Shop by category</div>
       <nav class="mnav-cats" aria-label="Categories">
         <?php foreach ($__categories as $c): ?>
-          <a href="/category.php?slug=<?= e($c['slug']) ?>" class="<?= ($__currentPath === '/category.php' && $__activeCat === $c['slug']) ? 'active' : '' ?>"><span><?= e($c['name']) ?></span><?= ui_icon('chevron', 16) ?></a>
+          <a href="<?= e(category_url($c)) ?>" class="<?= ($__currentPath === '/category' && $__activeCat === $c['slug']) ? 'active' : '' ?>"><span><?= e($c['name']) ?></span><?= ui_icon('chevron', 16) ?></a>
         <?php endforeach; ?>
       </nav>
       <?php endif; ?>
@@ -139,15 +139,15 @@ $__activeCat = $_GET['slug'] ?? '';
         <?php if ($__user): ?>
           <div class="who"><span class="avatar"><?= e(mb_strtoupper(mb_substr($__user['name'], 0, 1))) ?></span><div><strong>Hi, <?= e(explode(' ', $__user['name'])[0]) ?></strong><small><?= e($__user['email']) ?></small></div></div>
           <div class="mnav-btns">
-            <a class="btn btn-outline btn-sm" href="/account.php">My account</a>
-            <a class="btn btn-outline btn-sm" href="/wishlist.php">Saved items</a>
-            <a class="btn btn-ghost btn-sm" href="/logout.php"><?= ui_icon('logout', 16) ?>Log out</a>
+            <a class="btn btn-outline btn-sm" href="/account">My account</a>
+            <a class="btn btn-outline btn-sm" href="/wishlist">Saved items</a>
+            <a class="btn btn-ghost btn-sm" href="/logout"><?= ui_icon('logout', 16) ?>Log out</a>
           </div>
         <?php else: ?>
           <p>Log in to track orders and save items.</p>
           <div class="mnav-btns">
-            <a class="btn btn-primary btn-sm" href="/login.php">Log in</a>
-            <a class="btn btn-outline btn-sm" href="/register.php">Create account</a>
+            <a class="btn btn-primary btn-sm" href="/login">Log in</a>
+            <a class="btn btn-outline btn-sm" href="/register">Create account</a>
           </div>
         <?php endif; ?>
       </div>
@@ -188,7 +188,7 @@ $__activeCat = $_GET['slug'] ?? '';
   <div class="wrap flash-wrap">
     <div class="alert alert-info verify-alert">
       <span>Please verify your email address (<?= e($__user['email']) ?>) to secure your account.</span>
-      <form method="post" action="/resend-verification.php">
+      <form method="post" action="/resend-verification">
         <?= csrf_field() ?>
         <button type="submit" class="btn btn-outline btn-sm">Resend verification email</button>
       </form>

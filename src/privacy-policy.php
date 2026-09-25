@@ -25,10 +25,10 @@ require __DIR__ . '/includes/header.php';
     <p>We keep order records for as long as needed for accounting, warranty, and customer-service purposes. You can ask us to delete your account and associated personal data at any time by contacting us.</p>
 
     <h2>Your rights</h2>
-    <p>You can ask us what personal information we hold about you, ask us to correct it, or ask us to delete it, subject to any records we're legally required to keep. Reach out through the <a href="/contact.php">contact page</a> for any of these requests.</p>
+    <p>You can ask us what personal information we hold about you, ask us to correct it, or ask us to delete it, subject to any records we're legally required to keep. Reach out through the <a href="/contact">contact page</a> for any of these requests.</p>
 
     <h2>Contact</h2>
-    <p>Questions about this policy can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <p>Questions about this policy can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact">contact page</a>.</p>
     <?= store_contact_extra_html() ?>
   </div>
 </div>

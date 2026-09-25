@@ -54,11 +54,22 @@ function build_invoice_html(array $order, array $items): string {
     // --- customer card
     $addr = e($order['shipping_line1']) . '<br>'
         . e($order['shipping_city']) . ($order['shipping_state'] ? ', ' . e($order['shipping_state']) : '') . ($order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '');
-    $customerHtml = '<div class="card-title">Billed to</div>'
+    $customerHtml = '<div class="card-title">Ship to</div>'
         . '<div class="name">' . e($order['shipping_name']) . '</div>'
         . invoice_detail_line('Phone', e($order['shipping_phone']))
         . invoice_detail_line('Email', e((string) order_customer_email($order)))
         . invoice_detail_line('Address', $addr);
+
+    // --- billing card (only rendered when it's actually different from shipping)
+    $billingHtml = '';
+    if (empty($order['billing_same_as_shipping'])) {
+        $billAddr = e($order['billing_line1']) . '<br>'
+            . e($order['billing_city']) . ($order['billing_state'] ? ', ' . e($order['billing_state']) : '') . ($order['billing_zip'] ? ' ' . e($order['billing_zip']) : '');
+        $billingHtml = '<div class="card-title">Billed to</div>'
+            . '<div class="name">' . e($order['billing_name']) . '</div>'
+            . invoice_detail_line('Phone', e($order['billing_phone']))
+            . invoice_detail_line('Address', $billAddr);
+    }
 
     // --- shop card
     $storeHtml = '<div class="card-title">From</div>'
@@ -119,7 +130,13 @@ function build_invoice_html(array $order, array $items): string {
         <td class="card" style="width:48.5%;">' . $customerHtml . '</td>
         <td style="width:3%;"></td>
         <td class="card" style="width:48.5%;">' . $storeHtml . '</td>
-    </tr></table>
+    </tr></table>' . ($billingHtml !== '' ? '
+
+    <table style="margin-top:10px;"><tr>
+        <td class="card" style="width:48.5%;">' . $billingHtml . '</td>
+        <td style="width:3%;"></td>
+        <td style="width:48.5%;"></td>
+    </tr></table>' : '') . '
 
     <table class="items" style="margin-top:22px;">
         <tr><th>Item</th><th style="text-align:right;">Price</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Subtotal</th></tr>

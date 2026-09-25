@@ -21,7 +21,7 @@ require __DIR__ . '/includes/header.php';
   <div>
     <?php if (!$orders): ?>
       <div class="empty-state">
-        <div class="icon">📦</div>
+        <div class="icon"><?= ui_icon('box', 40) ?></div>
         <h2>No orders yet</h2>
         <p>Once you place an order, it'll show up here.</p>
         <a class="btn btn-primary" href="/">Start shopping</a>
@@ -32,11 +32,11 @@ require __DIR__ . '/includes/header.php';
         <tbody>
           <?php foreach ($orders as $o): ?>
             <tr>
-              <td class="mono cell-order" data-label="Order"><a href="/order-detail.php?order=<?= e($o['order_number']) ?>"><?= e($o['order_number']) ?></a></td>
+              <td class="mono cell-order" data-label="Order"><a href="<?= e(order_url($o['order_number'])) ?>"><?= e($o['order_number']) ?></a></td>
               <td class="cell-date" data-label="Date"><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
               <td class="cell-status" data-label="Status"><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
               <td class="mono cell-total" data-label="Total"><?= money($o['total']) ?></td>
-              <td class="cell-action"><a href="/order-detail.php?order=<?= e($o['order_number']) ?>" class="btn btn-outline btn-sm">View</a></td>
+              <td class="cell-action"><a href="<?= e(order_url($o['order_number'])) ?>" class="btn btn-outline btn-sm">View</a></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

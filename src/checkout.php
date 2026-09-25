@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/auth.php';
 
 $totals = cart_totals();
 if (!$totals['items']) {
-    redirect('/cart.php');
+    redirect('/cart');
 }
 
 $shippingInside = shipping_fee_for_area('inside_dhaka', $totals['weight_grams']);
@@ -23,10 +23,18 @@ $appliedCoupon = coupon_session_current($totals['subtotal'], coupon_shopper($__u
 if ($__couponDrop && $_SERVER['REQUEST_METHOD'] !== 'POST') flash_set('info', $__couponDrop);
 
 $defaultAddress = null;
+$savedAddresses = [];
 if ($__user) {
-    $stmt = db()->prepare('SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, id DESC LIMIT 1');
+    $stmt = db()->prepare('SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, id DESC');
     $stmt->execute([$__user['id']]);
-    $defaultAddress = $stmt->fetch() ?: null;
+    $savedAddresses = $stmt->fetchAll();
+    $defaultAddress = $savedAddresses[0] ?? null;
+}
+
+/** Does $fields (name/phone/line1/city/state/zip) match a saved address exactly? Avoids re-saving a duplicate. */
+function address_matches(array $addr, string $name, string $phone, string $line1, string $city, string $state, string $zip): bool {
+    return $addr['full_name'] === $name && $addr['phone'] === $phone && $addr['line1'] === $line1
+        && $addr['city'] === $city && (string) $addr['state'] === $state && (string) $addr['zip'] === $zip;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -41,6 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $state = trim($_POST['shipping_state'] ?? '');
     $zip = trim($_POST['shipping_zip'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
+    $shipAddressId = (int) ($_POST['shipping_address_id'] ?? 0);
+
+    $billingSame = !empty($_POST['billing_same']);
+    $billName = $billingSame ? $name : trim($_POST['billing_name'] ?? '');
+    $billPhone = $billingSame ? $phone : trim($_POST['billing_phone'] ?? '');
+    $billLine1 = $billingSame ? $line1 : trim($_POST['billing_line1'] ?? '');
+    $billCity = $billingSame ? $city : trim($_POST['billing_city'] ?? '');
+    $billState = $billingSame ? $state : trim($_POST['billing_state'] ?? '');
+    $billZip = $billingSame ? $zip : trim($_POST['billing_zip'] ?? '');
+
     // No online payment gateway is set up yet, so cash on delivery is the only method actually
     // processed for now — the "Online Payment" radio below is shown as a preview only.
     $payment = 'cod';
@@ -52,6 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look right.';
     if ($line1 === '') $errors[] = 'Please enter your street address.';
     if ($city === '') $errors[] = 'Please enter your city.';
+
+    if (!$billingSame) {
+        if ($billName === '' || strlen($billName) < 2) $errors[] = 'Please enter the billing full name.';
+        if (!preg_match('/^\+?[0-9][0-9 ()\-]{5,20}$/', $billPhone) || strlen(preg_replace('/\D/', '', $billPhone)) < 7 || strlen(preg_replace('/\D/', '', $billPhone)) > 15) $errors[] = 'Please enter a valid billing phone number.';
+        if ($billLine1 === '') $errors[] = 'Please enter the billing street address.';
+        if ($billCity === '') $errors[] = 'Please enter the billing city.';
+    }
 
     // Re-verify current cart & stock right before committing the order.
     $freshTotals = cart_totals();
@@ -82,13 +107,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderNumber = 'RA-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
                 'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, discount, coupon_id, coupon_code, shipping_fee, total,
-                 shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip, notes)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                 shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip,
+                 billing_same_as_shipping, billing_name, billing_phone, billing_line1, billing_city, billing_state, billing_zip, notes)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
                 $orderNumber, $__user['id'] ?? null, 'pending', $payment, $deliveryArea,
                 $freshTotals['subtotal'], $discount, $coupon['id'] ?? null, $coupon['code'] ?? null, $shippingFee, $orderTotal,
-                $name, $phone, ($email ?: ($__user['email'] ?? null)) ?: null, $line1, $city, $state ?: null, $zip ?: null, $notes ?: null,
+                $name, $phone, ($email ?: ($__user['email'] ?? null)) ?: null, $line1, $city, $state ?: null, $zip ?: null,
+                $billingSame ? 1 : 0, $billName, $billPhone, $billLine1, $billCity, $billState ?: null, $billZip ?: null, $notes ?: null,
             ]);
             $orderId = (int) $pdo->lastInsertId();
 
@@ -110,10 +137,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             order_status_add($orderId, 'pending');
 
             if ($__user && $saveAddress) {
-                $pdo->prepare('UPDATE addresses SET is_default = 0 WHERE user_id = ?')->execute([$__user['id']]);
-                $pdo->prepare(
-                    'INSERT INTO addresses (user_id, label, full_name, phone, line1, city, state, zip, is_default) VALUES (?,?,?,?,?,?,?,?,1)'
-                )->execute([$__user['id'], 'Home', $name, $phone, $line1, $city, $state ?: null, $zip ?: null]);
+                // Only insert a new address when this one isn't already saved — picking a saved
+                // address from the list and pressing "place order" shouldn't clone it every time.
+                $alreadySaved = false;
+                foreach ($savedAddresses as $a) {
+                    if ((int) $a['id'] === $shipAddressId && address_matches($a, $name, $phone, $line1, $city, $state, $zip)) { $alreadySaved = true; break; }
+                }
+                if ($alreadySaved) {
+                    $pdo->prepare('UPDATE addresses SET is_default = 0 WHERE user_id = ?')->execute([$__user['id']]);
+                    $pdo->prepare('UPDATE addresses SET is_default = 1 WHERE id = ? AND user_id = ?')->execute([$shipAddressId, $__user['id']]);
+                } else {
+                    $pdo->prepare('UPDATE addresses SET is_default = 0 WHERE user_id = ?')->execute([$__user['id']]);
+                    $pdo->prepare(
+                        'INSERT INTO addresses (user_id, label, full_name, phone, line1, city, state, zip, is_default) VALUES (?,?,?,?,?,?,?,?,1)'
+                    )->execute([$__user['id'], 'Home', $name, $phone, $line1, $city, $state ?: null, $zip ?: null]);
+                }
             }
 
             $pdo->commit();
@@ -143,6 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $discount = $appliedCoupon ? (float) $appliedCoupon['discount'] : 0.0;
+$billingSamePosted = $_SERVER['REQUEST_METHOD'] === 'POST' ? !empty($_POST['billing_same']) : true;
 $pageTitle = 'Checkout';
 $bodyClass = 'has-action-bar';
 require __DIR__ . '/includes/header.php';
@@ -150,7 +189,7 @@ require __DIR__ . '/includes/header.php';
 
 <div class="page-header wrap">
   <span class="eyebrow">Checkout</span>
-  <h1>Shipping details</h1>
+  <h1>Shipping &amp; billing</h1>
 </div>
 
 <div class="wrap cart-layout">
@@ -158,11 +197,31 @@ require __DIR__ . '/includes/header.php';
     <?php foreach ($errors as $err): ?><div class="alert alert-error"><?= e($err) ?></div><?php endforeach; ?>
 
     <?php if (!$__user): ?>
-      <div class="alert alert-info">Checking out as a guest. <a href="/login.php">Log in</a> to save this address and track your order later.</div>
+      <div class="alert alert-info">Checking out as a guest. <a href="/login">Log in</a> to save this address and track your order later.</div>
     <?php endif; ?>
 
     <form method="post" id="checkoutForm">
       <?= csrf_field() ?>
+      <h2 class="checkout-section-title">Shipping details</h2>
+
+      <?php if ($savedAddresses): ?>
+        <div class="field">
+          <label for="shipping_address_select">Use a saved address</label>
+          <select id="shipping_address_select" class="address-picker" data-target="shipping">
+            <option value="">Enter a new address…</option>
+            <?php foreach ($savedAddresses as $a): ?>
+              <option value="<?= (int) $a['id'] ?>"
+                data-name="<?= e($a['full_name']) ?>" data-phone="<?= e($a['phone']) ?>" data-line1="<?= e($a['line1']) ?>"
+                data-city="<?= e($a['city']) ?>" data-state="<?= e((string) $a['state']) ?>" data-zip="<?= e((string) $a['zip']) ?>"
+                <?= (!isset($_POST['shipping_address_id']) && $a['is_default']) || (int) ($_POST['shipping_address_id'] ?? 0) === (int) $a['id'] ? 'selected' : '' ?>>
+                <?= e($a['label']) ?> — <?= e($a['line1']) ?>, <?= e($a['city']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      <?php endif; ?>
+      <input type="hidden" name="shipping_address_id" id="shipping_address_id" value="<?= e($_POST['shipping_address_id'] ?? ($defaultAddress['id'] ?? '')) ?>">
+
       <div class="field-row">
         <div class="field">
           <label for="shipping_name">Full name</label>
@@ -195,10 +254,6 @@ require __DIR__ . '/includes/header.php';
         <label for="shipping_zip">ZIP / postal code</label>
         <input id="shipping_zip" name="shipping_zip" inputmode="numeric" autocomplete="postal-code" value="<?= e($_POST['shipping_zip'] ?? ($defaultAddress['zip'] ?? '')) ?>">
       </div>
-      <div class="field">
-        <label for="notes">Order notes (optional)</label>
-        <textarea id="notes" name="notes" rows="3" placeholder="Delivery instructions, gift note, etc."><?= e($_POST['notes'] ?? '') ?></textarea>
-      </div>
 
       <div class="field">
         <label>Delivery area</label>
@@ -217,6 +272,73 @@ require __DIR__ . '/includes/header.php';
         <div class="hint">+<?= money(SHIPPING_EXTRA_PER_KG) ?> added per additional kg once your parcel passes <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg.</div>
       </div>
 
+      <?php if ($__user): ?>
+        <div class="checkbox-row" style="margin-bottom:18px;">
+          <input type="checkbox" name="save_address" id="save_address" checked>
+          <label for="save_address" style="margin:0;font-weight:400;">Save this address to my account</label>
+        </div>
+      <?php endif; ?>
+
+      <h2 class="checkout-section-title">Billing details</h2>
+      <div class="checkbox-row" style="margin-bottom:16px;">
+        <input type="checkbox" name="billing_same" id="billing_same" <?= $billingSamePosted ? 'checked' : '' ?>>
+        <label for="billing_same" style="margin:0;font-weight:400;">Billing address is the same as shipping</label>
+      </div>
+
+      <div id="billingFields" <?= $billingSamePosted ? 'hidden' : '' ?>>
+        <?php if ($savedAddresses): ?>
+          <div class="field">
+            <label for="billing_address_select">Use a saved address</label>
+            <select id="billing_address_select" class="address-picker" data-target="billing">
+              <option value="">Enter a new address…</option>
+              <?php foreach ($savedAddresses as $a): ?>
+                <option value="<?= (int) $a['id'] ?>"
+                  data-name="<?= e($a['full_name']) ?>" data-phone="<?= e($a['phone']) ?>" data-line1="<?= e($a['line1']) ?>"
+                  data-city="<?= e($a['city']) ?>" data-state="<?= e((string) $a['state']) ?>" data-zip="<?= e((string) $a['zip']) ?>"
+                  <?= (int) ($_POST['billing_address_id'] ?? 0) === (int) $a['id'] ? 'selected' : '' ?>>
+                  <?= e($a['label']) ?> — <?= e($a['line1']) ?>, <?= e($a['city']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        <?php endif; ?>
+        <input type="hidden" name="billing_address_id" id="billing_address_id" value="<?= e($_POST['billing_address_id'] ?? '') ?>">
+
+        <div class="field-row">
+          <div class="field">
+            <label for="billing_name">Full name</label>
+            <input id="billing_name" name="billing_name" autocomplete="name" value="<?= e($_POST['billing_name'] ?? '') ?>">
+          </div>
+          <div class="field">
+            <label for="billing_phone">Phone number</label>
+            <input id="billing_phone" name="billing_phone" type="tel" inputmode="tel" autocomplete="tel" value="<?= e($_POST['billing_phone'] ?? '') ?>">
+          </div>
+        </div>
+        <div class="field">
+          <label for="billing_line1">Street address</label>
+          <input id="billing_line1" name="billing_line1" autocomplete="address-line1" value="<?= e($_POST['billing_line1'] ?? '') ?>">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="billing_city">City</label>
+            <input id="billing_city" name="billing_city" autocomplete="address-level2" value="<?= e($_POST['billing_city'] ?? '') ?>">
+          </div>
+          <div class="field">
+            <label for="billing_state">State / Division</label>
+            <input id="billing_state" name="billing_state" autocomplete="address-level1" value="<?= e($_POST['billing_state'] ?? '') ?>">
+          </div>
+        </div>
+        <div class="field">
+          <label for="billing_zip">ZIP / postal code</label>
+          <input id="billing_zip" name="billing_zip" inputmode="numeric" autocomplete="postal-code" value="<?= e($_POST['billing_zip'] ?? '') ?>">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="notes">Order notes (optional)</label>
+        <textarea id="notes" name="notes" rows="3" placeholder="Delivery instructions, gift note, etc."><?= e($_POST['notes'] ?? '') ?></textarea>
+      </div>
+
       <div class="field">
         <label>Payment method</label>
         <label class="radio-option">
@@ -229,12 +351,7 @@ require __DIR__ . '/includes/header.php';
         </label>
       </div>
 
-      <?php if ($__user): ?>
-        <div class="checkbox-row" style="margin-bottom:18px;">
-          <input type="checkbox" name="save_address" id="save_address" checked>
-          <label for="save_address" style="margin:0;font-weight:400;">Save this address to my account</label>
-        </div>
-      <?php endif; ?>
+      <?php /* "Save this address" checkbox moved up under the shipping section, closer to what it saves. */ ?>
 
       <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></span></button>
     </form>
@@ -259,7 +376,7 @@ require __DIR__ . '/includes/header.php';
         </div>
       </form>
       <div class="coupon-applied" id="couponApplied"<?= $appliedCoupon ? '' : ' hidden' ?>>
-        <span class="coupon-ok" aria-hidden="true">✓</span>
+        <span class="coupon-ok" aria-hidden="true"><?= ui_icon('check', 13) ?></span>
         <span class="coupon-applied-text"><strong id="couponAppliedCode"><?= $appliedCoupon ? e($appliedCoupon['coupon']['code']) : '' ?></strong> applied<small id="couponAppliedDesc"><?= $appliedCoupon ? e(coupon_describe($appliedCoupon['coupon'])) : '' ?></small></span>
         <button type="button" class="link-btn" id="couponRemove">Remove</button>
       </div>
@@ -312,6 +429,50 @@ require __DIR__ . '/includes/header.php';
     update();
   });
   update();
+
+  // Saved-address pickers: fill the matching field group and remember which address was picked
+  // (so the server can update it instead of saving a duplicate when "Save this address" is on).
+  document.querySelectorAll('.address-picker').forEach(function (sel) {
+    var target = sel.dataset.target; // 'shipping' or 'billing'
+    var hiddenId = document.getElementById(target + '_address_id');
+    sel.addEventListener('change', function () {
+      var opt = sel.options[sel.selectedIndex];
+      if (hiddenId) hiddenId.value = opt.value || '';
+      if (!opt.value) return; // "Enter a new address…" — leave fields as they are
+      ['name', 'phone', 'line1', 'city', 'state', 'zip'].forEach(function (f) {
+        var el = document.getElementById(target + '_' + f);
+        if (el) el.value = opt.dataset[f] || '';
+      });
+    });
+  });
+  // Editing a shipping field by hand after picking a saved one means it's no longer that exact
+  // address — clear the picker's memory so a save doesn't silently overwrite the saved one.
+  ['shipping_name', 'shipping_phone', 'shipping_line1', 'shipping_city', 'shipping_state', 'shipping_zip'].forEach(function (id) {
+    var el = document.getElementById(id);
+    var hiddenId = document.getElementById('shipping_address_id');
+    if (el && hiddenId) el.addEventListener('input', function () {
+      var sel = document.getElementById('shipping_address_select');
+      if (sel) sel.value = '';
+      hiddenId.value = '';
+    });
+  });
+
+  // Billing: hide/show the billing fields, and make them required only while visible.
+  var billingSame = document.getElementById('billing_same');
+  var billingFields = document.getElementById('billingFields');
+  var billingRequired = ['billing_name', 'billing_phone', 'billing_line1', 'billing_city'];
+  function syncBilling() {
+    var same = billingSame.checked;
+    billingFields.hidden = same;
+    billingRequired.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.required = !same;
+    });
+  }
+  if (billingSame && billingFields) {
+    billingSame.addEventListener('change', syncBilling);
+    syncBilling();
+  }
 })();
 </script>
 

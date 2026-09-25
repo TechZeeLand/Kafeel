@@ -29,8 +29,8 @@ function current_user(): ?array {
 
 function require_login(): void {
     if (!is_logged_in()) {
-        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/account.php';
-        redirect('/login.php');
+        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/account';
+        redirect('/login');
     }
 }
 
@@ -93,7 +93,7 @@ function register_user(string $name, string $email, string $password, string $ph
 /** Builds and sends the "verify your email" message for a newly (re)issued token. */
 function send_verification_email(int $userId, string $name, string $email, string $token): bool {
     require_once __DIR__ . '/mail.php';
-    $link = base_url() . '/verify-email.php?uid=' . $userId . '&token=' . $token;
+    $link = base_url() . '/verify-email?uid=' . $userId . '&token=' . $token;
     $body = '<p>Hi ' . e(explode(' ', $name)[0]) . ',</p>'
         . '<p>Welcome to ' . e(store_name()) . '! Please confirm your email address to activate your account.</p>'
         . '<p style="margin:24px 0;"><a href="' . e($link) . '" style="background:' . e(theme_settings()['primary']) . ';color:' . e(contrast_text(theme_settings()['primary'])) . ';padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:bold;">Verify my email</a></p>'

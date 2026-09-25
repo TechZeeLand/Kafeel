@@ -28,6 +28,7 @@
   color-scheme: light;
 
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-title: "Nurkholis", var(--font-display);
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 
@@ -52,6 +53,14 @@
 :root[data-theme="dark"] .card-product .fav-btn { background: color-mix(in srgb, var(--paper-raised) 90%, transparent); }
 :root[data-theme="dark"] .cat-tile img { opacity: 0.5; }
 .theme-fade, .theme-fade *, .theme-fade *::before, .theme-fade *::after { transition: background-color .25s ease, color .25s ease, border-color .25s ease !important; }
+
+@font-face {
+  font-family: "Nurkholis";
+  src: url("/assets/fonts/Nurkholis.ttf") format("truetype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -113,7 +122,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 /* -------------------------------------------------------------- header - */
 .site-header { position: sticky; top: 0; z-index: 40; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
 .header-row { display: flex; align-items: center; gap: 28px; padding-block: 16px; }
-.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 1.5rem; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
 .brand .brand-name { overflow: hidden; text-overflow: ellipsis; }
 .brand .mark { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-dark); color: var(--on-dark); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.95rem; }
 .main-nav { display: flex; gap: 22px; flex: 1; }
@@ -202,6 +211,9 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .card-product .fav-btn { z-index: 2; position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,253,248,0.92); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); }
 .card-product .fav-btn:hover, .card-product .fav-btn.active { color: var(--rust); border-color: var(--rust); }
 .card-product .fav-btn.active svg { fill: var(--rust); }
+.js-fav-toggle.active { color: var(--rust); border-color: var(--rust); }
+.js-fav-toggle.active svg { fill: var(--rust); }
+.js-fav-toggle svg { flex-shrink: 0; }
 .card-product .sale-flag { position: absolute; bottom: 8px; left: 8px; background: var(--rust); color: #fff; font-family: var(--font-mono); font-size: 0.68rem; padding: 3px 8px; border-radius: 3px; }
 .card-product .out-flag { position: absolute; inset:0; background: rgba(32,41,59,0.55); color:#fff; display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: .08em; text-transform: uppercase; }
 .card-product .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
@@ -251,6 +263,8 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 
 /* ----------------------------------------------------------------- forms --- */
 .form-card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 36px; box-shadow: var(--shadow-card); }
+.checkout-section-title { font-size: 1.05rem; margin: 0 0 16px; padding-top: 22px; border-top: 1px solid var(--line); }
+.checkout-section-title:first-of-type { padding-top: 0; border-top: none; }
 .form-narrow { max-width: 440px; margin: 44px auto; }
 .field { margin-bottom: 18px; }
 .field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 6px; color: var(--ink); }
@@ -299,7 +313,8 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .summary-row.total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 14px; font-weight: 700; color: var(--ink); font-size: 1.05rem; }
 .summary-row .val { font-family: var(--font-mono); }
 .empty-state { text-align: center; padding: 80px 20px; color: var(--ink-soft); }
-.empty-state .icon { font-size: 3rem; margin-bottom: 14px; }
+.empty-state .icon { margin-bottom: 14px; display: flex; align-items: center; justify-content: center; color: var(--ink-faint); }
+.empty-state .icon svg { width: 44px; height: 44px; }
 
 /* ------------------------------------------------------------- account/orders --- */
 .account-layout { display: grid; grid-template-columns: 230px 1fr; gap: 36px; padding-block: 30px 60px; }
@@ -785,6 +800,8 @@ img, video, svg { max-width: 100%; }
 .rs-empty { color: var(--ink-soft); font-weight: 600; padding: 6px 0 4px; }
 .rs-bars { display: grid; gap: 6px; }
 .rs-bar { display: grid; grid-template-columns: 26px 1fr 24px; gap: 8px; align-items: center; font-size: .78rem; color: var(--ink-soft); }
+.rs-star { display: inline-flex; align-items: center; gap: 2px; }
+.rs-star svg { color: var(--gold, #c9a227); flex-shrink: 0; }
 .rs-track { height: 7px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
 .rs-track span { display: block; height: 100%; background: #e0a526; border-radius: 99px; }
 .rs-n { text-align: right; font-family: var(--font-mono); }
@@ -812,7 +829,8 @@ img, video, svg { max-width: 100%; }
 .review-meta { font-size: .8rem; color: var(--ink-faint); }
 .review-meta .verified { color: var(--sage-text); font-weight: 600; }
 .review-empty { color: var(--ink-faint); }
-.review-link { font-size: .8rem; font-weight: 600; color: var(--accent-text); }
+.review-link { display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; font-weight: 600; color: var(--accent-text); }
+.review-link svg { flex-shrink: 0; }
 
 @media (max-width: 860px) {
   .reviews-layout { grid-template-columns: 1fr; gap: 22px; }

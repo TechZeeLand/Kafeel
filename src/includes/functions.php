@@ -169,6 +169,26 @@ function redirect(string $path): void {
     exit;
 }
 
+/* -------------------------------------------------------- pretty URLs ----- */
+/**
+ * The storefront is served without .php extensions (see docker/nginx/default.conf for the
+ * rewrite rules) — these build the pretty path for a given record so every template links the
+ * same way. Kept close to redirect()/e() since almost every page-link in the app goes through one.
+ */
+function product_url(array $product): string {
+    return '/product/' . rawurlencode($product['slug']);
+}
+function category_url(array $category): string {
+    return '/category/' . rawurlencode($category['slug']);
+}
+/** $orderNumber is the public order code (e.g. RA-260925-AB12C), not the numeric id. */
+function order_url(string $orderNumber): string {
+    return '/order/' . rawurlencode($orderNumber);
+}
+function invoice_url(string $orderNumber): string {
+    return '/invoice/' . rawurlencode($orderNumber);
+}
+
 /* -------------------------------------------------------- categories ------ */
 /**
  * Categories can nest (e.g. "Men" / "Women" under "Bags & Carry") via

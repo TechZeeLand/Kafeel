@@ -2,7 +2,7 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (is_logged_in()) redirect('/account.php');
+if (is_logged_in()) redirect('/account');
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     [$ok, $wait] = attempt_login($email, $password);
     if ($ok) {
-        $redirectTo = safe_local_path($_SESSION['redirect_after_login'] ?? null, '/account.php');
+        $redirectTo = safe_local_path($_SESSION['redirect_after_login'] ?? null, '/account');
         unset($_SESSION['redirect_after_login']);
         flash_set('success', 'Welcome back!');
         redirect($redirectTo);
@@ -41,7 +41,7 @@ require __DIR__ . '/includes/header.php';
       </div>
       <button type="submit" class="btn btn-primary btn-block">Log in</button>
     </form>
-    <div class="form-foot">New here? <a href="/register.php">Create an account</a></div>
+    <div class="form-foot">New here? <a href="/register">Create an account</a></div>
   </div>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

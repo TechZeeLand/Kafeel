@@ -116,7 +116,7 @@ require __DIR__ . '/includes/header.php';
   <div class="breadcrumb">
     <a href="/">Home</a> /
     <?php if ($product['category_slug']): ?>
-      <a href="/category.php?slug=<?= e($product['category_slug']) ?>"><?= e($product['category_name']) ?></a> /
+      <a href="<?= e(category_url(['slug' => $product['category_slug']])) ?>"><?= e($product['category_name']) ?></a> /
     <?php endif; ?>
     <?= e($product['name']) ?>
   </div>
@@ -214,16 +214,16 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="product-actions">
           <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>>Add to cart</button>
-          <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="♡ Save for later">
-            <?= $isFav ? '♥ Saved' : '♡ Save for later' ?>
+          <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="Save for later">
+            <?= ui_icon('heart', 18) ?><span class="fav-label"><?= $isFav ? 'Saved' : 'Save for later' ?></span>
           </button>
         </div>
       </form>
     <?php else: ?>
       <div class="product-actions">
         <button class="btn btn-primary" disabled>Out of stock</button>
-        <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="♡ Notify me / save">
-          <?= $isFav ? '♥ Saved' : '♡ Notify me / save' ?>
+        <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="Notify me / save">
+          <?= ui_icon('heart', 18) ?><span class="fav-label"><?= $isFav ? 'Saved' : 'Notify me / save' ?></span>
         </button>
       </div>
     <?php endif; ?>
@@ -246,7 +246,7 @@ require __DIR__ . '/includes/header.php';
       <div id="metaWeight"><b>Weight:</b> <span id="metaWeightVal"><?= (int)$product['weight_grams'] ?>g</span></div>
       <?php if ($tags): ?>
         <div><b>Tags:</b>
-          <div class="tag-list"><?php foreach ($tags as $t): ?><a href="/search.php?q=<?= urlencode($t) ?>"><?= e($t) ?></a><?php endforeach; ?></div>
+          <div class="tag-list"><?php foreach ($tags as $t): ?><a href="/search?q=<?= urlencode($t) ?>"><?= e($t) ?></a><?php endforeach; ?></div>
         </div>
       <?php endif; ?>
       <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
@@ -284,7 +284,7 @@ require __DIR__ . '/includes/header.php';
           <div class="rs-count"><?= (int) $reviewSummary['count'] ?> review<?= $reviewSummary['count'] === 1 ? '' : 's' ?></div>
           <div class="rs-bars">
             <?php foreach ($reviewSummary['dist'] as $star => $n): $pct = $reviewSummary['count'] ? round($n / $reviewSummary['count'] * 100) : 0; ?>
-              <div class="rs-bar"><span class="rs-star"><?= (int) $star ?>★</span><span class="rs-track"><span style="width:<?= (int) $pct ?>%"></span></span><span class="rs-n"><?= (int) $n ?></span></div>
+              <div class="rs-bar"><span class="rs-star"><?= (int) $star ?> <?= ui_icon('star', 11) ?></span><span class="rs-track"><span style="width:<?= (int) $pct ?>%"></span></span><span class="rs-n"><?= (int) $n ?></span></div>
             <?php endforeach; ?>
           </div>
         <?php else: ?>
@@ -301,7 +301,7 @@ require __DIR__ . '/includes/header.php';
         ?>
         <?php if ($reviewBox['state'] === 'guest'): ?>
           <div class="review-note">
-            <strong>Bought this?</strong> <a href="/login.php" style="text-decoration:underline;">Log in</a> to share what you think — only customers who have received the product can review it.
+            <strong>Bought this?</strong> <a href="/login" style="text-decoration:underline;">Log in</a> to share what you think — only customers who have received the product can review it.
           </div>
         <?php elseif ($reviewBox['state'] === 'cannot'): ?>
           <div class="review-note">Only customers who have received this product can review it. Once your order ships, you can come back and leave a review.</div>
@@ -345,7 +345,7 @@ require __DIR__ . '/includes/header.php';
           <?php if ($reviewPages > 1): ?>
             <div class="pagination" aria-label="Review pages">
               <?php for ($i = 1; $i <= $reviewPages; $i++): ?>
-                <?php if ($i === $reviewPage): ?><span class="current"><?= $i ?></span><?php else: ?><a href="/product.php?slug=<?= e($product['slug']) ?>&amp;rpage=<?= $i ?>#reviews"><?= $i ?></a><?php endif; ?>
+                <?php if ($i === $reviewPage): ?><span class="current"><?= $i ?></span><?php else: ?><a href="<?= e(product_url($product)) ?>?rpage=<?= $i ?>#reviews"><?= $i ?></a><?php endif; ?>
               <?php endfor; ?>
             </div>
           <?php endif; ?>

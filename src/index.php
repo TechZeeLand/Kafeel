@@ -46,7 +46,7 @@ require __DIR__ . '/includes/header.php';
       <h1>The bag you carry carries a significant fragment of your personality.</h1>
       <p class="lead">Carefully chosen materials for the perfect outcome — the kind of thing you reach for daily and never think to replace.</p>
       <div class="hero-actions">
-        <a href="/search.php?sort=newest" class="btn btn-primary">Shop all products</a>
+        <a href="/search?sort=newest" class="btn btn-primary">Shop all products</a>
       </div>
     </div>
     <div class="hero-card">
@@ -57,6 +57,7 @@ require __DIR__ . '/includes/header.php';
         <li>Cash on delivery or pay using online methods</li>
         <li>Delivered in <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days nationwide</li>
         <li>Simple returns within 7 days</li>
+        <li>Peace of mind when it's about quality</li>
       </ul>
     </div>
   </div>
@@ -97,7 +98,7 @@ require __DIR__ . '/includes/header.php';
     </div>
     <div class="cat-grid">
       <?php foreach ($categoriesWithCount as $c): ?>
-        <a class="cat-tile" href="/category.php?slug=<?= e($c['slug']) ?>">
+        <a class="cat-tile" href="<?= e(category_url($c)) ?>">
           <img src="<?= e(product_image_src($c['image'])) ?>" alt="<?= e($c['name']) ?>">
           <div class="label">
             <div class="name"><?= e($c['name']) ?></div>
@@ -145,7 +146,7 @@ require __DIR__ . '/includes/header.php';
         <span class="tag">Staff picks</span>
         <h2>Featured products</h2>
       </div>
-      <a class="view-all" href="/search.php?featured=1">View all →</a>
+      <a class="view-all" href="/search?featured=1">View all →</a>
     </div>
     <div class="product-grid">
       <?php foreach ($featured as $p): include __DIR__ . '/includes/product_card.php'; endforeach; ?>
@@ -161,7 +162,7 @@ require __DIR__ . '/includes/header.php';
         <span class="tag">Just landed</span>
         <h2>New arrivals</h2>
       </div>
-      <a class="view-all" href="/search.php?sort=newest">View all →</a>
+      <a class="view-all" href="/search?sort=newest">View all →</a>
     </div>
     <div class="product-grid">
       <?php foreach ($newest as $p): include __DIR__ . '/includes/product_card.php'; endforeach; ?>

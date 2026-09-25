@@ -14,6 +14,9 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
       <div class="footer-brand">
         <a href="/" class="brand"><?= brand_inner('footer') ?></a>
         <?php if ($__store['description'] !== ''): ?><p><?= e($__store['description']) ?></p><?php endif; ?>
+      </div>
+      <div>
+        <h4>Contact</h4>
         <ul class="footer-contact">
           <?php if ($__store['address'] !== ''): ?><li><?= ui_icon('pin', 16) ?><span><?= nl2br(e($__store['address'])) ?></span></li><?php endif; ?>
           <?php $__phones = store_phones(); if ($__phones): ?><li><?= ui_icon('phone', 16) ?><span><?php foreach ($__phones as $__i => $__ph): ?><?= $__i ? ' <span class="sep">/</span> ' : '' ?><a href="<?= e(tel_href($__ph)) ?>"><?= e($__ph) ?></a><?php endforeach; ?></span></li><?php endif; ?>
@@ -24,18 +27,19 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
       <div>
         <h4>Support</h4>
         <ul>
-          <li><a href="/contact.php">Contact us</a></li>
-          <li><a href="/about.php">About the shop</a></li>
-          <li><a href="/orders.php">Track an order</a></li>
-          <li><a href="<?= is_logged_in() ? '/account.php' : '/login.php' ?>">My account</a></li>
+          <li><a href="/contact">Contact us</a></li>
+          <li><a href="/about">About the shop</a></li>
+          <li><a href="/orders">Track an order</a></li>
+          <li><a href="<?= is_logged_in() ? '/account' : '/login' ?>">My account</a></li>
         </ul>
       </div>
       <div>
         <h4>Legal</h4>
         <ul>
-          <li><a href="/privacy-policy.php">Privacy policy</a></li>
-          <li><a href="/terms.php">Terms of service</a></li>
-          <li><a href="/refund-policy.php">Refund & return policy</a></li>
+          <li><a href="/terms">Terms of Service</a></li>
+          <li><a href="/privacy-policy">Privacy Policy</a></li>
+          <li><a href="/refund-policy">Refund & Return Policy</a></li>
+          <li><a href="/shipping-policy">Shipping & Delivery Policy</a></li>
         </ul>
       </div>
     </div>
@@ -50,19 +54,19 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
 <?php
 $__tabActive = [
     'home' => in_array($__currentPath, ['/', '/index.php'], true),
-    'search' => $__currentPath === '/search.php',
-    'cart' => in_array($__currentPath, ['/cart.php', '/checkout.php', '/order-success.php'], true),
-    'saved' => $__currentPath === '/wishlist.php',
-    'account' => in_array($__currentPath, ['/account.php', '/login.php', '/register.php', '/orders.php', '/order-detail.php', '/addresses.php', '/verify-email.php', '/resend-verification.php'], true),
+    'search' => $__currentPath === '/search',
+    'cart' => in_array($__currentPath, ['/cart', '/checkout', '/order-success'], true),
+    'saved' => $__currentPath === '/wishlist',
+    'account' => in_array($__currentPath, ['/account', '/login', '/register', '/orders', '/addresses', '/verify-email', '/resend-verification'], true) || str_starts_with($__currentPath, '/order/'),
 ];
 $__cur = fn (string $k) => !empty($__tabActive[$k]) ? ' active" aria-current="page' : '';
 ?>
 <nav class="tabbar" aria-label="Quick navigation">
   <a href="/" class="tab<?= $__cur('home') ?>"><?= ui_icon('home', 22) ?><span>Home</span></a>
   <button type="button" class="tab<?= $__cur('search') ?>" data-open-search><?= ui_icon('search', 22) ?><span>Search</span></button>
-  <a href="/cart.php" class="tab<?= $__cur('cart') ?>"><?= ui_icon('cart', 22) ?><span>Cart</span><span class="badge" data-cart-badge<?= $__cartCount > 0 ? '' : ' hidden' ?>><?= (int) $__cartCount ?></span></a>
-  <a href="<?= $__user ? '/wishlist.php' : '/login.php' ?>" class="tab<?= $__cur('saved') ?>"><?= ui_icon('heart', 22) ?><span>Saved</span></a>
-  <a href="<?= $__user ? '/account.php' : '/login.php' ?>" class="tab<?= $__cur('account') ?>"><?= ui_icon('user', 22) ?><span><?= $__user ? 'Account' : 'Log in' ?></span></a>
+  <a href="/cart" class="tab<?= $__cur('cart') ?>"><?= ui_icon('cart', 22) ?><span>Cart</span><span class="badge" data-cart-badge<?= $__cartCount > 0 ? '' : ' hidden' ?>><?= (int) $__cartCount ?></span></a>
+  <a href="<?= $__user ? '/wishlist' : '/login' ?>" class="tab<?= $__cur('saved') ?>"><?= ui_icon('heart', 22) ?><span>Saved</span></a>
+  <a href="<?= $__user ? '/account' : '/login' ?>" class="tab<?= $__cur('account') ?>"><?= ui_icon('user', 22) ?><span><?= $__user ? 'Account' : 'Log in' ?></span></a>
 </nav>
 
 <div id="toast" role="status" aria-live="polite"></div>

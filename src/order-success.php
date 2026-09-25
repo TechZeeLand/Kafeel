@@ -23,7 +23,7 @@ require __DIR__ . '/includes/header.php';
 
 <div class="wrap section" style="max-width:720px;">
   <div class="empty-state" style="padding-top:20px;">
-    <div class="icon">✅</div>
+    <div class="icon"><?= ui_icon('check-circle', 40) ?></div>
     <h2>Thank you — your order is confirmed</h2>
     <p>Order <strong class="mono"><?= e($order['order_number']) ?></strong> has been placed and is being prepared.
     <?php if ($order['payment_method'] === 'cod'): ?>Pay by cash when it arrives.<?php else: ?>We'll be in touch about your online payment shortly.<?php endif; ?>
@@ -51,7 +51,7 @@ require __DIR__ . '/includes/header.php';
 
   <div style="text-align:center;margin-top:10px;">
     <a href="/" class="btn btn-primary">Continue shopping</a>
-    <?php if (is_logged_in()): ?><a href="/orders.php" class="btn btn-outline">View my orders</a><?php endif; ?>
+    <?php if (is_logged_in()): ?><a href="/orders" class="btn btn-outline">View my orders</a><?php endif; ?>
   </div>
 </div>
 

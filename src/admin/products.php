@@ -112,12 +112,12 @@ require __DIR__ . '/includes/header.php';
           <td><img class="thumb" src="<?= e(product_image_src($p['image_main'])) ?>" alt="" loading="lazy"></td>
           <td class="name-cell">
             <a class="title" href="/admin/product_form.php?id=<?= (int) $p['id'] ?>"><?= hl($p['name'], $q) ?></a>
-            <div class="meta"><?= $p['sku'] ? hl($p['sku'], $q) : 'no SKU' ?><?= $p['variant_count'] ? ' · ' . (int) $p['variant_count'] . ' variants' : '' ?><?= $p['is_featured'] ? ' · ★ featured' : '' ?></div>
+            <div class="meta"><?= $p['sku'] ? hl($p['sku'], $q) : 'no SKU' ?><?= $p['variant_count'] ? ' · ' . (int) $p['variant_count'] . ' variants' : '' ?><?= $p['is_featured'] ? ' · ' . ui_icon('star', 12) . ' featured' : '' ?></div>
           </td>
           <td><?= e($p['category_name'] ?? '—') ?></td>
           <td class="mono"><?= e(money((float) $p['price'])) ?><?php if ($p['compare_price']): ?><div class="muted small" style="text-decoration:line-through;"><?= e(money((float) $p['compare_price'])) ?></div><?php endif; ?></td>
           <td><?php if ($stockN <= 0): ?><span class="pill pill-rust">Out</span><?php elseif ($stockN <= 5): ?><span class="stock-low mono"><?= $stockN ?> left</span><?php else: ?><span class="mono"><?= $stockN ?></span><?php endif; ?></td>
-          <td class="mono"><?= (int) $p['wish_count'] > 0 ? '♥ ' . (int) $p['wish_count'] : '<span class="muted">0</span>' ?></td>
+          <td class="mono"><?= (int) $p['wish_count'] > 0 ? ui_icon('heart', 13) . ' ' . (int) $p['wish_count'] : '<span class="muted">0</span>' ?></td>
           <td class="small" style="white-space:nowrap;"><?php if ((int) $p['review_count'] > 0): ?><?= stars_html((float) $p['review_avg']) ?> <span class="muted">(<?= (int) $p['review_count'] ?>)</span><?php else: ?><span class="muted">—</span><?php endif; ?></td>
           <td><?= $p['is_active'] ? '<span class="pill pill-sage">Visible</span>' : '<span class="pill pill-ink">Hidden</span>' ?></td>
           <td class="actions">

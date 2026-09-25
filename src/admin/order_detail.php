@@ -130,7 +130,7 @@ require __DIR__ . '/includes/header.php';
 <div class="panel">
   <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
     <h2>Order items</h2>
-    <a href="/admin/invoice.php?id=<?= (int)$order['id'] ?>" target="_blank" class="btn btn-outline btn-sm">📄 View invoice</a>
+    <a href="/admin/invoice.php?id=<?= (int)$order['id'] ?>" target="_blank" class="btn btn-outline btn-sm"><?= ui_icon('file', 15) ?> View invoice</a>
   </div>
   <table class="admin-table">
     <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
@@ -159,6 +159,11 @@ require __DIR__ . '/includes/header.php';
       <?php $__em = order_customer_email($order); if ($__em): ?><?= e($__em) ?><br><?php endif; ?>
       <?= e($order['shipping_line1']) ?><br>
       <?= e($order['shipping_city']) ?><?= $order['shipping_state'] ? ', ' . e($order['shipping_state']) : '' ?><?= $order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '' ?></p>
+      <?php if (empty($order['billing_same_as_shipping'])): ?>
+        <p><strong>Billing address</strong><br>
+        <?= e($order['billing_name']) ?> · <?= e($order['billing_phone']) ?><br>
+        <?= e($order['billing_line1']) ?>, <?= e($order['billing_city']) ?><?= $order['billing_state'] ? ', ' . e($order['billing_state']) : '' ?><?= $order['billing_zip'] ? ' ' . e($order['billing_zip']) : '' ?></p>
+      <?php endif; ?>
       <?php if ($order['notes']): ?><p><strong>Notes:</strong> <?= e($order['notes']) ?></p><?php endif; ?>
       <p style="color:var(--ink-faint);font-size:0.85rem;">Payment method: <?= e(payment_method_label($order['payment_method'])) ?></p>
       <?php if ($customer): ?><p style="color:var(--ink-faint);font-size:0.85rem;">Account: <?= e($customer['name']) ?> (<?= e($customer['email']) ?>)</p>

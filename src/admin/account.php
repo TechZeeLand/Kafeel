@@ -67,7 +67,7 @@ $val = fn ($v) => ($v !== null && $v !== '') ? e((string) $v) : '<span class="mu
       <div><dt>Member since</dt><dd><?= e(fmt_dt($mine['created_at'], 'd M Y')) ?></dd></div>
       <div class="wide"><dt>Address</dt><dd><?= $mine['address'] ? nl2br(e($mine['address'])) : '<span class="muted">Not added yet</span>' ?></dd></div>
       <div class="wide"><dt>Document</dt><dd>
-        <?php if ($myDoc): ?>📎 <strong><?= e($myDoc['original_name']) ?></strong> <span class="muted small">(<?= e(staff_human_size((int) $myDoc['size'])) ?>)</span>
+        <?php if ($myDoc): ?><?= ui_icon('paperclip', 15) ?> <strong><?= e($myDoc['original_name']) ?></strong> <span class="muted small">(<?= e(staff_human_size((int) $myDoc['size'])) ?>)</span>
           &nbsp;<a href="/admin/staff_document.php?id=<?= (int) $admin['id'] ?>" target="_blank" rel="noopener" style="text-decoration:underline;">View</a> · <a href="/admin/staff_document.php?id=<?= (int) $admin['id'] ?>&amp;download=1" style="text-decoration:underline;">Download</a>
         <?php else: ?><span class="muted">None attached</span><?php endif; ?></dd></div>
     </dl>

@@ -154,7 +154,7 @@ require __DIR__ . '/includes/header.php';
     <h3 class="form-section">Document <span class="muted" style="font-weight:400;">(optional)</span></h3>
     <?php if ($docMeta): ?>
       <div class="doc-card">
-        <span class="doc-ico">📎</span>
+        <span class="doc-ico"><?= ui_icon('paperclip', 18) ?></span>
         <div class="doc-meta"><strong><?= e($docMeta['original_name']) ?></strong><small><?= e(STAFF_DOC_TYPES[$docMeta['mime']] ?? $docMeta['mime']) ?> · <?= e(staff_human_size((int) $docMeta['size'])) ?> · added <?= e(fmt_dt($docMeta['uploaded_at'], 'd M Y')) ?></small></div>
         <a class="btn btn-outline btn-sm" href="/admin/staff_document.php?id=<?= (int) $editing['id'] ?>" target="_blank" rel="noopener">View</a>
         <a class="btn btn-outline btn-sm" href="/admin/staff_document.php?id=<?= (int) $editing['id'] ?>&amp;download=1">Download</a>

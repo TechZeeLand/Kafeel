@@ -103,7 +103,7 @@ $presets = [
           <div class="field" style="max-width:260px;margin-bottom:0;">
             <label for="seasonal_effect">Effect</label>
             <select id="seasonal_effect" name="seasonal_effect">
-              <?php foreach (['snow' => 'Snow ❄', 'leaves' => 'Autumn leaves 🍂', 'rain' => 'Rain 🌧'] as $k => $l): ?>
+              <?php foreach (['snow' => 'Snow', 'leaves' => 'Autumn leaves', 'rain' => 'Rain'] as $k => $l): ?>
                 <option value="<?= $k ?>" <?= $theme['seasonal_effect'] === $k ? 'selected' : '' ?>><?= $l ?></option>
               <?php endforeach; ?>
             </select>

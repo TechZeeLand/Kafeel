@@ -17,13 +17,13 @@ if (!$product) {
     flash_set('error', 'That product is no longer available.');
     redirect('/');
 }
-$back = '/product.php?slug=' . urlencode($product['slug']);
+$back = product_url($product);
 
 $user = current_user();
 if (!$user) {
     $_SESSION['redirect_after_login'] = $back . '#reviews';
     flash_set('info', 'Please log in to review this product.');
-    redirect('/login.php');
+    redirect('/login');
 }
 
 $existing = review_of_user((int) $user['id'], $productId);

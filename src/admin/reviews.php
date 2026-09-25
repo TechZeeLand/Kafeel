@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $r = $st->fetch();
     if ($r) {
         $who = review_display_name($r['author_name']);
-        $what = $r['rating'] . '★ review by ' . $who . ' on "' . admin_log_clip($r['product_name'], 60) . '"';
+        $what = $r['rating'] . '-star review by ' . $who . ' on "' . admin_log_clip($r['product_name'], 60) . '"';
         $details = ['product_id' => (int) $r['product_id'], 'rating' => (int) $r['rating'], 'review_text' => admin_log_clip($r['body'], 300)];
         if ($action === 'hide' || $action === 'show') {
             $new = $action === 'hide' ? 'hidden' : 'published';
@@ -69,7 +69,7 @@ require __DIR__ . '/includes/header.php';
 <div class="stat-grid stat-grid-3">
   <div class="stat-card"><div class="label">Published</div><div class="value"><?= (int) ($counts['published'] ?? 0) ?></div></div>
   <div class="stat-card"><div class="label">Hidden</div><div class="value"><?= (int) ($counts['hidden'] ?? 0) ?></div></div>
-  <div class="stat-card"><div class="label">Average rating</div><div class="value"><?= $avgAll !== null && $avgAll !== false ? e(number_format((float) $avgAll, 1)) . ' ★' : '—' ?></div></div>
+  <div class="stat-card"><div class="label">Average rating</div><div class="value"><?= $avgAll !== null && $avgAll !== false ? e(number_format((float) $avgAll, 1)) . ' ' . ui_icon('star', 15) : '—' ?></div></div>
 </div>
 
 <div class="panel">

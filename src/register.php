@@ -2,7 +2,7 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (is_logged_in()) redirect('/account.php');
+if (is_logged_in()) redirect('/account');
 
 $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [$ok, $msg] = register_user($name, $email, $password, $phone);
         if ($ok) {
             flash_set('success', 'Account created — welcome!');
-            redirect('/account.php');
+            redirect('/account');
         }
         $error = $msg;
     }
@@ -58,7 +58,7 @@ require __DIR__ . '/includes/header.php';
       </div>
       <button type="submit" class="btn btn-primary btn-block">Create account</button>
     </form>
-    <div class="form-foot">Already have an account? <a href="/login.php">Log in</a></div>
+    <div class="form-foot">Already have an account? <a href="/login">Log in</a></div>
   </div>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>

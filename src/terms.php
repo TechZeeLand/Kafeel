@@ -25,7 +25,7 @@ require __DIR__ . '/includes/header.php';
     <p>We try to describe and photograph every product accurately. Colors may vary slightly due to screen display, and handmade or leather items may show natural variation piece to piece.</p>
 
     <h2>Returns & cancellations</h2>
-    <p>See our <a href="/refund-policy.php">refund & return policy</a> for how to cancel or return an order.</p>
+    <p>See our <a href="/refund-policy">refund & return policy</a> for how to cancel or return an order.</p>
 
     <h2>Accounts</h2>
     <p>If you create an account, you're responsible for keeping your login details secure. Let us know right away if you believe your account has been accessed without your permission.</p>
@@ -34,7 +34,7 @@ require __DIR__ . '/includes/header.php';
     <p>We may update these terms from time to time as the store evolves. The current version is always available on this page.</p>
 
     <h2>Contact</h2>
-    <p>Questions about these terms can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact.php">contact page</a>.</p>
+    <p>Questions about these terms can be sent to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or through our <a href="/contact">contact page</a>.</p>
     <?= store_contact_extra_html() ?>
   </div>
 </div>

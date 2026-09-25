@@ -127,7 +127,7 @@
             toast(res.message || 'Added to cart');
           } else {
             toast(res.message || 'Could not add to cart');
-            if (res.login_required) { window.location.href = '/login.php'; }
+            if (res.login_required) { window.location.href = '/login'; }
           }
         })
         .catch(function () { toast('Network error — please try again'); })
@@ -154,17 +154,15 @@
         .then(function (res) {
           if (res.ok) {
             btn.classList.toggle('active', res.favorited);
-            // Product-page button carries a text label; card hearts are icon-only.
-            if (btn.classList.contains('btn')) {
-              btn.textContent = res.favorited ? '\u2665 Saved' : (btn.getAttribute('data-off-label') || '\u2661 Save for later');
-            } else {
-              var svg = btn.querySelector('svg');
-              if (svg) svg.setAttribute('fill', res.favorited ? 'currentColor' : 'none');
-            }
+            var svg = btn.querySelector('svg');
+            if (svg) svg.setAttribute('fill', res.favorited ? 'currentColor' : 'none');
+            // Product-page button also carries a text label; card hearts are icon-only.
+            var label = btn.querySelector('.fav-label');
+            if (label) label.textContent = res.favorited ? 'Saved' : (btn.getAttribute('data-off-label') || 'Save for later');
             if (typeof res.wish_count !== 'undefined') updateWishCount(productId, res.wish_count);
             toast(res.favorited ? 'Saved to your wishlist' : 'Removed from wishlist');
           } else if (res.login_required) {
-            window.location.href = '/login.php';
+            window.location.href = '/login';
           } else {
             toast(res.message || 'Something went wrong');
           }
@@ -398,7 +396,7 @@
       var words = q.split(/\s+/).filter(Boolean);
       items.forEach(function (it) {
         var a = document.createElement('a');
-        a.href = '/product.php?slug=' + encodeURIComponent(it.slug);
+        a.href = '/product/' + encodeURIComponent(it.slug);
         var img = document.createElement('img'); img.src = it.image; img.alt = ''; img.loading = 'lazy';
         var wrap = document.createElement('div');
         var name = document.createElement('div'); name.className = 's-name'; name.appendChild(highlight(it.name, words));
@@ -408,7 +406,7 @@
         sBox.appendChild(a);
       });
       var all = document.createElement('a');
-      all.href = '/search.php?q=' + encodeURIComponent(q); all.className = 's-all';
+      all.href = '/search?q=' + encodeURIComponent(q); all.className = 's-all';
       all.textContent = 'See all results for “' + q + '”';
       sBox.appendChild(all);
       sBox.hidden = false; sActive = -1;

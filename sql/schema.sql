@@ -248,6 +248,13 @@ CREATE TABLE IF NOT EXISTS orders (
   shipping_city VARCHAR(100) NOT NULL,
   shipping_state VARCHAR(100) DEFAULT NULL,
   shipping_zip VARCHAR(20) DEFAULT NULL,
+  billing_same_as_shipping TINYINT(1) NOT NULL DEFAULT 1,
+  billing_name VARCHAR(120) DEFAULT NULL,
+  billing_phone VARCHAR(30) DEFAULT NULL,
+  billing_line1 VARCHAR(200) DEFAULT NULL,
+  billing_city VARCHAR(100) DEFAULT NULL,
+  billing_state VARCHAR(100) DEFAULT NULL,
+  billing_zip VARCHAR(20) DEFAULT NULL,
   notes VARCHAR(255) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -387,4 +394,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '8');
+('schema_version', '9');

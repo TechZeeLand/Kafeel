@@ -27,7 +27,7 @@ require __DIR__ . '/includes/header.php';
   <div>
     <?php if (!$products): ?>
       <div class="empty-state">
-        <div class="icon">♡</div>
+        <div class="icon"><?= ui_icon('heart', 40) ?></div>
         <h2>Nothing saved yet</h2>
         <p>Tap the heart icon on any product to save it here.</p>
         <a class="btn btn-primary" href="/">Browse products</a>

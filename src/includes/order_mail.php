@@ -52,7 +52,8 @@ function send_order_confirmation(int $orderId): void {
             . 'Shipping (' . e(delivery_area_label($order['delivery_area'])) . '): ' . e(money((float) $order['shipping_fee'])) . '<br>'
             . '<strong>Total to pay on delivery: ' . e(money((float) $order['total'])) . '</strong></p>'
             . '<p style="color:#4a5670;font-size:14px;">Delivering to: ' . e($order['shipping_name']) . ', ' . e($order['shipping_line1']) . ', ' . e($order['shipping_city']) . '</p>'
-            . (!empty($order['user_id']) ? order_email_button(base_url() . '/order-detail.php?order=' . $order['order_number'], 'View your order') : '');
+            . (empty($order['billing_same_as_shipping']) ? '<p style="color:#4a5670;font-size:14px;">Billing to: ' . e($order['billing_name']) . ', ' . e($order['billing_line1']) . ', ' . e($order['billing_city']) . '</p>' : '')
+            . (!empty($order['user_id']) ? order_email_button(order_url($order['order_number']), 'View your order') : '');
         send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' confirmed', email_wrap('Thanks for your order', $body));
     } catch (Throwable $e) {
         error_log('[order_mail] confirmation failed: ' . $e->getMessage());
@@ -67,7 +68,7 @@ function send_order_status_email(array $order, string $newStatus, ?string $note)
         $body = '<p>Hi ' . e(explode(' ', $order['shipping_name'])[0]) . ',</p>'
             . '<p>Your order <strong>#' . e($order['order_number']) . '</strong> is now <strong>' . e($label) . '</strong>.</p>'
             . ($note ? '<p>' . e($note) . '</p>' : '')
-            . (!empty($order['user_id']) ? order_email_button(base_url() . '/order-detail.php?order=' . $order['order_number'], 'Track your order') : '');
+            . (!empty($order['user_id']) ? order_email_button(order_url($order['order_number']), 'Track your order') : '');
         send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' — ' . $label, email_wrap('Order update', $body));
     } catch (Throwable $e) {
         error_log('[order_mail] status email failed: ' . $e->getMessage());

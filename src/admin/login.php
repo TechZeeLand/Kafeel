@@ -32,7 +32,7 @@ if ($error === '' || $error === null) { $__fl = flash_get(); if ($__fl) $error =
 <body>
 <div class="login-shell">
   <div class="login-card">
-    <span class="brand"><?= brand_logo() ? '<img src="' . e(brand_logo()) . '" alt="' . e(store_name()) . '" class="login-logo">' : '⚙ ' . e(store_name()) ?></span>
+    <span class="brand"><?= brand_logo() ? '<img src="' . e(brand_logo()) . '" alt="' . e(store_name()) . '" class="login-logo">' : ui_icon('gear', 20) . ' ' . e(store_name()) ?></span>
     <div class="sub">Admin portal</div>
     <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
     <form method="post">

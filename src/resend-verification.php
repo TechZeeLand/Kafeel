@@ -15,4 +15,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-redirect(safe_local_path($_SERVER['HTTP_REFERER'] ?? null, '/account.php'));
+redirect(safe_local_path($_SERVER['HTTP_REFERER'] ?? null, '/account'));

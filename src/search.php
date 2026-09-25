@@ -83,7 +83,7 @@ $qsBase = 'q=' . urlencode($q) . ($featuredOnly ? '&featured=1' : '') . '&sort='
     </div>
   <?php else: ?>
     <div class="empty-state">
-      <div class="icon">🔍</div>
+      <div class="icon"><?= ui_icon('search', 40) ?></div>
       <h2>No matches found</h2>
       <p>Try a different search term or browse a category from the menu.</p>
     </div>

@@ -66,7 +66,13 @@ if (!defined('DB_HOST')) {
 
     define('UPLOAD_DIR', __DIR__ . '/../uploads/products');
     define('UPLOAD_URL', '/uploads/products');
-    define('MAX_UPLOAD_BYTES', 5 * 1024 * 1024); // 5MB
+    define('MAX_UPLOAD_BYTES', 5 * 1024 * 1024); // 5MB — product photos are shown near their original size, no resize step
+    // Branding assets (logo/favicon/banner) get scaled down server-side on upload (see brand_upload()),
+    // so the raw file people pick — often a straight-from-camera/phone photo — can be much bigger than
+    // what's actually stored. Kept just under the nginx/php upload ceilings (see docker/nginx/default.conf
+    // client_max_body_size and docker/php/uploads.ini upload_max_filesize) so this is always the limit
+    // that's actually hit, with a clear message, instead of a generic transport-level failure.
+    define('BRAND_MAX_UPLOAD_BYTES', 15 * 1024 * 1024); // 15MB
 }
 
 // Session cookie hardening - must run before session_start()

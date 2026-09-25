@@ -158,6 +158,14 @@ function ui_icon(string $name, int $size = 20): string {
         'file' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
         'truck' => '<rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
         'tag' => '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>',
+        'star' => '<path fill="currentColor" stroke="none" d="M12 2.5l2.9 6.4 7 .7-5.3 4.7 1.6 6.9L12 17.6l-6.2 3.6 1.6-6.9-5.3-4.7 7-.7z"/>',
+        'check-circle' => '<circle cx="12" cy="12" r="10"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
+        'check' => '<path d="M20 6 9 17l-5-5"/>',
+        'alert' => '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+        'paperclip' => '<path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 5.5 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/>',
+        'gear' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 9.09V9a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 4.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        'folder' => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+        'address' => '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/><path d="M9 21h6"/>',
     ];
     $p = $paths[$name] ?? '';
     return '<svg class="i i-' . $name . '" viewBox="0 0 24 24" width="' . $size . '" height="' . $size . '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $p . '</svg>';
@@ -328,9 +336,12 @@ function brand_upload(string $field, string $kind, array $formats, int $maxSide 
     if (empty($_FILES[$field]) || is_array($_FILES[$field]['error'] ?? null)) return null;
     $f = $_FILES[$field];
     if ($f['error'] === UPLOAD_ERR_NO_FILE) return null;
-    if ($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE) throw new RuntimeException('That file is too large (max ' . (int) (MAX_UPLOAD_BYTES / 1048576) . ' MB).');
+    if ($f['error'] === UPLOAD_ERR_INI_SIZE || $f['error'] === UPLOAD_ERR_FORM_SIZE) throw new RuntimeException('That file is too large (max ' . (int) (BRAND_MAX_UPLOAD_BYTES / 1048576) . ' MB).');
     if ($f['error'] !== UPLOAD_ERR_OK) throw new RuntimeException('The upload did not finish (error ' . (int) $f['error'] . '). Please try again.');
-    if ($f['size'] > MAX_UPLOAD_BYTES) throw new RuntimeException('That file is too large (max ' . (int) (MAX_UPLOAD_BYTES / 1048576) . ' MB).');
+    // Branding images are resized down to $maxSide right below, so the raw file (often a
+    // straight-from-camera/phone photo) is allowed to be considerably bigger than the product-photo
+    // cap (MAX_UPLOAD_BYTES) — it never ends up that large once it's actually saved.
+    if ($f['size'] > BRAND_MAX_UPLOAD_BYTES) throw new RuntimeException('That file is too large (max ' . (int) (BRAND_MAX_UPLOAD_BYTES / 1048576) . ' MB — try a smaller photo or crop/compress it first).');
     if (!is_uploaded_file($f['tmp_name'])) throw new RuntimeException('The upload could not be verified. Please try again.');
 
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -558,8 +569,10 @@ const NOINDEX_PAGES = ['cart.php', 'checkout.php', 'login.php', 'register.php', 
 function canonical_url(): string {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     if ($path === '/index.php') $path = '/';
+    // Product/category slugs are part of the pretty path itself (see product_url()/category_url()) —
+    // $_GET['slug'] is still set internally (nginx passes it to the script as a query string), but it
+    // must NOT be re-appended here or the canonical URL would show both, e.g. /product/x?slug=x.
     $keep = [];
-    if (!empty($_GET['slug']) && is_string($_GET['slug'])) $keep['slug'] = $_GET['slug'];
     if ((int) ($_GET['page'] ?? 1) > 1) $keep['page'] = (int) $_GET['page'];
     return abs_url($path . ($keep ? '?' . http_build_query($keep) : ''));
 }
@@ -653,7 +666,7 @@ function render_head_meta(): string {
         if ($same = array_values(array_map(fn ($x) => $x['url'], array_diff_key(store_socials(), ['messenger' => 1, 'whatsapp' => 1, 'signal' => 1])))) $org['sameAs'] = $same;
         $ld[] = $org;
         $ld[] = ['@context' => 'https://schema.org', '@type' => 'WebSite', 'name' => $s['name'], 'url' => abs_url('/'),
-            'potentialAction' => ['@type' => 'SearchAction', 'target' => abs_url('/search.php?q={search_term_string}'), 'query-input' => 'required name=search_term_string']];
+            'potentialAction' => ['@type' => 'SearchAction', 'target' => abs_url('/search?q={search_term_string}'), 'query-input' => 'required name=search_term_string']];
     }
     foreach ($ld as $obj) $h .= '<script type="application/ld+json">' . json_encode($obj, $flags) . "</script>\n";
     return $h;

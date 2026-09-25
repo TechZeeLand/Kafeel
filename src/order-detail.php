@@ -13,7 +13,7 @@ if (!$order) {
     http_response_code(404);
     $pageTitle = 'Order not found';
     require __DIR__ . '/includes/header.php';
-    echo '<div class="wrap section"><div class="empty-state"><h2>Order not found</h2><a class="btn btn-primary" href="/orders.php">Back to orders</a></div></div>';
+    echo '<div class="wrap section"><div class="empty-state"><h2>Order not found</h2><a class="btn btn-primary" href="/orders">Back to orders</a></div></div>';
     require __DIR__ . '/includes/footer.php';
     exit;
 }
@@ -59,13 +59,13 @@ require __DIR__ . '/includes/header.php';
     <div class="form-card" style="margin-bottom:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <h3 style="margin:0;">Items</h3>
-        <a href="/invoice.php?order=<?= e($order['order_number']) ?>" target="_blank" class="btn btn-outline btn-sm">📄 Download invoice</a>
+        <a href="<?= e(invoice_url($order['order_number'])) ?>" target="_blank" class="btn btn-outline btn-sm"><?= ui_icon('file', 16) ?> Download invoice</a>
       </div>
       <div class="table-scroll"><table class="data-table items-table">
         <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
         <tbody>
           <?php foreach ($items as $it): ?>
-            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="/product.php?slug=<?= e($reviewSlugs[$it['product_id']]) ?>#reviews">★ Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
+            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="<?= e(product_url(['slug' => $reviewSlugs[$it['product_id']]])) ?>#reviews"><?= ui_icon('star', 14) ?> Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table></div>
@@ -96,6 +96,13 @@ require __DIR__ . '/includes/header.php';
       <h3 style="margin-bottom:10px;">Shipping to</h3>
       <p style="color:var(--ink-soft);"><?= e($order['shipping_name']) ?> · <?= e($order['shipping_phone']) ?><br>
       <?= e($order['shipping_line1']) ?>, <?= e($order['shipping_city']) ?><?= $order['shipping_state'] ? ', ' . e($order['shipping_state']) : '' ?><?= $order['shipping_zip'] ? ' ' . e($order['shipping_zip']) : '' ?></p>
+
+      <?php if (empty($order['billing_same_as_shipping'])): ?>
+        <h3 style="margin:18px 0 10px;">Billing address</h3>
+        <p style="color:var(--ink-soft);"><?= e($order['billing_name']) ?> · <?= e($order['billing_phone']) ?><br>
+        <?= e($order['billing_line1']) ?>, <?= e($order['billing_city']) ?><?= $order['billing_state'] ? ', ' . e($order['billing_state']) : '' ?><?= $order['billing_zip'] ? ' ' . e($order['billing_zip']) : '' ?></p>
+      <?php endif; ?>
+
       <?php if ($order['notes']): ?><p style="color:var(--ink-soft);"><strong>Notes:</strong> <?= e($order['notes']) ?></p><?php endif; ?>
     </div>
   </div>
