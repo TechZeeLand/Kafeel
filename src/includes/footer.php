@@ -14,15 +14,15 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
       <div class="footer-brand">
         <a href="/" class="brand"><?= brand_inner('footer') ?></a>
         <?php if ($__store['description'] !== ''): ?><p><?= e($__store['description']) ?></p><?php endif; ?>
+        <?= social_row_html() ?>
       </div>
       <div>
         <h4>Contact</h4>
         <ul class="footer-contact">
           <?php if ($__store['address'] !== ''): ?><li><?= ui_icon('pin', 16) ?><span><?= nl2br(e($__store['address'])) ?></span></li><?php endif; ?>
-          <?php $__phones = store_phones(); if ($__phones): ?><li><?= ui_icon('phone', 16) ?><span><?php foreach ($__phones as $__i => $__ph): ?><?= $__i ? ' <span class="sep">/</span> ' : '' ?><a href="<?= e(tel_href($__ph)) ?>"><?= e($__ph) ?></a><?php endforeach; ?></span></li><?php endif; ?>
+          <?php $__phones = store_phones(); if ($__phones): ?><li><?= ui_icon('phone', 16) ?><span><?php foreach ($__phones as $__i => $__ph): ?><?= $__i ? ' <span class="sep"></span> ' : '' ?><a href="<?= e(tel_href($__ph)) ?>"><?= e($__ph) ?></a><?php endforeach; ?></span></li><?php endif; ?>
           <?php if ($__store['email'] !== ''): ?><li><?= ui_icon('mail', 16) ?><a href="mailto:<?= e($__store['email']) ?>"><?= e($__store['email']) ?></a></li><?php endif; ?>
         </ul>
-        <?= social_row_html() ?>
       </div>
       <div>
         <h4>Support</h4>

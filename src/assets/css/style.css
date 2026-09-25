@@ -122,7 +122,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 /* -------------------------------------------------------------- header - */
 .site-header { position: sticky; top: 0; z-index: 40; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
 .header-row { display: flex; align-items: center; gap: 28px; padding-block: 16px; }
-.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 1.5rem; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 3rem; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
 .brand .brand-name { overflow: hidden; text-overflow: ellipsis; }
 .brand .mark { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-dark); color: var(--on-dark); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.95rem; }
 .main-nav { display: flex; gap: 22px; flex: 1; }
