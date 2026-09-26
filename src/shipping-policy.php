@@ -25,13 +25,13 @@ require __DIR__ . '/includes/header.php';
     <p>Orders are typically confirmed and handed to courier within 1–2 business days. You can track the status of your order any time from the <a href="/orders">order tracking page</a> using your order number and phone number.</p>
 
     <h2>Payment on delivery</h2>
-    <p>Cash on delivery is our standard payment method: you pay the courier when your parcel arrives. Please have the order total ready, and inspect your parcel before accepting it if possible.</p>
+    <p>Cash on delivery is our standard payment method: you pay the courier when your parcel arrives. Please have the order total ready.</p>
 
     <h2>Failed or missed delivery</h2>
     <p>If a courier is unable to reach you, they'll normally attempt delivery again or hold the parcel briefly for pickup. If a delivery can't be completed after repeated attempts, the order may be returned to us — contact us and we'll arrange a re-delivery.</p>
 
     <h2>Damaged or missing parcels</h2>
-    <p>If your parcel arrives visibly damaged, or an item is missing from it, please contact us within 3 days of delivery with photos — see our <a href="/refund-policy">refund & return policy</a> for how we handle this.</p>
+    <p>If your parcel arrives visibly damaged, or an item is missing from it, please contact us within 3 days of delivery with photos and unboxing video — see our <a href="/refund-policy">refund & return policy</a> for how we handle this.</p>
 
     <h2>Contact</h2>
     <p>Questions about a delivery can go to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or the <a href="/contact">contact page</a>.</p>
