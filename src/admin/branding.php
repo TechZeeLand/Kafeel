@@ -175,7 +175,7 @@ require __DIR__ . '/includes/header.php';
       </div>
       <p class="help" style="margin-top:14px;">Already-shared links can keep showing the old preview for a while — WhatsApp and Facebook cache them. Paste the link into <a href="https://developers.facebook.com/tools/debug/" target="_blank" rel="noopener" style="text-decoration:underline;">Facebook's Sharing Debugger</a> and press “Scrape Again” to refresh.</p>
       <?php if ($pub['local'] || !$pub['https']): ?>
-        <div class="alert alert-warn" style="margin:12px 0 0;">Links are currently being built as <code><?= e($pub['url']) ?></code>. For link previews to work on WhatsApp/Facebook, set <code>SITE_URL</code> in your <code>.env</code> to your real public address (e.g. <code>https://kafeelshopbd.com</code>) and redeploy.</div>
+        <div class="alert alert-warn" style="margin:12px 0 0;">Links are currently being built as <code><?= e($pub['url']) ?></code> — this is detected automatically from the domain you're using to access the site right now, so it'll switch on its own once you're on a real public domain over HTTPS. If you're behind a reverse proxy that isn't forwarding the real host/protocol, set <code>SITE_URL</code> in your <code>.env</code> as a fallback and redeploy.</div>
       <?php else: ?>
         <p class="help" style="margin:12px 0 0;">Public address used in link previews and the sitemap: <code><?= e($pub['url']) ?></code></p>
       <?php endif; ?>

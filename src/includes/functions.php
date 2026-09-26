@@ -133,16 +133,16 @@ function fmt_dt(?string $utc, string $format = 'd M Y, g:i A'): string {
 }
 
 /**
- * Public base URL for links in emails, link previews and the sitemap. SITE_URL
- * wins unless it's a localhost placeholder; otherwise the address of the
- * current request is used — but only if the Host header looks like a real host
- * (a forged Host header must never end up in canonical links or emails).
+ * Public base URL for links in emails, link previews and the sitemap. The
+ * current request's Host wins whenever it looks like a real hostname (a
+ * forged Host header must never end up in canonical links or emails, so
+ * it's validated against the same host-syntax check either way) — that's
+ * what lets the store move between domains (a temporary subdomain today, the
+ * real domain later) without ever having to update SITE_URL. SITE_URL is
+ * only the fallback for the rare case there's no usable request context.
  */
 function base_url(): string {
     $configured = SITE_URL;
-    $host = $configured !== '' ? (parse_url($configured, PHP_URL_HOST) ?: '') : '';
-    $isLocal = in_array($host, ['', 'localhost', '127.0.0.1', '0.0.0.0'], true);
-    if (!$isLocal) return $configured;
     $reqHost = $_SERVER['HTTP_HOST'] ?? '';
     if ($reqHost !== '' && preg_match('/^[a-z0-9.-]+(:\d{1,5})?$|^\[[0-9a-f:]+\](:\d{1,5})?$/i', $reqHost)) {
         $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
