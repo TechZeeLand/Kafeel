@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $label = $it['name'] . ($it['variant_label'] ? ' (' . $it['variant_label'] . ')' : '');
         if (!$it['available']) {
             $errors[] = $label . ' is no longer available — please remove it from your cart.';
-        } elseif ($it['quantity'] > $it['stock']) {
+        } elseif ($it['quantity'] > $it['stock'] && !$it['is_preorder']) {
             $errors[] = $label . ' only has ' . (int) $it['stock'] . ' left in stock.';
         }
     }
@@ -120,12 +120,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderId = (int) $pdo->lastInsertId();
 
             $itemStmt = $pdo->prepare(
-                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal, warranty_days) VALUES (?,?,?,?,?,?,?,?,?)'
+                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal, warranty_days, is_preorder) VALUES (?,?,?,?,?,?,?,?,?,?)'
             );
             $productStockStmt = $pdo->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
             $variantStockStmt = $pdo->prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?');
             foreach ($freshTotals['items'] as $it) {
-                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity'], $it['warranty_days'] ?? null]);
+                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity'], $it['warranty_days'] ?? null, $it['is_preorder'] ? 1 : 0]);
+                // Pre-order lines have no stock to deduct yet — skip straight past the
+                // conditional UPDATE below, which would otherwise always fail on stock >= ? here.
+                if ($it['is_preorder']) continue;
                 // Conditional UPDATE: if someone else bought the last units a moment ago
                 // it matches no row, and we abort instead of overselling.
                 $stmtStock = $it['variant_id'] ? $variantStockStmt : $productStockStmt;
@@ -360,7 +363,7 @@ require __DIR__ . '/includes/header.php';
   <div class="summary-card">
     <h3>Order summary</h3>
     <?php foreach ($totals['items'] as $it): ?>
-      <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
+      <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?><?= $it['is_preorder'] ? ' <span class="pill pill-brass" style="font-size:11px;">Pre-order</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
     <?php endforeach; ?>
     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
     <div class="summary-row discount-row" id="summaryDiscountRow"<?= $discount > 0 ? '' : ' hidden' ?>><span>Discount<?= $appliedCoupon ? ' <small class="coupon-tag" id="summaryCouponCode">' . e($appliedCoupon['coupon']['code']) . '</small>' : ' <small class="coupon-tag" id="summaryCouponCode"></small>' ?></span><span class="val" id="summaryDiscount">&minus;<?= money($discount) ?></span></div>

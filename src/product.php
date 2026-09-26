@@ -48,6 +48,7 @@ $sizeOpts = array_values(array_filter($options['size'], fn ($o) => isset($usedSi
 $totalVariantStock = 0;
 foreach ($variants as $v) { $totalVariantStock += (int) $v['stock']; }
 $effectiveStock = $variants ? $totalVariantStock : (int) $product['stock'];
+$isPreorder = $effectiveStock <= 0 && !empty($product['is_preorder']);
 $tags = product_tags($product);
 
 // Everything the page's picker script needs, in one JSON blob.
@@ -74,6 +75,8 @@ $pickerData = [
         'id' => (int) $v['id'], 'color' => $v['color'] ?: null, 'size' => $v['size'] ?: null,
         'delta' => (float) $v['price_delta'], 'stock' => (int) $v['stock'],
     ], $variants),
+    'preorder' => $isPreorder,
+    'preorderNote' => $product['preorder_note'] ?: null,
 ];
 $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
@@ -108,7 +111,7 @@ $seo = [
     'rating' => $reviewSummary['count'] ? $reviewSummary['avg'] : null,
     'review_count' => $reviewSummary['count'],
 ];
-$bodyClass = $effectiveStock > 0 ? 'has-action-bar' : '';
+$bodyClass = ($effectiveStock > 0 || $isPreorder) ? 'has-action-bar' : '';
 require __DIR__ . '/includes/header.php';
 ?>
 
@@ -163,6 +166,9 @@ require __DIR__ . '/includes/header.php';
         <span class="pill pill-sage">In stock</span>
       <?php elseif ($effectiveStock > 0): ?>
         <span class="pill pill-rust">Only <?= (int)$effectiveStock ?> left</span>
+      <?php elseif ($isPreorder): ?>
+        <span class="pill pill-brass">Pre-order<?= $product['preorder_note'] ? ' — ' . e($product['preorder_note']) : '' ?></span>
+        <?php if ($product['preorder_available_date']): ?><span class="muted small">Expected <?= e(date('j M Y', strtotime($product['preorder_available_date']))) ?></span><?php endif; ?>
       <?php else: ?>
         <span class="pill pill-ink">Out of stock</span>
       <?php endif; ?>
@@ -201,19 +207,19 @@ require __DIR__ . '/includes/header.php';
       </div>
     <?php endif; ?>
 
-    <?php if ($effectiveStock > 0): ?>
+    <?php if ($effectiveStock > 0 || $isPreorder): ?>
       <form class="js-add-cart" method="post" id="addCartForm">
         <input type="hidden" name="product_id" value="<?= (int)$product['id'] ?>">
         <?php if ($variants): ?><input type="hidden" name="variant_id" id="variantIdField" value=""><?php endif; ?>
         <div class="qty-row">
           <div class="qty-stepper">
             <button type="button" class="minus" aria-label="Decrease">−</button>
-            <input type="number" name="quantity" id="qtyField" value="1" min="1" max="<?= (int)$effectiveStock ?>">
+            <input type="number" name="quantity" id="qtyField" value="1" min="1" max="<?= $effectiveStock > 0 ? (int)$effectiveStock : 99 ?>">
             <button type="button" class="plus" aria-label="Increase">+</button>
           </div>
         </div>
         <div class="product-actions">
-          <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>>Add to cart</button>
+          <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>><?= (!$variants && $isPreorder) ? 'Pre-order' : 'Add to cart' ?></button>
           <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="Save for later">
             <?= ui_icon('heart', 18) ?><span class="fav-label"><?= $isFav ? 'Saved' : 'Save for later' ?></span>
           </button>
@@ -260,10 +266,10 @@ require __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<?php if ($effectiveStock > 0): ?>
+<?php if ($effectiveStock > 0 || $isPreorder): ?>
 <div class="buy-bar" id="buyBar" aria-label="Add to cart">
   <div class="bb-price"><small>Price</small><strong id="buyBarPrice"><?= money($product['price']) ?></strong></div>
-  <button type="button" class="btn btn-primary" id="buyBarBtn">Add to cart</button>
+  <button type="button" class="btn btn-primary" id="buyBarBtn"><?= (!$variants && $isPreorder) ? 'Pre-order' : 'Add to cart' ?></button>
 </div>
 <?php endif; ?>
 

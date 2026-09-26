@@ -274,7 +274,7 @@ function cart_items(): array {
     // (or else the size's) preview image, and the size's weight override.
     $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price, p.warranty_days,
                    COALESCE(co.image, so.image, p.image_main) AS image_main,
-                   p.stock AS product_stock, p.is_active AS product_active,
+                   p.stock AS product_stock, p.is_active AS product_active, p.is_preorder, p.preorder_note, p.preorder_available_date,
                    COALESCE(so.weight_grams, p.weight_grams) AS weight_grams,
                    v.color AS variant_color, v.size AS variant_size, v.price_delta, v.stock AS variant_stock,
                    v.is_active AS variant_active
@@ -297,6 +297,9 @@ function cart_items(): array {
         $r['price'] = (float) $r['price'] + (float) ($r['price_delta'] ?? 0);
         $r['stock'] = $r['variant_id'] ? (int) $r['variant_stock'] : (int) $r['product_stock'];
         $r['available'] = $r['product_active'] && (!$r['variant_id'] || $r['variant_active']);
+        // Pre-order is a product-level promise (not tracked per variant), so a variant line still
+        // counts as a pre-order once its own stock is out, as long as the product allows it.
+        $r['is_preorder'] = (bool) $r['is_preorder'] && $r['stock'] <= 0;
         $r['variant_label'] = $r['variant_id'] ? variant_label(['color' => $r['variant_color'], 'size' => $r['variant_size']]) : null;
     }
     unset($r);

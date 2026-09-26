@@ -18,10 +18,11 @@ if ($itemId <= 0) {
     exit;
 }
 
-// Never let a line go above what's in stock (the cart page only limits this in the browser).
+// Never let a line go above what's in stock (the cart page only limits this in the browser) —
+// except pre-order lines, which have no real stock to cap against yet.
 foreach (cart_items() as $it) {
     if ((int) $it['id'] === $itemId) {
-        $qty = min($qty, max(1, (int) $it['stock']));
+        if (!$it['is_preorder']) $qty = min($qty, max(1, (int) $it['stock']));
         break;
     }
 }

@@ -11,21 +11,26 @@ stack on any Docker host (a Debian/Ubuntu server, Portainer, Unraid, etc.).
 
 ## What's included
 
-- **Storefront:** homepage, category pages, product detail pages with an
-  image gallery, optional color/size variants, full-text search, cart,
-  wishlist/favorites, checkout (cash-on-delivery only), order confirmation,
-  order tracking with a real status timeline, and a downloadable PDF
-  invoice per order.
+- **Storefront:** homepage, category & subcategory pages, product detail
+  pages with an image gallery, optional color/size variants, pre-orders for
+  out-of-stock products, per-product warranty, full-text search, cart,
+  wishlist/favorites, product reviews, coupons at checkout, checkout
+  (cash-on-delivery only), order confirmation, order tracking with a real
+  status timeline, and a downloadable PDF invoice per order. Products,
+  categories, orders and invoices use clean `/product/<slug>`-style URLs
+  (see [Pretty URLs](#feature-changelog)).
 - **Customer accounts:** register/login with email verification, profile +
   password management, saved addresses, order history.
 - **Admin portal** at `/admin`: dashboard with revenue/low-stock stats,
-  product CRUD with image + gallery uploads and per-product variants
-  (color/size, price adjustment, stock), category CRUD, order management
-  with status updates that log a timestamped history and email the
-  customer, customer list with enable/disable, and a theme settings page
-  for live primary/secondary color changes plus optional seasonal effects
-  (snow / falling leaves / rain), and a **Branding & sharing** page for the
-  logo, favicon, link-preview banner and site description.
+  product CRUD with image + gallery uploads, per-product variants
+  (color/size, price adjustment, stock) and pre-order settings, category
+  CRUD, coupon management, review moderation, order management with status
+  updates that log a timestamped history and email the customer, customer
+  list with enable/disable, staff management with per-role access, an
+  admin activity log, and a theme settings page for live primary/secondary
+  color changes plus optional seasonal effects (snow / falling leaves /
+  rain), and a **Branding & sharing** page for the logo, favicon,
+  link-preview banner and site description.
 - **Email:** PHPMailer-backed transactional email (falls back to PHP's
   `mail()` if no SMTP is configured) for the contact form, email
   verification, and order status updates.
@@ -189,9 +194,6 @@ inside the Docker image (there is no sendmail) — emails silently fail (logged
 to the PHP error log, never crashes the request).
 
 
-The same page holds the announcement bar (top of every page) and the store
-name/phone/email/address printed on invoices.
-
 The same page holds the announcement bar (top of every page) and the **store
 details** — name, tagline, phone, email, address and social links. These are
 the single source for the whole site (header, footer, contact page, About and
@@ -304,10 +306,14 @@ Kafeel/
 │   │   └── opcache-dev.ini     # live-reload: revalidate PHP files every request
 │   ├── nginx/default.conf      # nginx site config (proxies *.php to php-fpm)
 │   └── supervisor/supervisord.conf   # runs nginx + php-fpm together
-├── sql/schema.sql              # tables + seed data (auto-run on first boot)
-├── uploads/products/            # uploaded product photos — bind-mounted into
-│                                 # the container, so files land right here on
-│                                 # the host (back these up like any real data)
+├── sql/
+│   ├── schema.sql               # tables + seed data (auto-run on first boot)
+│   └── migrations/              # numbered upgrade scripts, auto-applied on deploy
+├── uploads/
+│   ├── products/                 # uploaded product photos — bind-mounted into
+│   │                              # the container, so files land right here on
+│   │                              # the host (back these up like any real data)
+│   └── branding/                 # logo/favicon/banner uploads (same bind mount)
 ├── LICENSE                      # AGPL-3.0
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
@@ -319,10 +325,33 @@ Kafeel/
     └── *.php                    # storefront pages
 ```
 
-## Phase 5 features
+## Feature changelog
 
-Coupons, product reviews, wishlist counts, second phone + WhatsApp link, admin activity log and order-status
-attribution, staff management (owners add/edit/disable staff, each with a photo, date of birth, Facebook link, and NID or birth-certificate number; staff see their own details read-only), plus mobile fixes. See [CHANGES-phase5.md](CHANGES-phase5.md) for details and deploy notes.
+Beyond the core storefront/admin listed in [What's included](#whats-included):
+
+- **Phase 5:** coupons (percentage/fixed, admin-managed), product reviews,
+  wishlist counts shown on products, a second phone number + WhatsApp
+  (`wa.me`) link alongside the other social links, an admin activity log
+  (every admin action, who/what/when) with order-status change attribution,
+  and staff management — owners add/edit/disable staff accounts, each with
+  a profile photo, date of birth, mandatory Facebook link, and an NID or
+  birth-certificate number (optional extra document attachment); staff see
+  their own details read-only.
+- **Phase 6:** product subcategories, per-product warranty (shown on the
+  product page and invoice), and a Signal contact link alongside the other
+  social links.
+- **Pretty URLs:** products, categories, orders and invoices are served at
+  `/product/<slug>`, `/category/<slug>`, `/order/<order-number>` and
+  `/invoice/<order-number>` (nginx rewrites these to the underlying
+  `*.php?slug=`/`?order=` scripts — see `docker/nginx/default.conf`). Static
+  pages (`/cart`, `/checkout`, `/account`, the legal pages, etc.) drop the
+  `.php` extension the same way. The admin portal keeps its `.php` paths.
+- **Pre-orders:** a product can be marked "available for pre-order" (Admin
+  → edit product), with an optional note and expected-availability date.
+  While its stock is 0, customers can still add it to cart and check out —
+  the order line is stamped `is_preorder` so it stays identifiable in the
+  admin/customer order views and on the invoice even after real stock
+  arrives and the flag is turned back off.
 
 ## Running behind a domain / reverse proxy
 
@@ -340,13 +369,15 @@ If you're putting this behind Nginx Proxy Manager, Caddy, or Traefik:
 
 ## Extending
 
-- **Payments:** only Cash on Delivery and "bank transfer" (manual) are wired
-  up. To add a card gateway (Stripe, SSLCommerz, bKash, etc.), add an
-  integration in `checkout.php` — the `orders` table already has a
-  `payment_method` column to extend.
-- **Email:** the contact form and order confirmation currently don't send
-  email (no SMTP server assumed). Wire up PHPMailer or a transactional
-  email API if you want notifications.
+- **Payments:** only Cash on Delivery is wired up (the `orders` table's
+  `payment_method` column is ready for more). To add a card/mobile-wallet
+  gateway (Stripe, SSLCommerz, bKash, etc.), add an integration in
+  `checkout.php`.
+- **Email:** already wired up via PHPMailer for the contact form, email
+  verification, and order status updates — see
+  [Outbound email (SMTP)](#outbound-email-smtp) above. Add more transactional
+  emails (e.g. an admin notification on new orders) the same way, through
+  `includes/mail.php`.
 - **Extra services:** it's a normal Docker Compose file, so you can add
   another service (e.g. a scheduled inventory report) and point it at the
   same `db` service on the `kafeel_net` network.

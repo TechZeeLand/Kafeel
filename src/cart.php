@@ -27,20 +27,22 @@ require __DIR__ . '/includes/header.php';
         <div class="cart-line">
           <a href="<?= e(product_url($it)) ?>"><img src="<?= e(product_image_src($it['image_main'])) ?>" alt="<?= e($it['name']) ?>"></a>
           <div class="cl-info">
-            <div class="name"><a href="<?= e(product_url($it)) ?>"><?= e($it['name']) ?></a></div>
+            <div class="name"><a href="<?= e(product_url($it)) ?>"><?= e($it['name']) ?></a><?php if ($it['is_preorder']): ?> <span class="pill pill-brass" style="font-size:11px;vertical-align:2px;">Pre-order</span><?php endif; ?></div>
             <?php if ($it['variant_label']): ?><div class="unit" style="color:var(--ink-faint);"><?= e($it['variant_label']) ?></div><?php endif; ?>
             <div class="unit"><?= money($it['price']) ?> each</div>
             <?php if (!$it['available']): ?>
               <div class="cl-warn">No longer available — please remove it to check out.</div>
-            <?php elseif ($it['quantity'] > $it['stock']): ?>
+            <?php elseif ($it['quantity'] > $it['stock'] && !$it['is_preorder']): ?>
               <div class="cl-warn">Only <?= (int) $it['stock'] ?> left in stock — please lower the quantity.</div>
+            <?php elseif ($it['is_preorder']): ?>
+              <div class="unit" style="color:var(--accent-text);"><?= $it['preorder_note'] ? e($it['preorder_note']) : 'Ships once back in stock' ?><?= $it['preorder_available_date'] ? ' · expected ' . e(date('j M Y', strtotime($it['preorder_available_date']))) : '' ?></div>
             <?php endif; ?>
             <button type="button" class="remove-btn js-cart-remove" data-item-id="<?= (int)$it['id'] ?>">Remove</button>
           </div>
           <div class="cl-buy">
             <div class="qty-stepper">
               <button type="button" class="minus" aria-label="Decrease">−</button>
-              <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= max(1, (int)$it['stock']) ?>" aria-label="Quantity">
+              <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= $it['is_preorder'] ? 99 : max(1, (int)$it['stock']) ?>" aria-label="Quantity">
               <button type="button" class="plus" aria-label="Increase">+</button>
             </div>
             <div class="line-total"><?= money($it['price'] * $it['quantity']) ?></div>

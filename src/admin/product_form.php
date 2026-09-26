@@ -38,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $youtubeUrl = trim($_POST['youtube_url'] ?? '');
     $isActive = !empty($_POST['is_active']) ? 1 : 0;
     $isFeatured = !empty($_POST['is_featured']) ? 1 : 0;
+    $isPreorder = !empty($_POST['is_preorder']) ? 1 : 0;
+    $preorderNote = mb_substr(trim($_POST['preorder_note'] ?? ''), 0, 255);
+    $preorderDate = trim($_POST['preorder_available_date'] ?? '') ?: null;
     $slugInput = trim($_POST['slug'] ?? '');
 
     if (mb_strlen($name) < 2) $errors[] = 'Please enter a product name.';
@@ -46,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($weightGrams <= 0) $errors[] = 'Please enter a valid weight in grams.';
     if ($warrantyDays !== null && ($warrantyDays < 1 || $warrantyDays > 3650)) $errors[] = 'Warranty should be between 1 day and 10 years (3650 days), or left empty for no warranty.';
     if ($youtubeUrl !== '' && !is_youtube_url($youtubeUrl)) $errors[] = 'YouTube link must be a youtube.com or youtu.be URL.';
+    if ($preorderDate !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $preorderDate)) $errors[] = 'Please enter a valid expected availability date.';
 
     // Colors / sizes / per-combination stock. Photos are stored as a side effect of parsing.
     $parsed = ['colors' => [], 'sizes' => []];
@@ -86,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($product) {
                 $pdo->prepare(
-                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, warranty_days=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
+                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, is_preorder=?, preorder_note=?, preorder_available_date=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, warranty_days=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $isPreorder, $preorderNote ?: null, $preorderDate, $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
                 $productId = (int) $product['id'];
             } else {
                 $pdo->prepare(
-                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, weight_grams, height_mm, width_mm, depth_mm, color, warranty_days, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
+                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, is_preorder, preorder_note, preorder_available_date, weight_grams, height_mm, width_mm, depth_mm, color, warranty_days, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $isPreorder, $preorderNote ?: null, $preorderDate, $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
                 $productId = (int) $pdo->lastInsertId();
             }
 
@@ -114,15 +118,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $finalStock = $variantTotal !== null ? $variantTotal : max(0, $stock);
             $newVals = ['name' => $name, 'category' => $catName($categoryId), 'sku' => $sku, 'slug' => $slug, 'short_desc' => $shortDesc, 'tags' => $tags, 'description' => $description,
                 'price' => $price, 'compare_price' => $comparePrice, 'stock' => $finalStock, 'weight_grams' => $weightGrams, 'height_mm' => $heightMm, 'width_mm' => $widthMm,
-                'depth_mm' => $depthMm, 'color' => $color, 'warranty_days' => $warrantyDays, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no'];
+                'depth_mm' => $depthMm, 'color' => $color, 'warranty_days' => $warrantyDays, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no',
+                'is_preorder' => $isPreorder ? 'yes' : 'no', 'preorder_note' => $preorderNote, 'preorder_available_date' => $preorderDate];
             if ($product) {
                 $oldVals = $product;
                 $oldVals['category'] = $catName($product['category_id']);
                 $oldVals['is_active'] = $product['is_active'] ? 'yes' : 'no';
                 $oldVals['is_featured'] = $product['is_featured'] ? 'yes' : 'no';
+                $oldVals['is_preorder'] = $product['is_preorder'] ? 'yes' : 'no';
                 $diff = admin_log_diff($oldVals, $newVals, ['name' => 'Name', 'category' => 'Category', 'sku' => 'SKU', 'slug' => 'URL slug', 'short_desc' => 'Short description', 'description' => 'Description',
                     'tags' => 'Tags', 'price' => 'Price', 'compare_price' => 'Compare-at price', 'stock' => 'Stock', 'weight_grams' => 'Weight (g)', 'height_mm' => 'Height (mm)', 'width_mm' => 'Width (mm)',
-                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'warranty_days' => 'Warranty (days)', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured']);
+                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'warranty_days' => 'Warranty (days)', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured',
+                    'is_preorder' => 'Available for pre-order', 'preorder_note' => 'Pre-order note', 'preorder_available_date' => 'Expected availability']);
                 if ($variantsBefore !== json_encode(variant_editor_data($productId))) $diff['Colours / sizes / per-variant stock'] = ['(before)', 'edited'];
                 if ($newMain) $diff['Main photo'] = ['(old photo)', 'replaced'];
                 if ($newGallery) $diff['Gallery photos'] = ['—', count($newGallery) . ' added'];
@@ -146,14 +153,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Values to show: the saved product, overlaid with whatever was just submitted.
 $f = $product ?: ['name' => '', 'slug' => '', 'sku' => '', 'category_id' => null, 'short_desc' => '', 'tags' => '', 'description' => '', 'price' => '', 'compare_price' => '',
-    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'warranty_days' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null];
+    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'warranty_days' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null,
+    'is_preorder' => 0, 'preorder_note' => '', 'preorder_available_date' => ''];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'warranty_days', 'youtube_url'] as $k) {
+    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'warranty_days', 'youtube_url', 'preorder_note', 'preorder_available_date'] as $k) {
         if (isset($_POST[$k])) $f[$k] = $_POST[$k];
     }
     $f['category_id'] = (int) ($_POST['category_id'] ?? 0) ?: null;
     $f['is_active'] = !empty($_POST['is_active']) ? 1 : 0;
     $f['is_featured'] = !empty($_POST['is_featured']) ? 1 : 0;
+    $f['is_preorder'] = !empty($_POST['is_preorder']) ? 1 : 0;
 }
 
 $gallery = [];
@@ -279,6 +288,20 @@ require __DIR__ . '/includes/header.php';
               <label for="warranty_days">Warranty <span class="muted" style="font-weight:400;">(optional)</span></label>
               <div class="input-affix"><input type="number" min="1" max="3650" id="warranty_days" name="warranty_days" value="<?= e($f['warranty_days']) ?>" placeholder="e.g. 365"><span class="affix">days</span></div>
               <div class="hint">Shown on the product page and on the invoice once the order ships. Leave empty for no warranty.</div>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:0;">
+            <div class="field" style="flex:0 0 100%;">
+              <label class="switch"><input type="checkbox" id="is_preorder" name="is_preorder" value="1" <?= $f['is_preorder'] ? 'checked' : '' ?>><span class="track"></span><span>Available for pre-order<small>Lets shoppers order this even while stock is 0. Shows a "Pre-order" button and note instead of "Out of stock".</small></span></label>
+            </div>
+            <div class="field">
+              <label for="preorder_note">Pre-order note <span class="muted" style="font-weight:400;">(optional)</span></label>
+              <input type="text" id="preorder_note" name="preorder_note" value="<?= e($f['preorder_note']) ?>" maxlength="255" placeholder="e.g. Ships in 2–3 weeks">
+              <div class="hint">Shown next to the Pre-order button on the product page.</div>
+            </div>
+            <div class="field">
+              <label for="preorder_available_date">Expected availability <span class="muted" style="font-weight:400;">(optional)</span></label>
+              <input type="date" id="preorder_available_date" name="preorder_available_date" value="<?= e($f['preorder_available_date']) ?>">
             </div>
           </div>
         </div>

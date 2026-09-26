@@ -1,0 +1,815 @@
+diff --git a/README.md b/README.md
+index 4fe7059..c848271 100755
+--- a/README.md
++++ b/README.md
+@@ -11,21 +11,26 @@ stack on any Docker host (a Debian/Ubuntu server, Portainer, Unraid, etc.).
+ 
+ ## What's included
+ 
+-- **Storefront:** homepage, category pages, product detail pages with an
+-  image gallery, optional color/size variants, full-text search, cart,
+-  wishlist/favorites, checkout (cash-on-delivery only), order confirmation,
+-  order tracking with a real status timeline, and a downloadable PDF
+-  invoice per order.
++- **Storefront:** homepage, category & subcategory pages, product detail
++  pages with an image gallery, optional color/size variants, pre-orders for
++  out-of-stock products, per-product warranty, full-text search, cart,
++  wishlist/favorites, product reviews, coupons at checkout, checkout
++  (cash-on-delivery only), order confirmation, order tracking with a real
++  status timeline, and a downloadable PDF invoice per order. Products,
++  categories, orders and invoices use clean `/product/<slug>`-style URLs
++  (see [Pretty URLs](#feature-changelog)).
+ - **Customer accounts:** register/login with email verification, profile +
+   password management, saved addresses, order history.
+ - **Admin portal** at `/admin`: dashboard with revenue/low-stock stats,
+-  product CRUD with image + gallery uploads and per-product variants
+-  (color/size, price adjustment, stock), category CRUD, order management
+-  with status updates that log a timestamped history and email the
+-  customer, customer list with enable/disable, and a theme settings page
+-  for live primary/secondary color changes plus optional seasonal effects
+-  (snow / falling leaves / rain), and a **Branding & sharing** page for the
+-  logo, favicon, link-preview banner and site description.
++  product CRUD with image + gallery uploads, per-product variants
++  (color/size, price adjustment, stock) and pre-order settings, category
++  CRUD, coupon management, review moderation, order management with status
++  updates that log a timestamped history and email the customer, customer
++  list with enable/disable, staff management with per-role access, an
++  admin activity log, and a theme settings page for live primary/secondary
++  color changes plus optional seasonal effects (snow / falling leaves /
++  rain), and a **Branding & sharing** page for the logo, favicon,
++  link-preview banner and site description.
+ - **Email:** PHPMailer-backed transactional email (falls back to PHP's
+   `mail()` if no SMTP is configured) for the contact form, email
+   verification, and order status updates.
+@@ -189,9 +194,6 @@ inside the Docker image (there is no sendmail) — emails silently fail (logged
+ to the PHP error log, never crashes the request).
+ 
+ 
+-The same page holds the announcement bar (top of every page) and the store
+-name/phone/email/address printed on invoices.
+-
+ The same page holds the announcement bar (top of every page) and the **store
+ details** — name, tagline, phone, email, address and social links. These are
+ the single source for the whole site (header, footer, contact page, About and
+@@ -304,10 +306,14 @@ Kafeel/
+ │   │   └── opcache-dev.ini     # live-reload: revalidate PHP files every request
+ │   ├── nginx/default.conf      # nginx site config (proxies *.php to php-fpm)
+ │   └── supervisor/supervisord.conf   # runs nginx + php-fpm together
+-├── sql/schema.sql              # tables + seed data (auto-run on first boot)
+-├── uploads/products/            # uploaded product photos — bind-mounted into
+-│                                 # the container, so files land right here on
+-│                                 # the host (back these up like any real data)
++├── sql/
++│   ├── schema.sql               # tables + seed data (auto-run on first boot)
++│   └── migrations/              # numbered upgrade scripts, auto-applied on deploy
++├── uploads/
++│   ├── products/                 # uploaded product photos — bind-mounted into
++│   │                              # the container, so files land right here on
++│   │                              # the host (back these up like any real data)
++│   └── branding/                 # logo/favicon/banner uploads (same bind mount)
+ ├── LICENSE                      # AGPL-3.0
+ ├── CONTRIBUTING.md
+ ├── CODE_OF_CONDUCT.md
+@@ -319,10 +325,33 @@ Kafeel/
+     └── *.php                    # storefront pages
+ ```
+ 
+-## Phase 5 features
+-
+-Coupons, product reviews, wishlist counts, second phone + WhatsApp link, admin activity log and order-status
+-attribution, staff management (owners add/edit/disable staff, each with a photo, date of birth, Facebook link, and NID or birth-certificate number; staff see their own details read-only), plus mobile fixes. See [CHANGES-phase5.md](CHANGES-phase5.md) for details and deploy notes.
++## Feature changelog
++
++Beyond the core storefront/admin listed in [What's included](#whats-included):
++
++- **Phase 5:** coupons (percentage/fixed, admin-managed), product reviews,
++  wishlist counts shown on products, a second phone number + WhatsApp
++  (`wa.me`) link alongside the other social links, an admin activity log
++  (every admin action, who/what/when) with order-status change attribution,
++  and staff management — owners add/edit/disable staff accounts, each with
++  a profile photo, date of birth, mandatory Facebook link, and an NID or
++  birth-certificate number (optional extra document attachment); staff see
++  their own details read-only.
++- **Phase 6:** product subcategories, per-product warranty (shown on the
++  product page and invoice), and a Signal contact link alongside the other
++  social links.
++- **Pretty URLs:** products, categories, orders and invoices are served at
++  `/product/<slug>`, `/category/<slug>`, `/order/<order-number>` and
++  `/invoice/<order-number>` (nginx rewrites these to the underlying
++  `*.php?slug=`/`?order=` scripts — see `docker/nginx/default.conf`). Static
++  pages (`/cart`, `/checkout`, `/account`, the legal pages, etc.) drop the
++  `.php` extension the same way. The admin portal keeps its `.php` paths.
++- **Pre-orders:** a product can be marked "available for pre-order" (Admin
++  → edit product), with an optional note and expected-availability date.
++  While its stock is 0, customers can still add it to cart and check out —
++  the order line is stamped `is_preorder` so it stays identifiable in the
++  admin/customer order views and on the invoice even after real stock
++  arrives and the flag is turned back off.
+ 
+ ## Running behind a domain / reverse proxy
+ 
+@@ -340,13 +369,15 @@ If you're putting this behind Nginx Proxy Manager, Caddy, or Traefik:
+ 
+ ## Extending
+ 
+-- **Payments:** only Cash on Delivery and "bank transfer" (manual) are wired
+-  up. To add a card gateway (Stripe, SSLCommerz, bKash, etc.), add an
+-  integration in `checkout.php` — the `orders` table already has a
+-  `payment_method` column to extend.
+-- **Email:** the contact form and order confirmation currently don't send
+-  email (no SMTP server assumed). Wire up PHPMailer or a transactional
+-  email API if you want notifications.
++- **Payments:** only Cash on Delivery is wired up (the `orders` table's
++  `payment_method` column is ready for more). To add a card/mobile-wallet
++  gateway (Stripe, SSLCommerz, bKash, etc.), add an integration in
++  `checkout.php`.
++- **Email:** already wired up via PHPMailer for the contact form, email
++  verification, and order status updates — see
++  [Outbound email (SMTP)](#outbound-email-smtp) above. Add more transactional
++  emails (e.g. an admin notification on new orders) the same way, through
++  `includes/mail.php`.
+ - **Extra services:** it's a normal Docker Compose file, so you can add
+   another service (e.g. a scheduled inventory report) and point it at the
+   same `db` service on the `kafeel_net` network.
+diff --git a/docker/nginx/default.conf b/docker/nginx/default.conf
+index 4e652c1..8dae825 100755
+--- a/docker/nginx/default.conf
++++ b/docker/nginx/default.conf
+@@ -60,23 +60,30 @@ server {
+     # ---------------------------------------------------------------------
+     location = /product/ { return 301 /; }
+     location ~ ^/product/([^/]+)/?$ {
+-        rewrite ^ /product.php?slug=$1 break;
++        # The capture group must be repeated in THIS rewrite's own pattern. `$1` only ever
++        # reflects the most recently evaluated regex, and a bare `^` has no capturing groups
++        # of its own — nginx does not carry `$1` over from the `location ~` match into a
++        # later `rewrite`, so a bare `^` here silently rewrites to `slug=` (empty) on every
++        # request. This was the actual cause of pretty-URL category/product/order pages
++        # (and the site's own nav links to them) all coming up "not found" after the pretty-URL
++        # rollout — verified by reproducing it in isolation before fixing it here.
++        rewrite ^/product/([^/]+)/?$ /product.php?slug=$1&$args break;
+         include /etc/nginx/fastcgi-php.conf;
+     }
+     location = /category/ { return 301 /; }
+     location ~ ^/category/([^/]+)/?$ {
+-        rewrite ^ /category.php?slug=$1 break;
++        rewrite ^/category/([^/]+)/?$ /category.php?slug=$1&$args break;
+         include /etc/nginx/fastcgi-php.conf;
+     }
+     location ~ ^/order/([A-Za-z0-9\-]+)/?$ {
+-        rewrite ^ /order-detail.php?order=$1 break;
++        rewrite ^/order/([A-Za-z0-9\-]+)/?$ /order-detail.php?order=$1&$args break;
+         include /etc/nginx/fastcgi-php.conf;
+     }
+     location ~ ^/invoice/([A-Za-z0-9\-]+)/?$ {
+-        rewrite ^ /invoice.php?order=$1 break;
++        rewrite ^/invoice/([A-Za-z0-9\-]+)/?$ /invoice.php?order=$1&$args break;
+         include /etc/nginx/fastcgi-php.conf;
+     }
+-    location ~ ^/(cart|checkout|login|register|logout|account|addresses|orders|wishlist|search|contact|about|terms|privacy-policy|refund-policy|verify-email|resend-verification|order-success)/?$ {
++    location ~ ^/(cart|checkout|login|register|logout|account|addresses|orders|wishlist|search|contact|about|terms|privacy-policy|refund-policy|shipping-policy|verify-email|resend-verification|order-success)/?$ {
+         rewrite ^/(.*?)/?$ /$1.php break;
+         include /etc/nginx/fastcgi-php.conf;
+     }
+@@ -108,7 +115,7 @@ server {
+         if ($arg_order) { return 301 /invoice/$arg_order; }
+         return 301 /orders;
+     }
+-    location ~ ^/(cart|checkout|login|register|logout|account|addresses|orders|wishlist|search|contact|about|terms|privacy-policy|refund-policy|verify-email|resend-verification|order-success)\.php$ {
++    location ~ ^/(cart|checkout|login|register|logout|account|addresses|orders|wishlist|search|contact|about|terms|privacy-policy|refund-policy|shipping-policy|verify-email|resend-verification|order-success)\.php$ {
+         return 301 /$1$is_args$args;
+     }
+ 
+diff --git a/sql/migrations/010_preorder.sql b/sql/migrations/010_preorder.sql
+new file mode 100644
+index 0000000..c64afe0
+--- /dev/null
++++ b/sql/migrations/010_preorder.sql
+@@ -0,0 +1,16 @@
++-- ============================================================
++-- Migration 010: pre-orders
++--   - a product can be marked as available for pre-order, with an optional
++--     note ("Ships in 2-3 weeks") and expected availability date — customers
++--     can then order it even while stock is 0
++--   - order_items snapshots whether each line was a pre-order at the time it
++--     was placed, so admins can still see that later even if the product's
++--     pre-order flag has since been turned off (e.g. once real stock arrives)
++-- Idempotent. Applied automatically on the first request after deploy.
++-- ============================================================
++
++ALTER TABLE products ADD COLUMN IF NOT EXISTS is_preorder TINYINT(1) NOT NULL DEFAULT 0 AFTER stock;
++ALTER TABLE products ADD COLUMN IF NOT EXISTS preorder_note VARCHAR(255) DEFAULT NULL AFTER is_preorder;
++ALTER TABLE products ADD COLUMN IF NOT EXISTS preorder_available_date DATE DEFAULT NULL AFTER preorder_note;
++
++ALTER TABLE order_items ADD COLUMN IF NOT EXISTS is_preorder TINYINT(1) NOT NULL DEFAULT 0 AFTER warranty_days;
+diff --git a/sql/schema.sql b/sql/schema.sql
+index c72b379..fe97fbf 100755
+--- a/sql/schema.sql
++++ b/sql/schema.sql
+@@ -119,6 +119,9 @@ CREATE TABLE IF NOT EXISTS products (
+   price DECIMAL(10,2) NOT NULL DEFAULT 0,
+   compare_price DECIMAL(10,2) DEFAULT NULL,
+   stock INT NOT NULL DEFAULT 0,
++  is_preorder TINYINT(1) NOT NULL DEFAULT 0,
++  preorder_note VARCHAR(255) DEFAULT NULL,
++  preorder_available_date DATE DEFAULT NULL,
+   weight_grams INT NOT NULL DEFAULT 500,
+   height_mm INT DEFAULT NULL,
+   width_mm INT DEFAULT NULL,
+@@ -274,6 +277,7 @@ CREATE TABLE IF NOT EXISTS order_items (
+   quantity INT NOT NULL,
+   subtotal DECIMAL(10,2) NOT NULL,
+   warranty_days INT DEFAULT NULL,
++  is_preorder TINYINT(1) NOT NULL DEFAULT 0,
+   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
+@@ -394,4 +398,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
+ ('topbar_enabled', '0'),
+ ('topbar_text', ''),
+ ('topbar_link', ''),
+-('schema_version', '9');
++('schema_version', '10');
+diff --git a/src/admin/order_detail.php b/src/admin/order_detail.php
+index ade9ae4..3f52cc4 100755
+--- a/src/admin/order_detail.php
++++ b/src/admin/order_detail.php
+@@ -136,7 +136,7 @@ require __DIR__ . '/includes/header.php';
+     <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+     <tbody>
+       <?php foreach ($items as $it): ?>
+-        <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
++        <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['is_preorder'])): ?> <span class="pill pill-brass" style="font-size:11px;">Pre-order</span><?php endif; ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
+       <?php endforeach; ?>
+     </tbody>
+   </table>
+diff --git a/src/admin/product_form.php b/src/admin/product_form.php
+index 8090729..5e9560f 100755
+--- a/src/admin/product_form.php
++++ b/src/admin/product_form.php
+@@ -38,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+     $youtubeUrl = trim($_POST['youtube_url'] ?? '');
+     $isActive = !empty($_POST['is_active']) ? 1 : 0;
+     $isFeatured = !empty($_POST['is_featured']) ? 1 : 0;
++    $isPreorder = !empty($_POST['is_preorder']) ? 1 : 0;
++    $preorderNote = mb_substr(trim($_POST['preorder_note'] ?? ''), 0, 255);
++    $preorderDate = trim($_POST['preorder_available_date'] ?? '') ?: null;
+     $slugInput = trim($_POST['slug'] ?? '');
+ 
+     if (mb_strlen($name) < 2) $errors[] = 'Please enter a product name.';
+@@ -46,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+     if ($weightGrams <= 0) $errors[] = 'Please enter a valid weight in grams.';
+     if ($warrantyDays !== null && ($warrantyDays < 1 || $warrantyDays > 3650)) $errors[] = 'Warranty should be between 1 day and 10 years (3650 days), or left empty for no warranty.';
+     if ($youtubeUrl !== '' && !is_youtube_url($youtubeUrl)) $errors[] = 'YouTube link must be a youtube.com or youtu.be URL.';
++    if ($preorderDate !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $preorderDate)) $errors[] = 'Please enter a valid expected availability date.';
+ 
+     // Colors / sizes / per-combination stock. Photos are stored as a side effect of parsing.
+     $parsed = ['colors' => [], 'sizes' => []];
+@@ -86,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+ 
+             if ($product) {
+                 $pdo->prepare(
+-                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, warranty_days=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
+-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
++                    'UPDATE products SET category_id=?, name=?, slug=?, sku=?, short_desc=?, tags=?, description=?, price=?, compare_price=?, stock=?, is_preorder=?, preorder_note=?, preorder_available_date=?, weight_grams=?, height_mm=?, width_mm=?, depth_mm=?, color=?, warranty_days=?, image_main=?, youtube_url=?, is_active=?, is_featured=? WHERE id=?'
++                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $isPreorder, $preorderNote ?: null, $preorderDate, $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured, $product['id']]);
+                 $productId = (int) $product['id'];
+             } else {
+                 $pdo->prepare(
+-                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, weight_grams, height_mm, width_mm, depth_mm, color, warranty_days, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+-                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
++                    'INSERT INTO products (category_id, name, slug, sku, short_desc, tags, description, price, compare_price, stock, is_preorder, preorder_note, preorder_available_date, weight_grams, height_mm, width_mm, depth_mm, color, warranty_days, image_main, youtube_url, is_active, is_featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
++                )->execute([$categoryId, $name, $slug, $sku ?: null, $shortDesc ?: null, $tags ?: null, $description ?: null, $price, $comparePrice, max(0, $stock), $isPreorder, $preorderNote ?: null, $preorderDate, $weightGrams, $heightMm, $widthMm, $depthMm, $color ?: null, $warrantyDays, $mainImage, $youtubeUrl ?: null, $isActive, $isFeatured]);
+                 $productId = (int) $pdo->lastInsertId();
+             }
+ 
+@@ -114,15 +118,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+             $finalStock = $variantTotal !== null ? $variantTotal : max(0, $stock);
+             $newVals = ['name' => $name, 'category' => $catName($categoryId), 'sku' => $sku, 'slug' => $slug, 'short_desc' => $shortDesc, 'tags' => $tags, 'description' => $description,
+                 'price' => $price, 'compare_price' => $comparePrice, 'stock' => $finalStock, 'weight_grams' => $weightGrams, 'height_mm' => $heightMm, 'width_mm' => $widthMm,
+-                'depth_mm' => $depthMm, 'color' => $color, 'warranty_days' => $warrantyDays, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no'];
++                'depth_mm' => $depthMm, 'color' => $color, 'warranty_days' => $warrantyDays, 'youtube_url' => $youtubeUrl, 'is_active' => $isActive ? 'yes' : 'no', 'is_featured' => $isFeatured ? 'yes' : 'no',
++                'is_preorder' => $isPreorder ? 'yes' : 'no', 'preorder_note' => $preorderNote, 'preorder_available_date' => $preorderDate];
+             if ($product) {
+                 $oldVals = $product;
+                 $oldVals['category'] = $catName($product['category_id']);
+                 $oldVals['is_active'] = $product['is_active'] ? 'yes' : 'no';
+                 $oldVals['is_featured'] = $product['is_featured'] ? 'yes' : 'no';
++                $oldVals['is_preorder'] = $product['is_preorder'] ? 'yes' : 'no';
+                 $diff = admin_log_diff($oldVals, $newVals, ['name' => 'Name', 'category' => 'Category', 'sku' => 'SKU', 'slug' => 'URL slug', 'short_desc' => 'Short description', 'description' => 'Description',
+                     'tags' => 'Tags', 'price' => 'Price', 'compare_price' => 'Compare-at price', 'stock' => 'Stock', 'weight_grams' => 'Weight (g)', 'height_mm' => 'Height (mm)', 'width_mm' => 'Width (mm)',
+-                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'warranty_days' => 'Warranty (days)', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured']);
++                    'depth_mm' => 'Depth (mm)', 'color' => 'Colour', 'warranty_days' => 'Warranty (days)', 'youtube_url' => 'YouTube link', 'is_active' => 'Visible in shop', 'is_featured' => 'Featured',
++                    'is_preorder' => 'Available for pre-order', 'preorder_note' => 'Pre-order note', 'preorder_available_date' => 'Expected availability']);
+                 if ($variantsBefore !== json_encode(variant_editor_data($productId))) $diff['Colours / sizes / per-variant stock'] = ['(before)', 'edited'];
+                 if ($newMain) $diff['Main photo'] = ['(old photo)', 'replaced'];
+                 if ($newGallery) $diff['Gallery photos'] = ['—', count($newGallery) . ' added'];
+@@ -146,14 +153,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+ 
+ // Values to show: the saved product, overlaid with whatever was just submitted.
+ $f = $product ?: ['name' => '', 'slug' => '', 'sku' => '', 'category_id' => null, 'short_desc' => '', 'tags' => '', 'description' => '', 'price' => '', 'compare_price' => '',
+-    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'warranty_days' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null];
++    'stock' => 0, 'weight_grams' => 300, 'height_mm' => '', 'width_mm' => '', 'depth_mm' => '', 'color' => '', 'warranty_days' => '', 'youtube_url' => '', 'is_active' => 1, 'is_featured' => 0, 'image_main' => null,
++    'is_preorder' => 0, 'preorder_note' => '', 'preorder_available_date' => ''];
+ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+-    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'warranty_days', 'youtube_url'] as $k) {
++    foreach (['name', 'slug', 'sku', 'short_desc', 'tags', 'description', 'price', 'compare_price', 'stock', 'weight_grams', 'height_mm', 'width_mm', 'depth_mm', 'color', 'warranty_days', 'youtube_url', 'preorder_note', 'preorder_available_date'] as $k) {
+         if (isset($_POST[$k])) $f[$k] = $_POST[$k];
+     }
+     $f['category_id'] = (int) ($_POST['category_id'] ?? 0) ?: null;
+     $f['is_active'] = !empty($_POST['is_active']) ? 1 : 0;
+     $f['is_featured'] = !empty($_POST['is_featured']) ? 1 : 0;
++    $f['is_preorder'] = !empty($_POST['is_preorder']) ? 1 : 0;
+ }
+ 
+ $gallery = [];
+@@ -281,6 +290,20 @@ require __DIR__ . '/includes/header.php';
+               <div class="hint">Shown on the product page and on the invoice once the order ships. Leave empty for no warranty.</div>
+             </div>
+           </div>
++          <div class="field-row" style="margin-bottom:0;">
++            <div class="field" style="flex:0 0 100%;">
++              <label class="switch"><input type="checkbox" id="is_preorder" name="is_preorder" value="1" <?= $f['is_preorder'] ? 'checked' : '' ?>><span class="track"></span><span>Available for pre-order<small>Lets shoppers order this even while stock is 0. Shows a "Pre-order" button and note instead of "Out of stock".</small></span></label>
++            </div>
++            <div class="field">
++              <label for="preorder_note">Pre-order note <span class="muted" style="font-weight:400;">(optional)</span></label>
++              <input type="text" id="preorder_note" name="preorder_note" value="<?= e($f['preorder_note']) ?>" maxlength="255" placeholder="e.g. Ships in 2–3 weeks">
++              <div class="hint">Shown next to the Pre-order button on the product page.</div>
++            </div>
++            <div class="field">
++              <label for="preorder_available_date">Expected availability <span class="muted" style="font-weight:400;">(optional)</span></label>
++              <input type="date" id="preorder_available_date" name="preorder_available_date" value="<?= e($f['preorder_available_date']) ?>">
++            </div>
++          </div>
+         </div>
+       </section>
+ 
+diff --git a/src/admin/products.php b/src/admin/products.php
+index 7a67c0a..2555287 100755
+--- a/src/admin/products.php
++++ b/src/admin/products.php
+@@ -112,11 +112,11 @@ require __DIR__ . '/includes/header.php';
+           <td><img class="thumb" src="<?= e(product_image_src($p['image_main'])) ?>" alt="" loading="lazy"></td>
+           <td class="name-cell">
+             <a class="title" href="/admin/product_form.php?id=<?= (int) $p['id'] ?>"><?= hl($p['name'], $q) ?></a>
+-            <div class="meta"><?= $p['sku'] ? hl($p['sku'], $q) : 'no SKU' ?><?= $p['variant_count'] ? ' · ' . (int) $p['variant_count'] . ' variants' : '' ?><?= $p['is_featured'] ? ' · ' . ui_icon('star', 12) . ' featured' : '' ?></div>
++            <div class="meta"><?= $p['sku'] ? hl($p['sku'], $q) : 'no SKU' ?><?= $p['variant_count'] ? ' · ' . (int) $p['variant_count'] . ' variants' : '' ?><?= $p['is_featured'] ? ' · ' . ui_icon('star', 12) . ' featured' : '' ?><?= $p['is_preorder'] ? ' · pre-order' : '' ?></div>
+           </td>
+           <td><?= e($p['category_name'] ?? '—') ?></td>
+           <td class="mono"><?= e(money((float) $p['price'])) ?><?php if ($p['compare_price']): ?><div class="muted small" style="text-decoration:line-through;"><?= e(money((float) $p['compare_price'])) ?></div><?php endif; ?></td>
+-          <td><?php if ($stockN <= 0): ?><span class="pill pill-rust">Out</span><?php elseif ($stockN <= 5): ?><span class="stock-low mono"><?= $stockN ?> left</span><?php else: ?><span class="mono"><?= $stockN ?></span><?php endif; ?></td>
++          <td><?php if ($stockN <= 0 && $p['is_preorder']): ?><span class="pill pill-brass">Pre-order</span><?php elseif ($stockN <= 0): ?><span class="pill pill-rust">Out</span><?php elseif ($stockN <= 5): ?><span class="stock-low mono"><?= $stockN ?> left</span><?php else: ?><span class="mono"><?= $stockN ?></span><?php endif; ?></td>
+           <td class="mono"><?= (int) $p['wish_count'] > 0 ? ui_icon('heart', 13) . ' ' . (int) $p['wish_count'] : '<span class="muted">0</span>' ?></td>
+           <td class="small" style="white-space:nowrap;"><?php if ((int) $p['review_count'] > 0): ?><?= stars_html((float) $p['review_avg']) ?> <span class="muted">(<?= (int) $p['review_count'] ?>)</span><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+           <td><?= $p['is_active'] ? '<span class="pill pill-sage">Visible</span>' : '<span class="pill pill-ink">Hidden</span>' ?></td>
+diff --git a/src/api/cart_add.php b/src/api/cart_add.php
+index cfcee42..8f65284 100755
+--- a/src/api/cart_add.php
++++ b/src/api/cart_add.php
+@@ -14,7 +14,7 @@ $productId = (int) ($input['product_id'] ?? 0);
+ $variantId = !empty($input['variant_id']) ? (int) $input['variant_id'] : null;
+ $qty = max(1, (int) ($input['quantity'] ?? 1));
+ 
+-$stmt = db()->prepare('SELECT id, stock, is_active FROM products WHERE id = ?');
++$stmt = db()->prepare('SELECT id, stock, is_active, is_preorder FROM products WHERE id = ?');
+ $stmt->execute([$productId]);
+ $product = $stmt->fetch();
+ 
+@@ -23,6 +23,7 @@ if (!$product || !$product['is_active']) {
+     exit;
+ }
+ 
++$isPreorder = (bool) $product['is_preorder'];
+ $availableStock = (int) $product['stock'];
+ if ($variantId) {
+     $vStmt = db()->prepare('SELECT id, stock, is_active FROM product_variants WHERE id = ? AND product_id = ?');
+@@ -44,15 +45,21 @@ if (!$variantId) {
+     }
+ }
+ 
+-if ($availableStock < 1) {
++if ($availableStock < 1 && !$isPreorder) {
+     echo json_encode(['ok' => false, 'message' => 'This product is out of stock.']);
+     exit;
+ }
+ 
+-cart_add($productId, min($qty, $availableStock), $variantId, $availableStock);
++// Pre-order items have no real stock cap yet, so quantity isn't clamped to $availableStock the
++// way an in-stock item's is — cart_set_qty()/checkout still re-check stock for non-preorder lines.
++if ($availableStock < 1 && $isPreorder) {
++    cart_add($productId, $qty, $variantId, null);
++} else {
++    cart_add($productId, min($qty, $availableStock), $variantId, $availableStock);
++}
+ 
+ echo json_encode([
+     'ok' => true,
+-    'message' => 'Added to cart',
++    'message' => $isPreorder && $availableStock < 1 ? 'Added as a pre-order' : 'Added to cart',
+     'cart_count' => cart_count(),
+ ]);
+diff --git a/src/api/cart_update.php b/src/api/cart_update.php
+index 7d09066..5222118 100755
+--- a/src/api/cart_update.php
++++ b/src/api/cart_update.php
+@@ -18,10 +18,11 @@ if ($itemId <= 0) {
+     exit;
+ }
+ 
+-// Never let a line go above what's in stock (the cart page only limits this in the browser).
++// Never let a line go above what's in stock (the cart page only limits this in the browser) —
++// except pre-order lines, which have no real stock to cap against yet.
+ foreach (cart_items() as $it) {
+     if ((int) $it['id'] === $itemId) {
+-        $qty = min($qty, max(1, (int) $it['stock']));
++        if (!$it['is_preorder']) $qty = min($qty, max(1, (int) $it['stock']));
+         break;
+     }
+ }
+diff --git a/src/assets/css/style.css b/src/assets/css/style.css
+index 7c8535f..6a1602b 100755
+--- a/src/assets/css/style.css
++++ b/src/assets/css/style.css
+@@ -122,7 +122,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
+ /* -------------------------------------------------------------- header - */
+ .site-header { position: sticky; top: 0; z-index: 40; background: var(--paper-raised); border-bottom: 1px solid var(--line); }
+ .header-row { display: flex; align-items: center; gap: 28px; padding-block: 16px; }
+-.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 20px; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
++.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-title); font-size: 10rem; font-weight: 700; color: var(--ink); white-space: nowrap; min-width: 0; }
+ .brand .brand-name { overflow: hidden; text-overflow: ellipsis; }
+ .brand .mark { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-dark); color: var(--on-dark); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.95rem; }
+ .main-nav { display: flex; gap: 22px; flex: 1; }
+@@ -231,6 +231,7 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
+ .pill-sage { background: color-mix(in srgb, var(--sage) 16%, transparent); color: var(--sage-text); }
+ .pill-rust { background: rgba(168,74,44,0.13); color: var(--rust); }
+ .pill-ink { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink-soft); }
++.pill-brass { background: color-mix(in srgb, var(--brass) 18%, transparent); color: var(--accent-text); }
+ 
+ /* ----------------------------------------------------------------- breadcrumb --- */
+ .breadcrumb { font-size: 0.82rem; color: var(--ink-faint); padding: 18px 0; }
+diff --git a/src/assets/js/product.js b/src/assets/js/product.js
+index 6886fb5..eff718d 100755
+--- a/src/assets/js/product.js
++++ b/src/assets/js/product.js
+@@ -114,12 +114,22 @@
+       var price = data.basePrice + (v ? v.delta : 0);
+       if (els.price) els.price.textContent = money(price);
+       var stock = v ? v.stock : 0;
++      var canOrder = inStock(v) || (v && data.preorder);
+       if (els.variantField) els.variantField.value = v ? String(v.id) : '';
+-      if (els.qty) { els.qty.max = String(Math.max(stock, 1)); if (parseInt(els.qty.value, 10) > stock) els.qty.value = String(Math.max(stock, 1)); }
+-      if (els.addBtn) { els.addBtn.disabled = !inStock(v); els.addBtn.textContent = !v ? 'Select an option' : (stock < 1 ? 'Out of stock' : 'Add to cart'); }
++      if (els.qty) {
++        var qtyCap = stock > 0 ? stock : (data.preorder ? 99 : 1);
++        els.qty.max = String(Math.max(qtyCap, 1));
++        if (parseInt(els.qty.value, 10) > qtyCap) els.qty.value = String(Math.max(qtyCap, 1));
++      }
++      if (els.addBtn) {
++        els.addBtn.disabled = !v || !canOrder;
++        els.addBtn.textContent = !v ? 'Select an option' : (stock > 0 ? 'Add to cart' : (data.preorder ? 'Pre-order' : 'Out of stock'));
++      }
+       if (els.stockLine) {
+         els.stockLine.innerHTML = stock > 10 ? '<span class="pill pill-sage">In stock</span>'
+-          : (stock > 0 ? '<span class="pill pill-rust">Only ' + stock + ' left</span>' : '<span class="pill pill-ink">Out of stock</span>');
++          : stock > 0 ? '<span class="pill pill-rust">Only ' + stock + ' left</span>'
++          : data.preorder ? '<span class="pill pill-brass">Pre-order' + (data.preorderNote ? ' — ' + data.preorderNote : '') + '</span>'
++          : '<span class="pill pill-ink">Out of stock</span>';
+       }
+ 
+       // dimensions + weight follow the chosen size
+diff --git a/src/cart.php b/src/cart.php
+index f12bbe5..09e5da3 100755
+--- a/src/cart.php
++++ b/src/cart.php
+@@ -27,20 +27,22 @@ require __DIR__ . '/includes/header.php';
+         <div class="cart-line">
+           <a href="<?= e(product_url($it)) ?>"><img src="<?= e(product_image_src($it['image_main'])) ?>" alt="<?= e($it['name']) ?>"></a>
+           <div class="cl-info">
+-            <div class="name"><a href="<?= e(product_url($it)) ?>"><?= e($it['name']) ?></a></div>
++            <div class="name"><a href="<?= e(product_url($it)) ?>"><?= e($it['name']) ?></a><?php if ($it['is_preorder']): ?> <span class="pill pill-brass" style="font-size:11px;vertical-align:2px;">Pre-order</span><?php endif; ?></div>
+             <?php if ($it['variant_label']): ?><div class="unit" style="color:var(--ink-faint);"><?= e($it['variant_label']) ?></div><?php endif; ?>
+             <div class="unit"><?= money($it['price']) ?> each</div>
+             <?php if (!$it['available']): ?>
+               <div class="cl-warn">No longer available — please remove it to check out.</div>
+-            <?php elseif ($it['quantity'] > $it['stock']): ?>
++            <?php elseif ($it['quantity'] > $it['stock'] && !$it['is_preorder']): ?>
+               <div class="cl-warn">Only <?= (int) $it['stock'] ?> left in stock — please lower the quantity.</div>
++            <?php elseif ($it['is_preorder']): ?>
++              <div class="unit" style="color:var(--accent-text);"><?= $it['preorder_note'] ? e($it['preorder_note']) : 'Ships once back in stock' ?><?= $it['preorder_available_date'] ? ' · expected ' . e(date('j M Y', strtotime($it['preorder_available_date']))) : '' ?></div>
+             <?php endif; ?>
+             <button type="button" class="remove-btn js-cart-remove" data-item-id="<?= (int)$it['id'] ?>">Remove</button>
+           </div>
+           <div class="cl-buy">
+             <div class="qty-stepper">
+               <button type="button" class="minus" aria-label="Decrease">−</button>
+-              <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= max(1, (int)$it['stock']) ?>" aria-label="Quantity">
++              <input type="number" class="js-cart-qty" data-item-id="<?= (int)$it['id'] ?>" value="<?= (int)$it['quantity'] ?>" min="1" max="<?= $it['is_preorder'] ? 99 : max(1, (int)$it['stock']) ?>" aria-label="Quantity">
+               <button type="button" class="plus" aria-label="Increase">+</button>
+             </div>
+             <div class="line-total"><?= money($it['price'] * $it['quantity']) ?></div>
+diff --git a/src/checkout.php b/src/checkout.php
+index 2b83e5d..5a734e1 100755
+--- a/src/checkout.php
++++ b/src/checkout.php
+@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+         $label = $it['name'] . ($it['variant_label'] ? ' (' . $it['variant_label'] . ')' : '');
+         if (!$it['available']) {
+             $errors[] = $label . ' is no longer available — please remove it from your cart.';
+-        } elseif ($it['quantity'] > $it['stock']) {
++        } elseif ($it['quantity'] > $it['stock'] && !$it['is_preorder']) {
+             $errors[] = $label . ' only has ' . (int) $it['stock'] . ' left in stock.';
+         }
+     }
+@@ -120,12 +120,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+             $orderId = (int) $pdo->lastInsertId();
+ 
+             $itemStmt = $pdo->prepare(
+-                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal, warranty_days) VALUES (?,?,?,?,?,?,?,?,?)'
++                'INSERT INTO order_items (order_id, product_id, variant_id, variant_label, product_name, price, quantity, subtotal, warranty_days, is_preorder) VALUES (?,?,?,?,?,?,?,?,?,?)'
+             );
+             $productStockStmt = $pdo->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
+             $variantStockStmt = $pdo->prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?');
+             foreach ($freshTotals['items'] as $it) {
+-                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity'], $it['warranty_days'] ?? null]);
++                $itemStmt->execute([$orderId, $it['product_id'], $it['variant_id'], $it['variant_label'], $it['name'], $it['price'], $it['quantity'], $it['price'] * $it['quantity'], $it['warranty_days'] ?? null, $it['is_preorder'] ? 1 : 0]);
++                // Pre-order lines have no stock to deduct yet — skip straight past the
++                // conditional UPDATE below, which would otherwise always fail on stock >= ? here.
++                if ($it['is_preorder']) continue;
+                 // Conditional UPDATE: if someone else bought the last units a moment ago
+                 // it matches no row, and we abort instead of overselling.
+                 $stmtStock = $it['variant_id'] ? $variantStockStmt : $productStockStmt;
+@@ -360,7 +363,7 @@ require __DIR__ . '/includes/header.php';
+   <div class="summary-card">
+     <h3>Order summary</h3>
+     <?php foreach ($totals['items'] as $it): ?>
+-      <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
++      <div class="summary-row"><span><?= e($it['name']) ?><?= $it['variant_label'] ? ' <span style="color:var(--ink-faint);">(' . e($it['variant_label']) . ')</span>' : '' ?><?= $it['is_preorder'] ? ' <span class="pill pill-brass" style="font-size:11px;">Pre-order</span>' : '' ?> × <?= (int)$it['quantity'] ?></span><span class="val"><?= money($it['price'] * $it['quantity']) ?></span></div>
+     <?php endforeach; ?>
+     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
+     <div class="summary-row discount-row" id="summaryDiscountRow"<?= $discount > 0 ? '' : ' hidden' ?>><span>Discount<?= $appliedCoupon ? ' <small class="coupon-tag" id="summaryCouponCode">' . e($appliedCoupon['coupon']['code']) . '</small>' : ' <small class="coupon-tag" id="summaryCouponCode"></small>' ?></span><span class="val" id="summaryDiscount">&minus;<?= money($discount) ?></span></div>
+diff --git a/src/includes/functions.php b/src/includes/functions.php
+index 624775c..4e971d4 100755
+--- a/src/includes/functions.php
++++ b/src/includes/functions.php
+@@ -274,7 +274,7 @@ function cart_items(): array {
+     // (or else the size's) preview image, and the size's weight override.
+     $sql = 'SELECT c.id, c.quantity, c.variant_id, p.id AS product_id, p.name, p.slug, p.price, p.warranty_days,
+                    COALESCE(co.image, so.image, p.image_main) AS image_main,
+-                   p.stock AS product_stock, p.is_active AS product_active,
++                   p.stock AS product_stock, p.is_active AS product_active, p.is_preorder, p.preorder_note, p.preorder_available_date,
+                    COALESCE(so.weight_grams, p.weight_grams) AS weight_grams,
+                    v.color AS variant_color, v.size AS variant_size, v.price_delta, v.stock AS variant_stock,
+                    v.is_active AS variant_active
+@@ -297,6 +297,9 @@ function cart_items(): array {
+         $r['price'] = (float) $r['price'] + (float) ($r['price_delta'] ?? 0);
+         $r['stock'] = $r['variant_id'] ? (int) $r['variant_stock'] : (int) $r['product_stock'];
+         $r['available'] = $r['product_active'] && (!$r['variant_id'] || $r['variant_active']);
++        // Pre-order is a product-level promise (not tracked per variant), so a variant line still
++        // counts as a pre-order once its own stock is out, as long as the product allows it.
++        $r['is_preorder'] = (bool) $r['is_preorder'] && $r['stock'] <= 0;
+         $r['variant_label'] = $r['variant_id'] ? variant_label(['color' => $r['variant_color'], 'size' => $r['variant_size']]) : null;
+     }
+     unset($r);
+diff --git a/src/includes/invoice.php b/src/includes/invoice.php
+index d59b225..23b5b3a 100755
+--- a/src/includes/invoice.php
++++ b/src/includes/invoice.php
+@@ -35,6 +35,9 @@ function build_invoice_html(array $order, array $items): string {
+     $rowsHtml = '';
+     foreach ($items as $it) {
+         $label = e($it['product_name']);
++        if (!empty($it['is_preorder'])) {
++            $label .= ' <span class="muted small">(Pre-order)</span>';
++        }
+         if (!empty($it['variant_label'])) {
+             $label .= '<br><span class="muted small">' . e($it['variant_label']) . '</span>';
+         }
+diff --git a/src/includes/migrate.php b/src/includes/migrate.php
+index 3aec127..ff3e879 100755
+--- a/src/includes/migrate.php
++++ b/src/includes/migrate.php
+@@ -7,7 +7,7 @@
+  */
+ const MIGRATE_BASELINE = 3;
+ /** Highest migration number the code expects; all_settings() upgrades the database until it reaches it. */
+-const MIGRATE_LATEST = 9;
++const MIGRATE_LATEST = 10;
+ 
+ function migration_dirs(): array {
+     return [
+diff --git a/src/includes/product_card.php b/src/includes/product_card.php
+index 7cb92c1..8dd78a6 100755
+--- a/src/includes/product_card.php
++++ b/src/includes/product_card.php
+@@ -6,6 +6,7 @@ $__onSale = !empty($p['compare_price']) && $p['compare_price'] > $p['price'];
+ // to the cart without choosing one, so their cards link to the product page.
+ $__hasVariants = (int) ($p['variant_count'] ?? 0) > 0;
+ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock'];
++$__preorder = $__stock <= 0 && !empty($p['is_preorder']);
+ ?>
+ <div class="card-product">
+   <div class="thumb">
+@@ -17,7 +18,7 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
+       <svg viewBox="0 0 24 24" width="17" height="17" fill="<?= $__isFav ? 'currentColor' : 'none' ?>" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+     </button>
+     <?php if ($__onSale): ?><span class="sale-flag">Sale</span><?php endif; ?>
+-    <?php if ($__stock <= 0): ?><span class="out-flag">Out of stock</span><?php endif; ?>
++    <?php if ($__preorder): ?><span class="out-flag" style="background:var(--brass, #a8823c);">Pre-order</span><?php elseif ($__stock <= 0): ?><span class="out-flag">Out of stock</span><?php endif; ?>
+     <?php if (!empty($p['youtube_url'])): ?>
+       <span class="video-flag" title="Video available"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span>
+     <?php endif; ?>
+@@ -36,15 +37,15 @@ $__stock = $__hasVariants ? (int) ($p['variant_stock'] ?? 0) : (int) $p['stock']
+     </div>
+     <?php endif; ?>
+   </div>
+-  <?php if ($__stock > 0 && $__hasVariants): ?>
++  <?php if (($__stock > 0 || $__preorder) && $__hasVariants): ?>
+   <div class="add-form">
+-    <a href="<?= e(product_url($p)) ?>" class="btn btn-primary btn-block btn-sm">Choose options</a>
++    <a href="<?= e(product_url($p)) ?>" class="btn btn-primary btn-block btn-sm"><?= $__preorder ? 'Pre-order' : 'Choose options' ?></a>
+   </div>
+-  <?php elseif ($__stock > 0): ?>
++  <?php elseif ($__stock > 0 || $__preorder): ?>
+   <form class="add-form js-add-cart" method="post">
+     <input type="hidden" name="product_id" value="<?= (int)$p['id'] ?>">
+     <input type="hidden" name="quantity" value="1">
+-    <button type="submit" class="btn btn-primary btn-block btn-sm">Add to cart</button>
++    <button type="submit" class="btn btn-primary btn-block btn-sm"><?= $__preorder ? 'Pre-order' : 'Add to cart' ?></button>
+   </form>
+   <?php endif; ?>
+ </div>
+diff --git a/src/order-detail.php b/src/order-detail.php
+index 9f1d4af..129f402 100755
+--- a/src/order-detail.php
++++ b/src/order-detail.php
+@@ -65,7 +65,7 @@ require __DIR__ . '/includes/header.php';
+         <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+         <tbody>
+           <?php foreach ($items as $it): ?>
+-            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="<?= e(product_url(['slug' => $reviewSlugs[$it['product_id']]])) ?>#reviews"><?= ui_icon('star', 14) ?> Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
++            <tr><td><?= e($it['product_name']) ?><?php if (!empty($it['is_preorder'])): ?> <span class="pill pill-brass" style="font-size:11px;">Pre-order</span><?php endif; ?><?php if (!empty($it['variant_label'])): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($it['variant_label']) ?></span><?php endif; ?><?php if ($w = warranty_label($it['warranty_days'] ?? null)): ?><br><span style="color:var(--ink-faint);font-size:0.82rem;"><?= e($w) ?></span><?php endif; ?><?php if (!empty($reviewSlugs[$it['product_id']] ?? null)): ?><br><a class="review-link" href="<?= e(product_url(['slug' => $reviewSlugs[$it['product_id']]])) ?>#reviews"><?= ui_icon('star', 14) ?> Write a review</a><?php endif; ?></td><td class="mono"><?= money($it['price']) ?></td><td><?= (int)$it['quantity'] ?></td><td class="mono"><?= money($it['subtotal']) ?></td></tr>
+           <?php endforeach; ?>
+         </tbody>
+       </table></div>
+diff --git a/src/privacy-policy.php b/src/privacy-policy.php
+index 49d91f5..8f31f1f 100755
+--- a/src/privacy-policy.php
++++ b/src/privacy-policy.php
+@@ -10,7 +10,7 @@ require __DIR__ . '/includes/header.php';
+     <p>Last updated: <?= e(legal_updated_label()) ?>. This policy explains what information <?= e(store_name()) ?> collects when you use our website and place an order, and how we use it.</p>
+ 
+     <h2>Information we collect</h2>
+-    <p>When you browse the site, create an account, or place an order, we may collect: your name, phone number, delivery address, email address, and details of the products you order. We also store basic technical information such as your session and cart contents so the site works correctly.</p>
++    <p>When you browse the site, create an account, or place an order, we may collect: your name, phone number, delivery address, email address, and details of the products you order. We also store basic technical information such as your session and cart contents so the site works correctly. If you submit a product review, the name and text you provide are shown publicly on that product's page.</p>
+ 
+     <h2>How we use your information</h2>
+     <p>We use this information to process and deliver your orders, to contact you about an order (for example to confirm delivery details or resolve an issue), to maintain your account if you create one, and to improve the site. We do not sell your personal information to third parties.</p>
+diff --git a/src/product.php b/src/product.php
+index 857577a..d48d96f 100755
+--- a/src/product.php
++++ b/src/product.php
+@@ -48,6 +48,7 @@ $sizeOpts = array_values(array_filter($options['size'], fn ($o) => isset($usedSi
+ $totalVariantStock = 0;
+ foreach ($variants as $v) { $totalVariantStock += (int) $v['stock']; }
+ $effectiveStock = $variants ? $totalVariantStock : (int) $product['stock'];
++$isPreorder = $effectiveStock <= 0 && !empty($product['is_preorder']);
+ $tags = product_tags($product);
+ 
+ // Everything the page's picker script needs, in one JSON blob.
+@@ -74,6 +75,8 @@ $pickerData = [
+         'id' => (int) $v['id'], 'color' => $v['color'] ?: null, 'size' => $v['size'] ?: null,
+         'delta' => (float) $v['price_delta'], 'stock' => (int) $v['stock'],
+     ], $variants),
++    'preorder' => $isPreorder,
++    'preorderNote' => $product['preorder_note'] ?: null,
+ ];
+ $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+ 
+@@ -108,7 +111,7 @@ $seo = [
+     'rating' => $reviewSummary['count'] ? $reviewSummary['avg'] : null,
+     'review_count' => $reviewSummary['count'],
+ ];
+-$bodyClass = $effectiveStock > 0 ? 'has-action-bar' : '';
++$bodyClass = ($effectiveStock > 0 || $isPreorder) ? 'has-action-bar' : '';
+ require __DIR__ . '/includes/header.php';
+ ?>
+ 
+@@ -163,6 +166,9 @@ require __DIR__ . '/includes/header.php';
+         <span class="pill pill-sage">In stock</span>
+       <?php elseif ($effectiveStock > 0): ?>
+         <span class="pill pill-rust">Only <?= (int)$effectiveStock ?> left</span>
++      <?php elseif ($isPreorder): ?>
++        <span class="pill pill-brass">Pre-order<?= $product['preorder_note'] ? ' — ' . e($product['preorder_note']) : '' ?></span>
++        <?php if ($product['preorder_available_date']): ?><span class="muted small">Expected <?= e(date('j M Y', strtotime($product['preorder_available_date']))) ?></span><?php endif; ?>
+       <?php else: ?>
+         <span class="pill pill-ink">Out of stock</span>
+       <?php endif; ?>
+@@ -201,19 +207,19 @@ require __DIR__ . '/includes/header.php';
+       </div>
+     <?php endif; ?>
+ 
+-    <?php if ($effectiveStock > 0): ?>
++    <?php if ($effectiveStock > 0 || $isPreorder): ?>
+       <form class="js-add-cart" method="post" id="addCartForm">
+         <input type="hidden" name="product_id" value="<?= (int)$product['id'] ?>">
+         <?php if ($variants): ?><input type="hidden" name="variant_id" id="variantIdField" value=""><?php endif; ?>
+         <div class="qty-row">
+           <div class="qty-stepper">
+             <button type="button" class="minus" aria-label="Decrease">−</button>
+-            <input type="number" name="quantity" id="qtyField" value="1" min="1" max="<?= (int)$effectiveStock ?>">
++            <input type="number" name="quantity" id="qtyField" value="1" min="1" max="<?= $effectiveStock > 0 ? (int)$effectiveStock : 99 ?>">
+             <button type="button" class="plus" aria-label="Increase">+</button>
+           </div>
+         </div>
+         <div class="product-actions">
+-          <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>>Add to cart</button>
++          <button type="submit" class="btn btn-primary" id="addCartBtn" <?= $variants ? 'disabled' : '' ?>><?= (!$variants && $isPreorder) ? 'Pre-order' : 'Add to cart' ?></button>
+           <button type="button" class="btn btn-outline js-fav-toggle <?= $isFav ? 'active' : '' ?>" data-product-id="<?= (int)$product['id'] ?>" data-off-label="Save for later">
+             <?= ui_icon('heart', 18) ?><span class="fav-label"><?= $isFav ? 'Saved' : 'Save for later' ?></span>
+           </button>
+@@ -260,10 +266,10 @@ require __DIR__ . '/includes/header.php';
+   </div>
+ </div>
+ 
+-<?php if ($effectiveStock > 0): ?>
++<?php if ($effectiveStock > 0 || $isPreorder): ?>
+ <div class="buy-bar" id="buyBar" aria-label="Add to cart">
+   <div class="bb-price"><small>Price</small><strong id="buyBarPrice"><?= money($product['price']) ?></strong></div>
+-  <button type="button" class="btn btn-primary" id="buyBarBtn">Add to cart</button>
++  <button type="button" class="btn btn-primary" id="buyBarBtn"><?= (!$variants && $isPreorder) ? 'Pre-order' : 'Add to cart' ?></button>
+ </div>
+ <?php endif; ?>
+ 
+diff --git a/src/shipping-policy.php b/src/shipping-policy.php
+new file mode 100644
+index 0000000..1239445
+--- /dev/null
++++ b/src/shipping-policy.php
+@@ -0,0 +1,41 @@
++<?php
++require_once __DIR__ . '/includes/functions.php';
++require_once __DIR__ . '/includes/auth.php';
++$pageTitle = 'Shipping & Delivery Policy';
++require __DIR__ . '/includes/header.php';
++?>
++<div class="page-header wrap"><span class="eyebrow">Legal</span><h1>Shipping & Delivery Policy</h1></div>
++<div class="wrap section" style="padding-top:8px;">
++  <div class="prose">
++    <p>Last updated: <?= e(legal_updated_label()) ?>. Here's how we get your order to you.</p>
++
++    <h2>Delivery areas & fees</h2>
++    <p>We ship nationwide across Bangladesh via courier, with cash on delivery available everywhere we deliver. Delivery fees depend on the zone:</p>
++    <ul>
++      <li><strong>Inside Dhaka:</strong> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?></li>
++      <li><strong>Dhaka suburbs:</strong> <?= money(SHIPPING_SUBURBS_FEE) ?></li>
++      <li><strong>Outside Dhaka:</strong> <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?></li>
++    </ul>
++    <p>The first <?= (int) SHIPPING_FREE_WEIGHT_KG ?>kg of a parcel is covered by the base fee above; every additional kg (or part of a kg) adds <?= money(SHIPPING_EXTRA_PER_KG) ?>. Your exact delivery fee is always shown at checkout before you place the order.</p>
++
++    <h2>Delivery time</h2>
++    <p>Most orders arrive within <?= (int) DELIVERY_DAYS_MIN ?>–<?= (int) DELIVERY_DAYS_MAX ?> days of being placed, depending on your location and the courier's schedule. Customized or made-to-order items may take longer to ship — we'll let you know if that's the case for something in your order.</p>
++
++    <h2>Order processing</h2>
++    <p>Orders are typically confirmed and handed to courier within 1–2 business days. You can track the status of your order any time from the <a href="/orders">order tracking page</a> using your order number and phone number.</p>
++
++    <h2>Payment on delivery</h2>
++    <p>Cash on delivery is our standard payment method: you pay the courier when your parcel arrives. Please have the order total ready, and inspect your parcel before accepting it if possible.</p>
++
++    <h2>Failed or missed delivery</h2>
++    <p>If a courier is unable to reach you, they'll normally attempt delivery again or hold the parcel briefly for pickup. If a delivery can't be completed after repeated attempts, the order may be returned to us — contact us and we'll arrange a re-delivery.</p>
++
++    <h2>Damaged or missing parcels</h2>
++    <p>If your parcel arrives visibly damaged, or an item is missing from it, please contact us within 3 days of delivery with photos — see our <a href="/refund-policy">refund & return policy</a> for how we handle this.</p>
++
++    <h2>Contact</h2>
++    <p>Questions about a delivery can go to <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> or the <a href="/contact">contact page</a>.</p>
++    <?= store_contact_extra_html() ?>
++  </div>
++</div>
++<?php require __DIR__ . '/includes/footer.php'; ?>
+diff --git a/src/sitemap.php b/src/sitemap.php
+index b78f993..0ee6922 100755
+--- a/src/sitemap.php
++++ b/src/sitemap.php
+@@ -10,7 +10,7 @@ $add = function (string $path, ?string $lastmod = null, string $freq = 'weekly',
+ };
+ $add('/', null, 'daily', '1.0');
+ foreach (['/about', '/contact'] as $p) $add($p, null, 'monthly', '0.4');
+-foreach (['/privacy-policy', '/terms', '/refund-policy'] as $p) $add($p, LEGAL_LAST_UPDATED, 'yearly', '0.2');
++foreach (['/privacy-policy', '/terms', '/refund-policy', '/shipping-policy'] as $p) $add($p, LEGAL_LAST_UPDATED, 'yearly', '0.2');
+ 
+ foreach (db()->query('SELECT slug FROM categories WHERE is_active = 1 ORDER BY sort_order, name')->fetchAll() as $c) {
+     $add(category_url($c), null, 'weekly', '0.7');
+diff --git a/src/terms.php b/src/terms.php
+index 4fb2797..74b313e 100755
+--- a/src/terms.php
++++ b/src/terms.php
+@@ -10,7 +10,7 @@ require __DIR__ . '/includes/header.php';
+     <p>Last updated: <?= e(legal_updated_label()) ?>. These terms apply whenever you browse or order from <?= e(store_name()) ?>. By placing an order with us, you agree to them.</p>
+ 
+     <h2>Orders</h2>
+-    <p>Placing an order is an offer to buy the listed product at the listed price. We confirm your order after it's placed; we may cancel or adjust an order if a product turns out to be out of stock or incorrectly priced, and we'll let you know if that happens.</p>
++    <p>Placing an order is an offer to buy the listed product at the listed price. We confirm your order after it's placed; we may cancel or adjust an order if a product turns out to be unexpectedly out of stock or incorrectly priced, and we'll let you know if that happens. Some out-of-stock products are marked "Pre-order" — ordering one of these is a confirmed order for stock we expect to receive, and any note or expected-availability date shown is our best estimate rather than a guarantee.</p>
+ 
+     <h2>Pricing</h2>
+     <p>All prices are shown in Bangladeshi Taka (৳) and include applicable taxes unless stated otherwise. Delivery charges are shown separately at checkout.</p>

@@ -114,12 +114,22 @@
       var price = data.basePrice + (v ? v.delta : 0);
       if (els.price) els.price.textContent = money(price);
       var stock = v ? v.stock : 0;
+      var canOrder = inStock(v) || (v && data.preorder);
       if (els.variantField) els.variantField.value = v ? String(v.id) : '';
-      if (els.qty) { els.qty.max = String(Math.max(stock, 1)); if (parseInt(els.qty.value, 10) > stock) els.qty.value = String(Math.max(stock, 1)); }
-      if (els.addBtn) { els.addBtn.disabled = !inStock(v); els.addBtn.textContent = !v ? 'Select an option' : (stock < 1 ? 'Out of stock' : 'Add to cart'); }
+      if (els.qty) {
+        var qtyCap = stock > 0 ? stock : (data.preorder ? 99 : 1);
+        els.qty.max = String(Math.max(qtyCap, 1));
+        if (parseInt(els.qty.value, 10) > qtyCap) els.qty.value = String(Math.max(qtyCap, 1));
+      }
+      if (els.addBtn) {
+        els.addBtn.disabled = !v || !canOrder;
+        els.addBtn.textContent = !v ? 'Select an option' : (stock > 0 ? 'Add to cart' : (data.preorder ? 'Pre-order' : 'Out of stock'));
+      }
       if (els.stockLine) {
         els.stockLine.innerHTML = stock > 10 ? '<span class="pill pill-sage">In stock</span>'
-          : (stock > 0 ? '<span class="pill pill-rust">Only ' + stock + ' left</span>' : '<span class="pill pill-ink">Out of stock</span>');
+          : stock > 0 ? '<span class="pill pill-rust">Only ' + stock + ' left</span>'
+          : data.preorder ? '<span class="pill pill-brass">Pre-order' + (data.preorderNote ? ' — ' + data.preorderNote : '') + '</span>'
+          : '<span class="pill pill-ink">Out of stock</span>';
       }
 
       // dimensions + weight follow the chosen size

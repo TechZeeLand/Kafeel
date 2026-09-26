@@ -10,7 +10,7 @@ require __DIR__ . '/includes/header.php';
     <p>Last updated: <?= e(legal_updated_label()) ?>. These terms apply whenever you browse or order from <?= e(store_name()) ?>. By placing an order with us, you agree to them.</p>
 
     <h2>Orders</h2>
-    <p>Placing an order is an offer to buy the listed product at the listed price. We confirm your order after it's placed; we may cancel or adjust an order if a product turns out to be out of stock or incorrectly priced, and we'll let you know if that happens.</p>
+    <p>Placing an order is an offer to buy the listed product at the listed price. We confirm your order after it's placed; we may cancel or adjust an order if a product turns out to be unexpectedly out of stock or incorrectly priced, and we'll let you know if that happens. Some out-of-stock products are marked "Pre-order" — ordering one of these is a confirmed order for stock we expect to receive, and any note or expected-availability date shown is our best estimate rather than a guarantee.</p>
 
     <h2>Pricing</h2>
     <p>All prices are shown in Bangladeshi Taka (৳) and include applicable taxes unless stated otherwise. Delivery charges are shown separately at checkout.</p>

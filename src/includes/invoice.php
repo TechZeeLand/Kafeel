@@ -35,6 +35,9 @@ function build_invoice_html(array $order, array $items): string {
     $rowsHtml = '';
     foreach ($items as $it) {
         $label = e($it['product_name']);
+        if (!empty($it['is_preorder'])) {
+            $label .= ' <span class="muted small">(Pre-order)</span>';
+        }
         if (!empty($it['variant_label'])) {
             $label .= '<br><span class="muted small">' . e($it['variant_label']) . '</span>';
         }

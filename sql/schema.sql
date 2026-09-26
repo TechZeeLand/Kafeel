@@ -119,6 +119,9 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
   compare_price DECIMAL(10,2) DEFAULT NULL,
   stock INT NOT NULL DEFAULT 0,
+  is_preorder TINYINT(1) NOT NULL DEFAULT 0,
+  preorder_note VARCHAR(255) DEFAULT NULL,
+  preorder_available_date DATE DEFAULT NULL,
   weight_grams INT NOT NULL DEFAULT 500,
   height_mm INT DEFAULT NULL,
   width_mm INT DEFAULT NULL,
@@ -274,6 +277,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   quantity INT NOT NULL,
   subtotal DECIMAL(10,2) NOT NULL,
   warranty_days INT DEFAULT NULL,
+  is_preorder TINYINT(1) NOT NULL DEFAULT 0,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
@@ -394,4 +398,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '9');
+('schema_version', '10');

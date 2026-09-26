@@ -10,7 +10,7 @@ require __DIR__ . '/includes/header.php';
     <p>Last updated: <?= e(legal_updated_label()) ?>. This policy explains what information <?= e(store_name()) ?> collects when you use our website and place an order, and how we use it.</p>
 
     <h2>Information we collect</h2>
-    <p>When you browse the site, create an account, or place an order, we may collect: your name, phone number, delivery address, email address, and details of the products you order. We also store basic technical information such as your session and cart contents so the site works correctly.</p>
+    <p>When you browse the site, create an account, or place an order, we may collect: your name, phone number, delivery address, email address, and details of the products you order. We also store basic technical information such as your session and cart contents so the site works correctly. If you submit a product review, the name and text you provide are shown publicly on that product's page.</p>
 
     <h2>How we use your information</h2>
     <p>We use this information to process and deliver your orders, to contact you about an order (for example to confirm delivery details or resolve an issue), to maintain your account if you create one, and to improve the site. We do not sell your personal information to third parties.</p>
