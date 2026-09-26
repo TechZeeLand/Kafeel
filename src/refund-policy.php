@@ -16,7 +16,7 @@ require __DIR__ . '/includes/header.php';
     <p>Customized or personalized items (such as engraved or made-to-order pieces) can't be returned unless they arrive damaged or defective, since they're made specifically for you.</p>
 
     <h2>Damaged or wrong items</h2>
-    <p>If an item arrives damaged, defective, or different from what you ordered, contact us within 3 days of delivery with photos as reference and you must provide us an unboxing video of the item as proof, and we'll arrange a replacement or refund at no extra cost to you. Make sure to capture the stickers on the package clearly and record the whole process while open the parcel.</p>
+    <p>If an item arrives damaged, defective, or different from what you ordered, contact us within 3 days of delivery with photos as reference and you must provide us an unboxing video of the item as proof, and we'll arrange a replacement or refund at no extra cost to you. Make sure to capture the stickers on the package clearly and record the whole process while you open the parcel.</p>
 
     <h2>How to start a return</h2>
     <p>Reach out through the <a href="/contact">contact page</a>, DM us, or email <a href="mailto:<?= e(store_info()['email']) ?>"><?= e(store_info()['email']) ?></a> with your order number and the reason for the return. We'll confirm pickup or drop-off details with you.</p>
