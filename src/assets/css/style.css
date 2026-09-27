@@ -341,9 +341,9 @@ input, select, textarea { font-family: inherit; font-size: 1rem; }
 .footer-grid ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; font-size: 0.9rem; }
 .footer-grid a:hover { color: var(--on-dark); }
 .footer-brand p { max-width: 32ch; font-size: 0.88rem; }
-.social-row { display: flex; gap: 10px; margin-top: 16px; }
-.social-row a { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--on-dark-line); display: flex; align-items: center; justify-content: center; color: var(--on-dark-soft); }
-.social-row a:hover { background: var(--brass); border-color: var(--brass); color: var(--on-brass); }
+.contact-links { display: flex; gap: 10px; margin-top: 16px; }
+.contact-links a { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--on-dark-line); display: flex; align-items: center; justify-content: center; color: var(--on-dark-soft); }
+.contact-links a:hover { background: var(--brass); border-color: var(--brass); color: var(--on-brass); }
 .footer-bottom { border-top: 1px solid var(--on-dark-line); padding-top: 20px; display: flex; justify-content: space-between; font-size: 0.78rem; font-family: var(--font-mono); color: var(--on-dark-faint); flex-wrap: wrap; gap: 8px; }
 
 /* ----------------------------------------------------------------- toast ------- */
@@ -459,7 +459,7 @@ button, .btn, .tab, .chip, .swatch { touch-action: manipulation; }
 .footer-contact li { display: flex; gap: 10px; align-items: flex-start; }
 .footer-contact .i { margin-top: 3px; opacity: .75; }
 .footer-contact a:hover { color: var(--on-dark); }
-.social-row a .i { display: block; }
+.contact-links a .i { display: block; }
 
 /* header on desktop: search-toggle and mobile-only chrome stay hidden */
 .search-toggle, .nav-toggle { display: none; }
@@ -566,6 +566,7 @@ html.nav-locked { overflow: hidden; }
   .nav-toggle:active { background: var(--paper); }
   .brand { flex: 1; font-size: 1.3rem; gap: 9px; }
   .brand-logo { height: 34px; max-width: 160px; }
+  .brand-name { position: relative; top: 1px; }
   .main-nav, .header-tools, .hide-sm { display: none; }
   .header-actions { gap: 0; }
   .icon-btn { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; color: var(--ink); }
