@@ -66,7 +66,7 @@ require __DIR__ . '/includes/header.php';
       <?php endif; ?>
     </ul>
 
-    <?= social_row_html('social-row contact-social') ?>
+    <?= social_row_html('contact-links contact-social') ?>
   </div>
 
   <div class="form-card" style="margin-bottom:0;">

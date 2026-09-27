@@ -451,7 +451,7 @@ button, .btn, .tab, .chip, .swatch { touch-action: manipulation; }
 :root[data-theme="dark"] .site-header .brand .logo-d { display: block; }
 :root[data-theme="dark"] .site-header .brand .logo-l:not(.plate-in-dark) { display: none; }
 :root[data-theme="dark"] .site-header .brand .plate-in-dark { background: #fff; padding: 4px 8px; border-radius: 8px; box-sizing: content-box; height: 32px; }
-.brand-logo + .brand-name { font-size: 1.45rem; font-weight: 700; margin-left: 2px; }
+.brand-logo + .brand-name { font-size: 2rem; font-weight: 700; margin-left: 2px; }
 
 /* footer contact details */
 .footer-brand .brand { color: var(--on-dark); margin-bottom: 12px; }
