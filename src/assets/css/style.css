@@ -566,7 +566,7 @@ html.nav-locked { overflow: hidden; }
   .nav-toggle:active { background: var(--paper); }
   .brand { flex: 1; font-size: 1.3rem; gap: 9px; }
   .brand-logo { height: 34px; max-width: 160px; }
-  .brand-name { position: relative; top: 1px; }
+  .brand-name { position: relative; top: 5px; }
   .main-nav, .header-tools, .hide-sm { display: none; }
   .header-actions { gap: 0; }
   .icon-btn { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; color: var(--ink); }
