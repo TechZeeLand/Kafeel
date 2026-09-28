@@ -2,13 +2,8 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/invoice.php';
-require_login();
 
-$user = current_user();
-$orderNumber = $_GET['order'] ?? '';
-$stmt = db()->prepare('SELECT * FROM orders WHERE order_number = ? AND user_id = ?');
-$stmt->execute([$orderNumber, $user['id']]);
-$order = $stmt->fetch();
+$order = order_for_viewer((string) ($_GET['order'] ?? ''));
 
 if (!$order) {
     http_response_code(404);

@@ -166,7 +166,69 @@ function safe_local_path(?string $url, string $fallback = '/'): string {
 
 function redirect(string $path): void {
     header('Location: ' . $path);
+    run_deferred_jobs();
     exit;
+}
+
+/* ------------------------------------------------- deferred work ---- */
+/**
+ * Queues work (mostly sending email) to run AFTER the visitor has been sent their response, so a slow or
+ * unreachable mail server never makes a page hang. redirect() flushes the response and then runs the queue;
+ * pages that render normally run it when the script ends.
+ */
+function defer_job(callable $job): void {
+    static $registered = false;
+    $GLOBALS['__deferred_jobs'][] = $job;
+    if (!$registered) { $registered = true; register_shutdown_function('run_deferred_jobs'); }
+}
+
+function run_deferred_jobs(): void {
+    $jobs = $GLOBALS['__deferred_jobs'] ?? [];
+    if (!$jobs) return;
+    $GLOBALS['__deferred_jobs'] = [];
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+    if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+    ignore_user_abort(true);
+    @set_time_limit(120);
+    foreach ($jobs as $job) {
+        try { $job(); } catch (Throwable $e) { error_log('[deferred] ' . $e->getMessage()); }
+    }
+}
+
+/* ------------------------------------------- public address & tokens -- */
+
+/**
+ * The public address of the store for links inside emails. Emails carry tokens (verify, reset password),
+ * so the address must not be taken from the request's Host header — anyone can send a request with a forged
+ * Host and have the store email its customers a link to their own site. Saved value (Settings & email) wins,
+ * then SITE_URL from .env; only when neither is set does it fall back to the address the request came in on.
+ */
+function site_url(): string {
+    $saved = trim((string) get_setting('site_url', ''));
+    return rtrim($saved !== '' ? $saved : SITE_URL, '/');
+}
+
+function mail_base_url(): string {
+    $configured = site_url();
+    return $configured !== '' ? $configured : rtrim(base_url(), '/');
+}
+
+/** Random secret for signing links (unsubscribe). Created once, kept in the settings table. */
+function app_secret(): string {
+    $s = (string) get_setting('app_secret', '');
+    if (strlen($s) < 32) {
+        $s = bin2hex(random_bytes(32));
+        set_setting('app_secret', $s);
+    }
+    return $s;
+}
+
+function unsubscribe_token(int $userId): string {
+    return substr(hash_hmac('sha256', 'unsub:' . $userId, app_secret()), 0, 40);
+}
+
+function unsubscribe_url(int $userId): string {
+    return mail_base_url() . '/unsubscribe?uid=' . $userId . '&token=' . unsubscribe_token($userId);
 }
 
 /* -------------------------------------------------------- pretty URLs ----- */
@@ -185,6 +247,32 @@ function category_url(array $category): string {
 function order_url(string $orderNumber): string {
     return '/order/' . rawurlencode($orderNumber);
 }
+/**
+ * Guest orders can be viewed in the browser session that placed them (right after checkout) or after typing the
+ * order number together with the email used at checkout (Track an order). Orders that belong to an account are
+ * only ever shown to that account.
+ */
+function guest_order_grant(string $orderNumber): void {
+    $_SESSION['guest_orders'][$orderNumber] = time();
+    if (count($_SESSION['guest_orders']) > 20) $_SESSION['guest_orders'] = array_slice($_SESSION['guest_orders'], -20, null, true);
+}
+
+function guest_order_granted(string $orderNumber): bool {
+    return isset($_SESSION['guest_orders'][$orderNumber]);
+}
+
+/** The order if the visitor may see it (owner, or a guest order they hold a grant for), else null. */
+function order_for_viewer(string $orderNumber): ?array {
+    $stmt = db()->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $stmt->execute([$orderNumber]);
+    $o = $stmt->fetch();
+    if (!$o) return null;
+    if (!empty($o['user_id'])) {
+        return (!empty($_SESSION['user_id']) && (int) $_SESSION['user_id'] === (int) $o['user_id'] && function_exists('current_user') && current_user()) ? $o : null;
+    }
+    return guest_order_granted($orderNumber) ? $o : null;
+}
+
 function invoice_url(string $orderNumber): string {
     return '/invoice/' . rawurlencode($orderNumber);
 }

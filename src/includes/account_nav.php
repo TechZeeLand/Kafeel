@@ -4,5 +4,5 @@
   <a href="/addresses" class="<?= $__activeAccountTab === 'addresses' ? 'active' : '' ?>">Addresses</a>
   <a href="/orders" class="<?= $__activeAccountTab === 'orders' ? 'active' : '' ?>">Order history</a>
   <a href="/wishlist" class="<?= $__activeAccountTab === 'wishlist' ? 'active' : '' ?>">Wishlist</a>
-  <a href="/logout">Log out</a>
+  <a href="/logout?csrf_token=<?= e(csrf_token()) ?>">Log out</a>
 </nav>

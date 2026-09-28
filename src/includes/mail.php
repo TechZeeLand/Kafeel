@@ -12,25 +12,85 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 /**
+ * Providers that only accept mail whose "From" address is the account you log in with.
+ * (Gmail silently rewrites it, Zoho/Outlook reject it.) Sending as anything else fails or lands in spam.
+ */
+function smtp_strict_from_host(string $host): bool {
+    return (bool) preg_match('/(^|\.)(gmail\.com|googlemail\.com|zoho\.(com|in|eu|com\.au|jp|sa)|office365\.com|outlook\.com|live\.com|yahoo\.com|icloud\.com)$/i', $host);
+}
+
+/**
+ * The SMTP settings actually used to send: the saved ones, with the mistakes that most often make a
+ * correct-looking configuration fail fixed automatically —
+ *   - port 465 is implicit TLS ("ssl") and 587/25 are STARTTLS ("tls"); a mismatched choice hangs or errors;
+ *   - Gmail app passwords are shown as "abcd efgh ijkl mnop", the spaces are not part of the password;
+ *   - Gmail/Zoho/Outlook/Yahoo/iCloud require From = the login address.
+ */
+function smtp_effective(): array {
+    $c = smtp_settings();
+    $c['host'] = trim($c['host']);
+    $c['user'] = trim($c['user']);
+    if ($c['port'] < 1) $c['port'] = $c['secure'] === 'ssl' ? 465 : 587;
+    if ($c['port'] === 465) $c['secure'] = 'ssl';
+    elseif (in_array($c['port'], [587, 25, 2525], true) && $c['secure'] === 'ssl') $c['secure'] = 'tls';
+    if (preg_match('/(^|\.)(gmail|googlemail)\.com$/i', $c['host'])) $c['pass'] = preg_replace('/\s+/', '', $c['pass']);
+    $c['reply_to'] = null;
+    if ($c['host'] !== '' && $c['user'] !== '' && smtp_strict_from_host($c['host']) && filter_var($c['user'], FILTER_VALIDATE_EMAIL)
+        && strcasecmp($c['from_email'], $c['user']) !== 0) {
+        $c['reply_to'] = $c['from_email'];   // replies still reach the store address
+        $c['from_email'] = $c['user'];
+    }
+    return $c;
+}
+
+/** A plain-English next step for the error strings mail servers / PHPMailer produce. */
+function mail_error_hint(?string $err): string {
+    $e = strtolower((string) $err);
+    if ($e === '') return '';
+    if (str_contains($e, 'could not authenticate') || str_contains($e, 'authentication') || str_contains($e, '535') || str_contains($e, 'username and password not accepted'))
+        return 'The server refused the username/password. Gmail needs an App Password (Google account → Security → 2-Step Verification → App passwords); Zoho needs an application-specific password if 2FA is on. Check the username is the full email address.';
+    if (str_contains($e, 'connect()') || str_contains($e, 'connection refused') || str_contains($e, 'timed out') || str_contains($e, 'failed to connect') || str_contains($e, 'could not connect'))
+        return 'The server could not reach the mail host. Check the host name and port (587 + STARTTLS, or 465 + SSL/TLS), and that the Docker host allows outbound connections on that port (some networks block 25/465/587).';
+    if (str_contains($e, 'ssl') || str_contains($e, 'tls') || str_contains($e, 'certificate'))
+        return 'Encryption negotiation failed. Port 587 uses STARTTLS and port 465 uses SSL/TLS — the two must match the setting above.';
+    if (str_contains($e, 'sender') || str_contains($e, 'not owned') || str_contains($e, 'from address') || str_contains($e, 'relay') || str_contains($e, '550') || str_contains($e, '553') || str_contains($e, '554'))
+        return 'The provider rejected the "From" address or the recipient. Use a From address on the same account/domain as the username, and (for your own domain) verify it with the provider.';
+    if (str_contains($e, 'mail() ') || str_contains($e, 'could not instantiate mail function'))
+        return 'No SMTP host is set, so PHP mail() was used, which cannot work from a Docker container. Fill in the SMTP host above.';
+    return '';
+}
+
+/**
  * @param string      $toEmail
  * @param string      $toName
  * @param string      $subject
  * @param string      $htmlBody   HTML body (a plain-text version is auto-derived).
  * @param string|null $replyToEmail
  * @param string|null $replyToName
+ * @param string      $kind       short label for the email log ('verify', 'order', 'promo', …)
+ * @param array       $headers    extra headers, e.g. ['List-Unsubscribe' => '<https://…>']
  * @return bool true on success. Failures are logged, never thrown — a mail
  *              hiccup should never break checkout, registration, etc.
  */
-function send_email(string $toEmail, string $toName, string $subject, string $htmlBody, ?string $replyToEmail = null, ?string $replyToName = null): bool {
+function send_email(string $toEmail, string $toName, string $subject, string $htmlBody, ?string $replyToEmail = null, ?string $replyToName = null, string $kind = '', array $headers = []): bool {
     $GLOBALS['__mail_error'] = null;
-    $cfg = smtp_settings();
+    $cfg = smtp_effective();
     $mail = new PHPMailer(true);
     try {
         if ($cfg['host'] !== '') {
             $mail->isSMTP();
-            $mail->Host = $cfg['host'];
             $mail->Port = $cfg['port'];
             $mail->Timeout = 15;
+            // Docker hosts often have no IPv6 route but the mail host publishes AAAA records, which makes the
+            // connection hang until it times out. Connect over IPv4 explicitly, while TLS still verifies the real host name.
+            $host = $cfg['host'];
+            $v4 = filter_var($host, FILTER_VALIDATE_IP) ? false : @gethostbynamel($host);
+            if ($v4) {
+                $mail->Host = implode(';', array_slice($v4, 0, 3));
+                $mail->SMTPOptions = ['ssl' => ['peer_name' => $host, 'verify_peer_name' => true]];
+            } else {
+                $mail->Host = $host;
+            }
             if ($cfg['user'] !== '') {
                 $mail->SMTPAuth = true;
                 $mail->Username = $cfg['user'];
@@ -48,18 +108,34 @@ function send_email(string $toEmail, string $toName, string $subject, string $ht
         $mail->addAddress($toEmail, $toName);
         if ($replyToEmail) {
             $mail->addReplyTo($replyToEmail, $replyToName ?: $replyToEmail);
+        } elseif (!empty($cfg['reply_to'])) {
+            $mail->addReplyTo($cfg['reply_to'], $cfg['from_name']);
         }
+        foreach ($headers as $hn => $hv) $mail->addCustomHeader($hn, $hv);
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body = $htmlBody;
-        $mail->AltBody = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $htmlBody)));
+        $mail->AltBody = trim(html_entity_decode(strip_tags(preg_replace('~<(br\s*/?|/p|/h\d|/tr|/li)>~i', "\n", $htmlBody)), ENT_QUOTES, 'UTF-8'));
 
         $mail->send();
+        email_log_write($kind, $toEmail, $subject, true, null);
         return true;
     } catch (PHPMailerException | Throwable $e) {
         $GLOBALS['__mail_error'] = $mail->ErrorInfo ?: $e->getMessage();
         error_log('[mail] Failed to send "' . $subject . '" to ' . $toEmail . ': ' . $GLOBALS['__mail_error']);
+        email_log_write($kind, $toEmail, $subject, false, $GLOBALS['__mail_error']);
         return false;
+    }
+}
+
+/** Best-effort record of every send attempt (shown in Admin → Settings & email). Never throws. */
+function email_log_write(string $kind, string $to, string $subject, bool $ok, ?string $error): void {
+    try {
+        db()->prepare('INSERT INTO email_log (kind, to_email, subject, status, error) VALUES (?,?,?,?,?)')
+            ->execute([mb_substr($kind, 0, 30), mb_substr($to, 0, 190), mb_substr($subject, 0, 255), $ok ? 'sent' : 'failed', $error !== null ? mb_substr($error, 0, 500) : null]);
+        if (random_int(1, 50) === 1) db()->exec("DELETE FROM email_log WHERE created_at < (NOW() - INTERVAL 60 DAY)");
+    } catch (Throwable $e) {
+        error_log('[mail] could not write email_log: ' . $e->getMessage());
     }
 }
 

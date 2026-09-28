@@ -33,10 +33,10 @@ require __DIR__ . '/includes/header.php';
 <div class="panel">
   <div class="panel-head"><h2>Customers (<?= count($users) ?>)</h2></div>
   <div class="table-wrap"><table class="admin-table">
-    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Lifetime value</th><th>Joined</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Orders</th><th>Lifetime value</th><th>Joined</th><th>Sign-in</th><th>Offers</th><th>Status</th><th></th></tr></thead>
     <tbody>
       <?php if (!$users): ?>
-        <tr class="empty-row"><td colspan="8">No customers yet.</td></tr>
+        <tr class="empty-row"><td colspan="10">No customers yet.</td></tr>
       <?php endif; ?>
       <?php foreach ($users as $u): ?>
         <tr>
@@ -46,6 +46,8 @@ require __DIR__ . '/includes/header.php';
           <td><?= (int)$u['order_count'] ?></td>
           <td class="mono"><?= money((float)$u['lifetime_value']) ?></td>
           <td><?= fmt_dt($u['created_at'], 'd M Y') ?></td>
+          <td><?= !empty($u['google_id']) ? 'Google' . ((int) $u['has_password'] ? ' + password' : '') : 'Password' ?><?= (int) $u['email_verified'] ? '' : ' <span class="pill pill-rust" title="Email not confirmed">unverified</span>' ?></td>
+          <td><?= !empty($u['promo_emails']) ? '<span class="pill pill-sage">On</span>' : '<span class="muted">Off</span>' ?></td>
           <td><?= $u['status'] === 'active' ? '<span class="pill pill-sage">Active</span>' : '<span class="pill pill-rust">Disabled</span>' ?></td>
           <td>
             <form method="post" onsubmit="return confirm('<?= $u['status'] === 'active' ? 'Disable' : 'Re-enable' ?> this account?');">

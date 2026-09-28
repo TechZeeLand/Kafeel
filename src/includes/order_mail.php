@@ -20,6 +20,23 @@ function order_customer_email(array $order): ?string {
     return null;
 }
 
+/** Full https link for use inside an email (a relative "/order/…" does not work in a mail client). */
+function mail_url(string $path): string {
+    return preg_match('~^https?://~i', $path) ? $path : mail_base_url() . '/' . ltrim($path, '/');
+}
+
+/** For a guest order: a nudge to create an account (or log in) with the same email, which pulls this order into it. */
+function order_guest_cta(array $order, string $email): string {
+    if (!empty($order['user_id'])) return '';
+    $q = db()->prepare('SELECT 1 FROM users WHERE email = ?');
+    $q->execute([strtolower($email)]);
+    $hasAccount = (bool) $q->fetchColumn();
+    return '<p style="color:#4a5670;font-size:14px;margin-top:18px;">You checked out as a guest. '
+        . ($hasAccount ? 'Log in' : 'Create an account') . ' with <strong>' . e($email)
+        . '</strong> and this order is added to your account automatically, so you can track it. Or track it any time without an account at <a href="' . e(mail_url('/orders')) . '">' . e(mail_url('/orders')) . '</a> with your order number and this email.</p>'
+        . order_email_button($hasAccount ? mail_url('/login') : mail_url('/register?email=' . rawurlencode($email)), $hasAccount ? 'Log in' : 'Create your account');
+}
+
 function order_email_button(string $href, string $label): string {
     $bg = theme_settings()['primary'];
     return '<p style="margin:20px 0;"><a href="' . e($href) . '" style="background:' . e($bg) . ';color:' . e(contrast_text($bg))
@@ -53,8 +70,8 @@ function send_order_confirmation(int $orderId): void {
             . '<strong>Total to pay on delivery: ' . e(money((float) $order['total'])) . '</strong></p>'
             . '<p style="color:#4a5670;font-size:14px;">Delivering to: ' . e($order['shipping_name']) . ', ' . e($order['shipping_line1']) . ', ' . e($order['shipping_city']) . '</p>'
             . (empty($order['billing_same_as_shipping']) ? '<p style="color:#4a5670;font-size:14px;">Billing to: ' . e($order['billing_name']) . ', ' . e($order['billing_line1']) . ', ' . e($order['billing_city']) . '</p>' : '')
-            . (!empty($order['user_id']) ? order_email_button(order_url($order['order_number']), 'View your order') : '');
-        send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' confirmed', email_wrap('Thanks for your order', $body));
+            . (!empty($order['user_id']) ? order_email_button(mail_url(order_url($order['order_number'])), 'View your order') : order_guest_cta($order, $to));
+        send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' confirmed', email_wrap('Thanks for your order', $body), null, null, 'order');
     } catch (Throwable $e) {
         error_log('[order_mail] confirmation failed: ' . $e->getMessage());
     }
@@ -68,8 +85,8 @@ function send_order_status_email(array $order, string $newStatus, ?string $note)
         $body = '<p>Hi ' . e(explode(' ', $order['shipping_name'])[0]) . ',</p>'
             . '<p>Your order <strong>#' . e($order['order_number']) . '</strong> is now <strong>' . e($label) . '</strong>.</p>'
             . ($note ? '<p>' . e($note) . '</p>' : '')
-            . (!empty($order['user_id']) ? order_email_button(order_url($order['order_number']), 'Track your order') : '');
-        send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' — ' . $label, email_wrap('Order update', $body));
+            . (!empty($order['user_id']) ? order_email_button(mail_url(order_url($order['order_number'])), 'Track your order') : order_guest_cta($order, $to));
+        send_email($to, $order['shipping_name'], 'Order #' . $order['order_number'] . ' — ' . $label, email_wrap('Order update', $body), null, null, 'order-status');
     } catch (Throwable $e) {
         error_log('[order_mail] status email failed: ' . $e->getMessage());
     }

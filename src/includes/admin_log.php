@@ -49,6 +49,11 @@ const ADMIN_LOG_ACTIONS = [
     'settings.store'       => ['Store details edited', 'ink'],
     'settings.email'       => ['Email settings edited', 'ink'],
     'settings.test_email'  => ['Sent a test email', 'ink'],
+    'settings.google'      => ['Google sign-in settings edited', 'ink'],
+    'settings.site_url'    => ['Public site address edited', 'ink'],
+    'promo.send'           => ['Promotional email sent', 'brass'],
+    'promo.test'           => ['Promotional test email', 'ink'],
+    'promo.cancel'         => ['Promotional campaign stopped', 'rust'],
     'branding.update'      => ['Branding edited', 'ink'],
     'theme.update'         => ['Theme edited', 'ink'],
     'theme.reset'          => ['Theme reset', 'ink'],
@@ -57,7 +62,7 @@ const ADMIN_LOG_ACTIONS = [
 /** Human names for the action groups (the filter drop-down on the Activity log page). */
 const ADMIN_LOG_GROUPS = [
     'auth' => 'Sign-ins & passwords', 'order' => 'Orders', 'product' => 'Products', 'category' => 'Categories',
-    'customer' => 'Customers', 'staff' => 'Staff', 'coupon' => 'Coupons', 'review' => 'Reviews', 'settings' => 'Settings & email',
+    'customer' => 'Customers', 'staff' => 'Staff', 'coupon' => 'Coupons', 'review' => 'Reviews', 'settings' => 'Settings & email', 'promo' => 'Promotions',
     'branding' => 'Branding', 'theme' => 'Theme',
 ];
 

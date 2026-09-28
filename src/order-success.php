@@ -51,7 +51,7 @@ require __DIR__ . '/includes/header.php';
 
   <div style="text-align:center;margin-top:10px;">
     <a href="/" class="btn btn-primary">Continue shopping</a>
-    <?php if (is_logged_in()): ?><a href="/orders" class="btn btn-outline">View my orders</a><?php endif; ?>
+    <?php if (is_logged_in()): ?><a href="/orders" class="btn btn-outline">View my orders</a><?php else: ?><a href="<?= e(order_url($order['order_number'])) ?>" class="btn btn-outline">Track this order</a><?php endif; ?>
   </div>
 </div>
 

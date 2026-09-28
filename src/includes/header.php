@@ -141,7 +141,7 @@ $__activeCat = $_GET['slug'] ?? '';
           <div class="mnav-btns">
             <a class="btn btn-outline btn-sm" href="/account">My account</a>
             <a class="btn btn-outline btn-sm" href="/wishlist">Saved items</a>
-            <a class="btn btn-ghost btn-sm" href="/logout"><?= ui_icon('logout', 16) ?>Log out</a>
+            <a class="btn btn-ghost btn-sm" href="/logout?csrf_token=<?= e(csrf_token()) ?>"><?= ui_icon('logout', 16) ?>Log out</a>
           </div>
         <?php else: ?>
           <p>Log in to track orders and save items.</p>

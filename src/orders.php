@@ -1,7 +1,53 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
-require_login();
+
+if (!is_logged_in()) {
+    // Guests: look an order up by order number + the email used at checkout.
+    $error = null;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        require_csrf();
+        $num = strtoupper(trim($_POST['order_number'] ?? ''));
+        $mail = strtolower(trim($_POST['email'] ?? ''));
+        $wait = login_throttle_check('track', $mail !== '' ? $mail : 'none');
+        if ($wait !== null) {
+            $error = 'Too many attempts. Please try again in ' . ceil($wait / 60) . ' minute(s).';
+        } else {
+            $q = db()->prepare('SELECT order_number, user_id FROM orders WHERE order_number = ? AND LOWER(customer_email) = ?');
+            $q->execute([$num, $mail]);
+            $hit = $q->fetch();
+            if ($hit && empty($hit['user_id'])) {
+                guest_order_grant($hit['order_number']);
+                redirect(order_url($hit['order_number']));
+            } elseif ($hit) {
+                $error = 'That order belongs to an account. Please log in with ' . $mail . ' to see it.';
+            } else {
+                login_throttle_hit('track', $mail !== '' ? $mail : 'none');
+                $error = 'We couldn\'t find an order with that number and email. Check the confirmation email we sent you.';
+            }
+        }
+    }
+    $pageTitle = 'Track an order';
+    require __DIR__ . '/includes/header.php';
+    ?>
+    <div class="wrap">
+      <div class="form-card form-narrow">
+        <h2 style="text-align:center;margin-bottom:6px;">Track your order</h2>
+        <p style="text-align:center;color:var(--ink-soft);margin-bottom:26px;font-size:0.9rem;">Enter the order number from your confirmation email and the email you used at checkout.</p>
+        <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+        <form method="post">
+          <?= csrf_field() ?>
+          <div class="field"><label for="order_number">Order number</label><input id="order_number" name="order_number" required placeholder="RA-260928-AB12C" autocapitalize="characters" value="<?= e($_POST['order_number'] ?? '') ?>"></div>
+          <div class="field"><label for="email">Email</label><input type="email" id="email" name="email" required autocomplete="email" value="<?= e($_POST['email'] ?? '') ?>"></div>
+          <button type="submit" class="btn btn-primary btn-block">Track order</button>
+        </form>
+        <div class="form-foot">Have an account? <a href="/login?next=/orders">Log in</a> to see all your orders.</div>
+      </div>
+    </div>
+    <?php
+    require __DIR__ . '/includes/footer.php';
+    exit;
+}
 
 $user = current_user();
 $stmt = db()->prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC');

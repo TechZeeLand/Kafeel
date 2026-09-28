@@ -14,7 +14,7 @@ $__assetV = $__assetV ?? fn (string $f) => (int) @filemtime(__DIR__ . '/../asset
       <div class="footer-brand">
         <a href="/" class="brand"><?= brand_inner('footer') ?></a>
         <?php if ($__store['description'] !== ''): ?><p><?= e($__store['description']) ?></p><?php endif; ?>
-        <?= social_row_html() ?>
+        <?= social_row_html('contact-links') ?>
       </div>
       <div>
         <h4>Contact</h4>

@@ -21,6 +21,7 @@ $__ico = [
     'star' => '<svg viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21.1 7 14.2 2 9.3l6.9-1z"/></svg>',
     'ticket' => '<svg viewBox="0 0 24 24"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>',
     'log' => '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
+    'mail' => '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
     'key' => '<svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
 ];
 ?><!DOCTYPE html>
@@ -51,6 +52,7 @@ $__ico = [
       <?= nav_link('/admin/orders.php', 'Orders', ['orders.php', 'order_detail.php'], $__path, $__ico['cart']) ?>
       <?= nav_link('/admin/coupons.php', 'Coupons', ['coupons.php', 'coupon_form.php'], $__path, $__ico['ticket']) ?>
       <?= nav_link('/admin/reviews.php', 'Reviews', ['reviews.php'], $__path, $__ico['star']) ?>
+      <?php if (admin_is_owner()): ?><?= nav_link('/admin/promotions.php', 'Promotional emails', ['promotions.php'], $__path, $__ico['mail']) ?><?php endif; ?>
       <div class="section-label">People</div>
       <?= nav_link('/admin/users.php', 'Customers', ['users.php'], $__path, $__ico['users']) ?>
       <?php if (admin_is_owner()): ?><?= nav_link('/admin/staff.php', 'Staff', ['staff.php', 'staff_form.php'], $__path, $__ico['badge']) ?><?php endif; ?>

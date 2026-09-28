@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS users (
   email_verified TINYINT(1) NOT NULL DEFAULT 0,
   email_verify_token VARCHAR(64) DEFAULT NULL,
   email_verify_sent_at DATETIME DEFAULT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  google_id VARCHAR(255) DEFAULT NULL,
+  has_password TINYINT(1) NOT NULL DEFAULT 1,
+  promo_emails TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_users_google (google_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS addresses (
@@ -261,7 +265,9 @@ CREATE TABLE IF NOT EXISTS orders (
   notes VARCHAR(255) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  claimed_at DATETIME DEFAULT NULL,
   KEY idx_orders_coupon (coupon_id),
+  KEY idx_orders_customer_email (customer_email),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -362,6 +368,57 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   KEY idx_bucket_ip (bucket, ip, attempted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Added in migration 011 (password reset, email log, promotional emails)
+CREATE TABLE IF NOT EXISTS password_resets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_reset_token (token_hash),
+  KEY idx_reset_user (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  kind VARCHAR(30) NOT NULL DEFAULT '',
+  to_email VARCHAR(190) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  status ENUM('sent','failed') NOT NULL,
+  error VARCHAR(500) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_email_log_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS promo_campaigns (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  subject VARCHAR(200) NOT NULL,
+  heading VARCHAR(200) NOT NULL DEFAULT '',
+  body TEXT NOT NULL,
+  button_label VARCHAR(60) DEFAULT NULL,
+  button_url VARCHAR(500) DEFAULT NULL,
+  status ENUM('sending','done','cancelled') NOT NULL DEFAULT 'sending',
+  total INT NOT NULL DEFAULT 0,
+  created_by_name VARCHAR(120) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at DATETIME DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS promo_recipients (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  campaign_id INT NOT NULL,
+  user_id INT DEFAULT NULL,
+  email VARCHAR(160) NOT NULL,
+  name VARCHAR(120) NOT NULL DEFAULT '',
+  status ENUM('queued','sent','failed','skipped') NOT NULL DEFAULT 'queued',
+  error VARCHAR(255) DEFAULT NULL,
+  sent_at DATETIME DEFAULT NULL,
+  KEY idx_promo_rcpt (campaign_id, status),
+  FOREIGN KEY (campaign_id) REFERENCES promo_campaigns(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
@@ -398,4 +455,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('topbar_enabled', '0'),
 ('topbar_text', ''),
 ('topbar_link', ''),
-('schema_version', '10');
+('schema_version', '11');

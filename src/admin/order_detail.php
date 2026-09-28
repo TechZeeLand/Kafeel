@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') !== '
 
             // Email the customer (registered or guest, whichever email we have).
             require_once __DIR__ . '/../includes/order_mail.php';
-            send_order_status_email($order, $newStatus, $note ?: null);
+            defer_job(fn () => send_order_status_email($order, $newStatus, $note ?: null));
             flash_set('success', 'Order status updated to ' . ucfirst($newStatus) . '.');
         } else {
             flash_set('info', 'Status unchanged.');

@@ -29,6 +29,7 @@ COPY docker/nginx/fastcgi-php.conf /etc/nginx/fastcgi-php.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
 COPY docker/php/opcache-dev.ini /usr/local/etc/php/conf.d/opcache-dev.ini
+COPY docker/php/php-fpm-logging.conf /usr/local/etc/php-fpm.d/zz-logging.conf
 
 # --- App code ---
 # Baked in so the image is self-contained (this is what gets published to

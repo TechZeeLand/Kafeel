@@ -1,13 +1,17 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
-require_login();
 
 $user = current_user();
-$orderNumber = $_GET['order'] ?? '';
-$stmt = db()->prepare('SELECT * FROM orders WHERE order_number = ? AND user_id = ?');
-$stmt->execute([$orderNumber, $user['id']]);
-$order = $stmt->fetch();
+$orderNumber = (string) ($_GET['order'] ?? '');
+$order = order_for_viewer($orderNumber);
+if (!$order && !$user) {
+    // Not signed in and no guest access to this order: ask them to log in (or track it with their email).
+    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/orders';
+    flash_set('info', 'Log in to see this order, or track it with your order number and email.');
+    redirect('/orders');
+}
+$__guestView = $order && empty($order['user_id']);
 
 if (!$order) {
     http_response_code(404);
@@ -45,8 +49,8 @@ require __DIR__ . '/includes/header.php';
 
 <div class="page-header wrap"><span class="eyebrow">Order</span><h1 class="mono" style="font-family:var(--font-mono);font-size:1.6rem;"><?= e($order['order_number']) ?></h1></div>
 
-<div class="wrap account-layout">
-  <?php include __DIR__ . '/includes/account_nav.php'; ?>
+<div class="wrap <?= $__guestView ? '' : 'account-layout' ?>" <?= $__guestView ? 'style="max-width:820px;"' : '' ?>>
+  <?php if (!$__guestView) include __DIR__ . '/includes/account_nav.php'; ?>
 
   <div>
     <div class="panel" style="padding:20px;margin-bottom:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;">

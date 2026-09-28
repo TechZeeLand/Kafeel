@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/google_auth.php';
 require_login();
 
 $user = current_user();
@@ -19,7 +20,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             db()->prepare('UPDATE users SET name = ?, phone = ? WHERE id = ?')->execute([$name, $phone ?: null, $user['id']]);
             $success = 'Profile updated.';
-            $user = current_user();
+            $user = fetch_user_row((int) $user['id']);
+        }
+    } elseif ($action === 'update_prefs') {
+        $promo = !empty($_POST['promo_emails']) ? 1 : 0;
+        db()->prepare('UPDATE users SET promo_emails = ? WHERE id = ?')->execute([$promo, $user['id']]);
+        $success = $promo ? 'You\'ll get offers and new-arrival emails.' : 'Promotional emails are off. Order and account emails will still reach you.';
+        $user = fetch_user_row((int) $_SESSION['user_id']);
+    } elseif ($action === 'set_password' && (int) $user['has_password'] === 0) {
+        // Google-only account adding a password (they are already signed in, so no current password to ask for).
+        $new = $_POST['new_password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        if (strlen($new) < 8) {
+            $errors[] = 'Password must be at least 8 characters.';
+        } elseif ($new !== $confirm) {
+            $errors[] = 'Passwords do not match.';
+        } else {
+            db()->prepare('UPDATE users SET password_hash = ?, has_password = 1 WHERE id = ?')->execute([password_hash($new, PASSWORD_DEFAULT), $user['id']]);
+            $success = 'Password added. You can now log in with your email and password as well as Google.';
+            $user = fetch_user_row((int) $_SESSION['user_id']);
         }
     } elseif ($action === 'change_password') {
         $current = $_POST['current_password'] ?? '';
@@ -82,6 +101,44 @@ require __DIR__ . '/includes/header.php';
       </form>
     </div>
 
+    <div class="form-card" style="margin-bottom:22px;">
+      <h3 style="margin-bottom:6px;">Email preferences</h3>
+      <p style="color:var(--ink-soft);font-size:0.88rem;margin-bottom:14px;">Order confirmations, shipping updates and account emails are always sent. This switch only controls offers and new-arrival emails.</p>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="update_prefs">
+        <label class="switch" style="margin-bottom:16px;">
+          <input type="checkbox" name="promo_emails" value="1" <?= !empty($user['promo_emails']) ? 'checked' : '' ?>><span class="track"></span>
+          <span>Send me promotional emails</span>
+        </label>
+        <div><button type="submit" class="btn btn-primary">Save preferences</button></div>
+      </form>
+    </div>
+
+    <div class="form-card" style="margin-bottom:22px;">
+      <h3 style="margin-bottom:12px;">How you sign in</h3>
+      <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;font-size:0.92rem;">
+        <li><strong>Email &amp; password:</strong> <?= (int) $user['has_password'] === 1 ? 'set' : 'not set yet' ?></li>
+        <li><strong>Google:</strong> <?= !empty($user['google_id']) ? 'connected' : 'not connected' ?><?php if (empty($user['google_id']) && google_enabled()): ?> — sign in with Google once using <em><?= e($user['email']) ?></em> and it links automatically<?php endif; ?></li>
+        <li><strong>Email address:</strong> <?= e($user['email']) ?> <?= (int) $user['email_verified'] === 1 ? '<span class="pill pill-sage" style="font-size:11px;">verified</span>' : '<span class="pill pill-brass" style="font-size:11px;">not verified</span>' ?></li>
+      </ul>
+    </div>
+
+    <?php if ((int) $user['has_password'] === 0): ?>
+    <div class="form-card">
+      <h3 style="margin-bottom:6px;">Add a password</h3>
+      <p style="color:var(--ink-soft);font-size:0.88rem;margin-bottom:14px;">Optional — lets you also log in with your email and password.</p>
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="set_password">
+        <div class="field-row">
+          <div class="field"><label for="new_password">New password</label><input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="confirm_password">Confirm password</label><input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Add password</button>
+      </form>
+    </div>
+    <?php else: ?>
     <div class="form-card">
       <h3 style="margin-bottom:16px;">Change password</h3>
       <form method="post">
@@ -95,6 +152,7 @@ require __DIR__ . '/includes/header.php';
         <button type="submit" class="btn btn-primary">Update password</button>
       </form>
     </div>
+    <?php endif; ?>
   </div>
 </div>
 

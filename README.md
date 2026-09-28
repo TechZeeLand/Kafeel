@@ -190,8 +190,19 @@ then use **Send a test email** to confirm it works (the exact error from the
 mail server is shown if it doesn't). Values saved there override the
 `SMTP_*` variables in `.env`, which remain as the fallback. Leaving both
 blank falls back to PHP's built-in `mail()`, which does **not** deliver from
-inside the Docker image (there is no sendmail) — emails silently fail (logged
-to the PHP error log, never crashes the request).
+inside the Docker image (there is no sendmail) — emails fail (logged to the PHP
+error log, never crashes the request).
+
+Every send attempt is recorded under **Settings & email -> Recent emails**
+with the mail server's exact error and a plain-English hint, and PHP's error
+log now reaches `docker logs kafeel_web`. Gmail, Zoho, Outlook, Yahoo and
+iCloud only accept mail whose From address is the account you log in with, so
+the app sends as the login address (and sets Reply-To to your store email)
+automatically. Full walkthrough: [`docs/PHASE8-SETUP.md`](docs/PHASE8-SETUP.md).
+
+Links inside emails use **Settings & email -> Public site address** (or
+`SITE_URL` in `.env`), never the browser's Host header. Set it to the address
+customers really use *today*.
 
 
 The same page holds the announcement bar (top of every page) and the **store
@@ -352,6 +363,17 @@ Beyond the core storefront/admin listed in [What's included](#whats-included):
   the order line is stamped `is_preorder` so it stays identifiable in the
   admin/customer order views and on the invoice even after real stock
   arrives and the flag is turned back off.
+
+- **Phase 8:** "Continue with Google" sign-in (OpenID Connect + PKCE, no
+  library) with account linking; guest orders merge into an account when its
+  email is confirmed (password sign-up after clicking the emailed link, or
+  Google, which confirms the email itself); forgot/reset password; guest order
+  tracking by order number + email; promotional emails from **Admin ->
+  Promotional emails** to opted-in customers (per-customer switch in *My
+  account*, one-click unsubscribe link and headers in every email, sent in small
+  batches); an email log; footer social icons match the contact page and the
+  mobile footer stacks in one column; logout now requires a CSRF token.
+  Migration `011_auth_email.sql`.
 
 ## Running behind a domain / reverse proxy
 

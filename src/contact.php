@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         require_once __DIR__ . '/includes/mail.php';
         $body = '<p><strong>' . e($name) . '</strong> (' . e($email) . ') sent a message from the contact form:</p>'
-            . '<p style="white-space:pre-wrap;background:#f8f6ee;padding:14px;border-radius:6px;">' . nl2br(e($message)) . '</p>';
+            . '<p style="white-space:pre-wrap;background:#f8f6ee;padding:14px;border-radius:6px;">' . e($message) . '</p>';
         $delivered = send_email($store['email'], $store['name'], 'New contact message from ' . $name, email_wrap('New contact message', $body), $email, $name);
         if ($delivered) {
             $sent = true;

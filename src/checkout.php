@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $name = trim($_POST['shipping_name'] ?? '');
     $phone = trim($_POST['shipping_phone'] ?? '');
-    $email = trim($_POST['customer_email'] ?? '');
+    $email = strtolower(trim($_POST['customer_email'] ?? ''));
     $line1 = trim($_POST['shipping_line1'] ?? '');
     $city = trim($_POST['shipping_city'] ?? '');
     $state = trim($_POST['shipping_state'] ?? '');
@@ -67,7 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($name === '' || strlen($name) < 2) $errors[] = 'Please enter the recipient\'s full name.';
     if (!preg_match('/^\+?[0-9][0-9 ()\-]{5,20}$/', $phone) || strlen(preg_replace('/\D/', '', $phone)) < 7 || strlen(preg_replace('/\D/', '', $phone)) > 15) $errors[] = 'Please enter a valid phone number, e.g. 01XXXXXXXXX.';
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look right.';
+    // Required: the confirmation and status emails go here, and it's what lets a later account pick this order up.
+    if ($email === '') $errors[] = 'Please enter your email address — we send your order confirmation and updates there.';
+    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 160) $errors[] = 'That email address doesn\'t look right.';
     if ($line1 === '') $errors[] = 'Please enter your street address.';
     if ($city === '') $errors[] = 'Please enter your city.';
 
@@ -161,6 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             cart_clear();
             coupon_session_clear();
             $_SESSION['last_order_number'] = $orderNumber;
+            if (!$__user) guest_order_grant($orderNumber);
             $placedOrderId = (int) $orderId;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -171,14 +174,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!empty($placedOrderId)) {
-            // Send the shopper on to the confirmation page right away, then
-            // email in the background so a slow mail server never delays them.
-            header('Location: /order-success.php');
-            session_write_close();
-            if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+            // Email after the shopper has been sent on to the confirmation page (see defer_job), so a slow
+            // mail server never delays them.
             require_once __DIR__ . '/includes/order_mail.php';
-            send_order_confirmation($placedOrderId);
-            exit;
+            defer_job(fn () => send_order_confirmation($placedOrderId));
+            redirect('/order-success');
         }
     }
 }
@@ -237,7 +237,7 @@ require __DIR__ . '/includes/header.php';
       </div>
       <div class="field">
         <label for="customer_email">Email <span style="font-weight:400;color:var(--ink-faint);">(for your order confirmation &amp; invoice)</span></label>
-        <input type="email" id="customer_email" name="customer_email" autocomplete="email" value="<?= e($_POST['customer_email'] ?? ($__user['email'] ?? '')) ?>">
+        <input type="email" id="customer_email" name="customer_email" autocomplete="email" required value="<?= e($_POST['customer_email'] ?? ($__user['email'] ?? '')) ?>">
       </div>
       <div class="field">
         <label for="shipping_line1">Street address</label>
