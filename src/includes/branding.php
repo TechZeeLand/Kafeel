@@ -13,7 +13,7 @@
 const DEFAULT_SITE_DESCRIPTION = 'Thoughtfully made EDC gear, bags and leather goods — built to be used daily and to last.';
 const DEFAULT_TAGLINE = 'EDC gear, bags & leather goods';
 /** Shown as "Last updated" on the legal pages. Change it when you actually edit their wording. */
-const LEGAL_LAST_UPDATED = '2026-09-20';
+const LEGAL_LAST_UPDATED = '2026-09-28';
 
 function legal_updated_label(): string {
     return date('d F Y', (int) strtotime(LEGAL_LAST_UPDATED));

@@ -232,6 +232,7 @@ require __DIR__ . '/includes/header.php';
     <?php if (!$smtpConfigured): ?>
       <div class="alert alert-warn">No SMTP server is configured, so the store falls back to PHP's built-in mail — which doesn't work from a Docker container. Order confirmations, status updates, account verification and contact-form messages won't be delivered until you fill this in.</div>
     <?php endif; ?>
+    <?php foreach (smtp_config_warnings() as $__w): ?><div class="alert alert-warn"><?= e($__w) ?></div><?php endforeach; ?>
     <?php if ($smtpConfigured && strcasecmp($smtpEff['from_email'], $smtp['from_email']) !== 0): ?>
       <div class="alert alert-info">This provider only accepts mail sent <em>as the account you log in with</em>, so emails go out from <strong><?= e($smtpEff['from_email']) ?></strong> (replies still go to <?= e($smtp['from_email']) ?>).</div>
     <?php endif; ?>

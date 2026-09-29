@@ -43,10 +43,25 @@ function smtp_effective(): array {
     return $c;
 }
 
+/** Things that are wrong with the saved SMTP settings before anything is even sent. */
+function smtp_config_warnings(): array {
+    $c = smtp_settings();
+    $w = [];
+    if ($c['host'] === '') return $w;
+    $h = strtolower(trim($c['host']));
+    if ($c['port'] > 0 && !in_array($c['port'], [25, 465, 587, 2525, 2465, 8025], true))
+        $w[] = 'Port ' . $c['port'] . ' isn\'t a mail port. Use 465 (SSL/TLS) or 587 (STARTTLS).';
+    if (preg_match('/(^|\.)zoho\.[a-z.]+$/', $h) && !preg_match('/^smtp(pro)?\.zoho\./', $h))
+        $w[] = 'For Zoho the SMTP host is smtp.zoho.com (or smtppro.zoho.com for paid business mail), not ' . $c['host'] . '. If your account is on another Zoho data centre use smtp.zoho.in, smtp.zoho.eu, smtp.zoho.com.au or smtp.zoho.jp to match.';
+    return $w;
+}
+
 /** A plain-English next step for the error strings mail servers / PHPMailer produce. */
 function mail_error_hint(?string $err): string {
     $e = strtolower((string) $err);
     if ($e === '') return '';
+    if (str_contains($e, 'could not authenticate') && preg_match('/zoho/i', smtp_settings()['host']))
+        return 'Zoho refused the login. The usual causes, in order: (1) two-factor is on for that mailbox, so a normal password won\'t work — create an Application-Specific Password in Zoho (Account -> Security) and use that; (2) SMTP/IMAP access is switched off for the mailbox (Zoho Mail settings -> Mail Accounts -> IMAP/SMTP); (3) the account is on a different Zoho data centre than the host (use smtp.zoho.in / .eu / .com.au to match where you log in); (4) the username isn\'t the full mailbox address.';
     if (str_contains($e, 'could not authenticate') || str_contains($e, 'authentication') || str_contains($e, '535') || str_contains($e, 'username and password not accepted'))
         return 'The server refused the username/password. Gmail needs an App Password (Google account → Security → 2-Step Verification → App passwords); Zoho needs an application-specific password if 2FA is on. Check the username is the full email address.';
     if (str_contains($e, 'connect()') || str_contains($e, 'connection refused') || str_contains($e, 'timed out') || str_contains($e, 'failed to connect') || str_contains($e, 'could not connect'))
@@ -76,9 +91,16 @@ function send_email(string $toEmail, string $toName, string $subject, string $ht
     $GLOBALS['__mail_error'] = null;
     $cfg = smtp_effective();
     $mail = new PHPMailer(true);
+    $serverErrors = [];
     try {
         if ($cfg['host'] !== '') {
             $mail->isSMTP();
+            // Keep only the server's own 4xx/5xx replies (e.g. "535 5.7.8 Authentication failed") so the admin sees
+            // WHY it refused. Client lines (which contain the encoded login) are never kept.
+            $mail->SMTPDebug = 2;
+            $mail->Debugoutput = function ($str, $level) use (&$serverErrors) {
+                if (preg_match('/SERVER -> CLIENT:\s*([45]\d\d[ -].*)/', $str, $m)) $serverErrors[] = trim($m[1]);
+            };
             $mail->Port = $cfg['port'];
             $mail->Timeout = 15;
             // Docker hosts often have no IPv6 route but the mail host publishes AAAA records, which makes the
@@ -122,6 +144,7 @@ function send_email(string $toEmail, string $toName, string $subject, string $ht
         return true;
     } catch (PHPMailerException | Throwable $e) {
         $GLOBALS['__mail_error'] = $mail->ErrorInfo ?: $e->getMessage();
+        if ($serverErrors) $GLOBALS['__mail_error'] .= ' — server said: ' . implode(' | ', array_slice(array_unique($serverErrors), -2));
         error_log('[mail] Failed to send "' . $subject . '" to ' . $toEmail . ': ' . $GLOBALS['__mail_error']);
         email_log_write($kind, $toEmail, $subject, false, $GLOBALS['__mail_error']);
         return false;

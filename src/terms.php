@@ -28,7 +28,11 @@ require __DIR__ . '/includes/header.php';
     <p>See our <a href="/refund-policy">refund & return policy</a> for how to cancel or return an order.</p>
 
     <h2>Accounts</h2>
-    <p>If you create an account, you're responsible for keeping your login details secure. Let us know right away if you believe your account has been accessed without your permission.</p>
+    <p>If you create an account, you're responsible for keeping your login details secure. You can sign up with an email and password or with "Continue with Google"; if both use the same email address they are the same account. Let us know right away if you believe your account has been accessed without your permission.</p>
+    <p>Orders you placed as a guest with an email address are added to the account for that address once the address is confirmed, so please only sign up with an email you own. Guest orders can also be viewed with the order number and the email used at checkout.</p>
+
+    <h2>Emails</h2>
+    <p>We send you emails needed to run your account and orders (email confirmation, password resets, order confirmations and status updates). Offers and new-arrival emails are optional: you can switch them on or off in your account, or use the unsubscribe link in any of them, and doing so never affects your orders.</p>
 
     <h2>Changes to these terms</h2>
     <p>We may update these terms from time to time as the store evolves. The current version is always available on this page.</p>
