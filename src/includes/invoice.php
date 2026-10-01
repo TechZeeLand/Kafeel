@@ -16,7 +16,7 @@ use Mpdf\Output\Destination;
 
 /** Amount for the PDF. The currency sign is set in regular weight — the Bengali Taka glyph has no bold variant in the PDF fonts. */
 function invoice_money(float $amount): string {
-    return '<span class="cur">' . e(STORE_CURRENCY_SYMBOL) . '</span>' . e(number_format($amount, 2));
+    return '<span class="cur">' . e(store_currency_symbol()) . '</span>' . e(number_format($amount, 2));
 }
 
 /** One "Label: value" line inside a details card. Empty values show a dash. */

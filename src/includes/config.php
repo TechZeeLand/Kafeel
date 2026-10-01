@@ -76,7 +76,7 @@ if (!defined('DB_HOST')) {
 }
 
 // Session cookie hardening - must run before session_start()
-if (session_status() === PHP_SESSION_NONE) {
+if (session_status() === PHP_SESSION_NONE && !defined('ERP_NO_SESSION')) {
     // Detect HTTPS directly or via a reverse proxy (nginx/Portainer setups
     // commonly terminate TLS in front of this container), so the cookie
     // only gets the `secure` flag when it's actually safe to require it.

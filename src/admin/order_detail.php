@@ -35,8 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') === '
     if ($d['shipping_line1'] === '') $detailErrors[] = 'Address line can\'t be empty.';
     if ($d['shipping_city'] === '') $detailErrors[] = 'City can\'t be empty.';
 
+    if (!$detailErrors && abs($shippingFee - (float) $order['shipping_fee']) > 0.004 && erp_order_locked($order)) {
+        $detailErrors[] = 'This order already has payments (or is completed), so its amounts are locked. Change the shipping fee by cancelling and re-creating the order, or record the difference as a return/refund.';
+    }
     if (!$detailErrors) {
-        $newTotal = round((float) $order['subtotal'] - (float) $order['discount'] + $shippingFee, 2);
+        $newTotal = round((float) $order['subtotal'] - (float) $order['discount'] + ($order['tax_inclusive'] ? 0 : (float) $order['tax']) + $shippingFee, 2);
         db()->prepare(
             'UPDATE orders SET shipping_name=?, shipping_phone=?, customer_email=?, shipping_line1=?, shipping_city=?, shipping_state=?, shipping_zip=?, delivery_area=?, shipping_fee=?, total=?, notes=? WHERE id=?'
         )->execute([$d['shipping_name'], $d['shipping_phone'], $d['customer_email'] ?: null, $d['shipping_line1'], $d['shipping_city'], $d['shipping_state'] ?: null, $d['shipping_zip'] ?: null, $deliveryArea, $shippingFee, $newTotal, $d['notes'] ?: null, $order['id']]);
@@ -46,13 +49,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') === '
             ['name' => $d['shipping_name'], 'phone' => $d['shipping_phone'], 'email' => $d['customer_email'], 'line1' => $d['shipping_line1'], 'city' => $d['shipping_city'], 'state' => $d['shipping_state'], 'zip' => $d['shipping_zip'], 'area' => delivery_area_label($deliveryArea), 'shipping_fee' => money($shippingFee), 'notes' => $d['notes']],
             ['name' => 'Recipient name', 'phone' => 'Phone', 'email' => 'Email', 'line1' => 'Address', 'city' => 'City', 'state' => 'State/area', 'zip' => 'ZIP', 'area' => 'Delivery area', 'shipping_fee' => 'Shipping fee', 'notes' => 'Notes']
         );
+        erp_emit('order', (int) $order['id'], 'auto');
         admin_log('order.edit_details', 'Order ' . $order['order_number'] . ' details edited' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'order', (int) $order['id'], $diff ? ['changes' => $diff] : []);
         flash_set('success', 'Order details updated.');
         redirect('/admin/order_detail.php?id=' . $order['id']);
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') !== 'edit_details') {
+$__orderActions = ['edit_details', 'record_payment', 'void_payment', 'record_return', 'clear_attention'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['form_action'] ?? '', ['record_payment', 'void_payment', 'record_return', 'clear_attention'], true)) {
+    require_csrf();
+    $act = $_POST['form_action']; $admin = current_admin(); $back = '/admin/order_detail.php?id=' . $order['id'];
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+        if ($act === 'record_payment') {
+            $mid = (int) ($_POST['method_id'] ?? 0) ?: null;
+            $ok = $mid ? $pdo->prepare('SELECT 1 FROM payment_methods WHERE id = ?') : null;
+            if ($ok) { $ok->execute([$mid]); if (!$ok->fetchColumn()) throw new RuntimeException('Choose a payment method.'); }
+            $paidAt = null;
+            if (!empty($_POST['paid_at'])) { try { $paidAt = (new DateTimeImmutable((string) $_POST['paid_at'], new DateTimeZone(date_default_timezone_get())))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'); } catch (Throwable $e) { throw new RuntimeException('That payment date is not valid.'); } }
+            $pid = erp_payment_record((int) $order['id'], $mid, (float) ($_POST['amount'] ?? 0), $paidAt, trim($_POST['reference'] ?? '') ?: null, trim($_POST['pnote'] ?? '') ?: null, $admin['name']);
+            erp_emit('payment', $pid, 'create');
+            admin_log('order.payment', 'Order ' . $order['order_number'] . ': recorded a payment of ' . money((float) $_POST['amount']), 'order', (int) $order['id']);
+            flash_set('success', 'Payment recorded.');
+        } elseif ($act === 'void_payment') {
+            $pid = (int) ($_POST['payment_id'] ?? 0);
+            $chk = $pdo->prepare('SELECT id FROM order_payments WHERE id = ? AND order_id = ?'); $chk->execute([$pid, $order['id']]);
+            if (!$chk->fetchColumn()) throw new RuntimeException('Payment not found.');
+            if (erp_payment_void($pid)) { erp_emit('payment', $pid, 'void'); admin_log('order.payment_void', 'Order ' . $order['order_number'] . ': voided a payment', 'order', (int) $order['id']); flash_set('success', 'Payment voided.'); }
+        } elseif ($act === 'record_return') {
+            $items = [];
+            foreach ((array) ($_POST['ret_qty'] ?? []) as $lineId => $qty) if ((int) $qty > 0) $items[] = ['order_item_id' => (int) $lineId, 'quantity' => (int) $qty, 'restock' => !empty($_POST['ret_restock'][$lineId])];
+            $rm = (int) ($_POST['refund_method_id'] ?? 0) ?: null;
+            $rid = erp_return_create((int) $order['id'], $items, trim($_POST['reason'] ?? '') ?: null, (float) ($_POST['refund_amount'] ?? 0), $rm, $admin['name']);
+            erp_emit('return', $rid, 'create');
+            admin_log('order.return', 'Order ' . $order['order_number'] . ': recorded a return (refund ' . money((float) ($_POST['refund_amount'] ?? 0)) . ')', 'order', (int) $order['id']);
+            flash_set('success', 'Return recorded.');
+        } else {
+            $pdo->prepare('UPDATE orders SET attention = NULL, attention_note = NULL WHERE id = ?')->execute([$order['id']]);
+            admin_log('order.attention_clear', 'Order ' . $order['order_number'] . ': dismissed the needs-attention flag', 'order', (int) $order['id']);
+            flash_set('success', 'Flag dismissed.');
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        flash_set('error', $e instanceof RuntimeException ? $e->getMessage() : 'Something went wrong. Please try again.');
+        if (!($e instanceof RuntimeException)) error_log('[order action] ' . $e->getMessage());
+    }
+    redirect($back);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['form_action'] ?? '', $__orderActions, true)) {
     require_csrf();
     $newStatus = $_POST['status'] ?? '';
     $note = trim($_POST['note'] ?? '');
@@ -63,27 +111,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') !== '
             $fromStatus = $order['status'];
             $pdo->beginTransaction();
             try {
-                // Re-read the status under a lock so two admins acting at once can't both "move" the same order,
-                // and so the recorded "from" status is what the order really was.
-                $lock = $pdo->prepare('SELECT status FROM orders WHERE id = ? FOR UPDATE');
-                $lock->execute([$order['id']]);
-                $fromStatus = (string) $lock->fetchColumn();
-                if ($fromStatus === $newStatus) {
+                // Locks the order, moves stock (cancel returns items to the shelf, reviving takes them out again),
+                // voids recorded payments on cancel and writes the timeline — one shared code path with inbound sync.
+                $voiding = [];
+                if ($newStatus === 'cancelled') {
+                    $vp = $pdo->prepare("SELECT id FROM order_payments WHERE order_id = ? AND status = 'recorded'");
+                    $vp->execute([$order['id']]);
+                    $voiding = $vp->fetchAll(PDO::FETCH_COLUMN);
+                }
+                $from = erp_order_set_status((int) $order['id'], $newStatus, $note ?: null, ['id' => (int) $admin['id'], 'name' => $admin['name']]);
+                if ($from === null) {
                     $pdo->rollBack();
                     flash_set('info', 'Someone else already set this order to ' . ucfirst($newStatus) . '.');
                     redirect('/admin/order_detail.php?id=' . $order['id']);
                 }
-                $wasCancelled = $fromStatus === 'cancelled';
-                $nowCancelled = $newStatus === 'cancelled';
-                // Cancelling returns the items to stock; reviving a cancelled order takes them out again.
-                if ($nowCancelled && !$wasCancelled) {
-                    order_stock_adjust($pdo, (int) $order['id'], +1);
-                } elseif ($wasCancelled && !$nowCancelled && !order_stock_adjust($pdo, (int) $order['id'], -1)) {
-                    throw new RuntimeException('Not enough stock left to reactivate this order.');
-                }
-                $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$newStatus, $order['id']]);
-                // Records what it changed from and who did it — shown in this admin page only.
-                order_status_add((int) $order['id'], $newStatus, $note ?: null, $fromStatus, ['id' => (int) $admin['id'], 'name' => $admin['name']]);
+                $fromStatus = $from;
+                foreach ($voiding as $pid) erp_emit('payment', (int) $pid, 'void');
+                erp_emit('order', (int) $order['id'], $newStatus === 'cancelled' ? 'cancel' : 'auto');
                 $pdo->commit();
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -108,6 +152,18 @@ $itemsStmt = db()->prepare('SELECT * FROM order_items WHERE order_id = ?');
 $itemsStmt->execute([$order['id']]);
 $items = $itemsStmt->fetchAll();
 
+$payStmt = db()->prepare('SELECT p.*, m.name AS method_name FROM order_payments p LEFT JOIN payment_methods m ON m.id = p.method_id WHERE p.order_id = ? ORDER BY p.id');
+$payStmt->execute([$order['id']]);
+$payments = $payStmt->fetchAll();
+$paidTotal = erp_order_paid_total((int) $order['id']);
+$amountDue = max(0, round((float) $order['total'] - $paidTotal, 2));
+$payStatus = erp_order_payment_status($order);
+$retStmt = db()->prepare('SELECT r.*, m.name AS method_name FROM order_returns r LEFT JOIN payment_methods m ON m.id = r.refund_method_id WHERE r.order_id = ? ORDER BY r.id');
+$retStmt->execute([$order['id']]);
+$returns = $retStmt->fetchAll();
+$returnedQty = [];
+foreach (db()->query('SELECT ri.order_item_id, SUM(ri.quantity) q FROM order_return_items ri JOIN order_returns r ON r.id = ri.return_id WHERE r.order_id = ' . (int) $order['id'] . ' GROUP BY ri.order_item_id')->fetchAll() as $rq) $returnedQty[(int) $rq['order_item_id']] = (int) $rq['q'];
+$allMethods = db()->query('SELECT id, name, is_active FROM payment_methods ORDER BY sort_order, id')->fetchAll();
 $customer = null;
 if ($order['user_id']) {
     $custStmt = db()->prepare('SELECT id, name, email, phone FROM users WHERE id = ?');
@@ -144,6 +200,7 @@ require __DIR__ . '/includes/header.php';
     <div style="display:flex;justify-content:flex-end;gap:26px;font-size:0.92rem;">
       <div>Subtotal: <strong class="mono"><?= money($order['subtotal']) ?></strong></div>
       <?php if ((float) $order['discount'] > 0): ?><div>Discount<?= $order['coupon_code'] ? ' (' . e($order['coupon_code']) . ')' : '' ?>: <strong class="mono" style="color:var(--sage);">&minus;<?= money($order['discount']) ?></strong></div><?php endif; ?>
+      <?php if ((float) $order['tax'] > 0): $__t = tax_settings(); ?><div><?= e($__t['label']) ?><?= $order['tax_inclusive'] ? ' (included)' : '' ?>: <strong class="mono"><?= money($order['tax']) ?></strong></div><?php endif; ?>
       <div>Shipping (<?= e(delivery_area_label($order['delivery_area'])) ?>): <strong class="mono"><?= $order['shipping_fee'] > 0 ? money($order['shipping_fee']) : 'Free' ?></strong></div>
       <div>Total: <strong class="mono"><?= money($order['total']) ?></strong></div>
     </div>
@@ -226,6 +283,73 @@ require __DIR__ . '/includes/header.php';
         <p class="help" style="margin-top:-4px;">Cancelling an order puts its items back in stock. The customer is emailed automatically if we have their email.</p>
         <button type="submit" class="btn btn-primary">Update status</button>
       </form>
+    </div>
+  </div>
+</div>
+
+<?php if (!empty($order['attention'])): ?>
+  <div class="alert alert-error" style="display:flex;justify-content:space-between;gap:16px;align-items:center;">
+    <div><strong>Needs attention:</strong> <?= e($order['attention_note'] ?: 'Something needs a look.') ?><?= $order['attention'] === 'oversold' ? ' The accounting book has less stock than was sold. Either fulfil it as a back-order, or cancel the order (that puts the items back).' : '' ?></div>
+    <form method="post"><?= csrf_field() ?><input type="hidden" name="form_action" value="clear_attention"><button class="btn btn-outline btn-sm">Dismiss</button></form>
+  </div>
+<?php endif; ?>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div class="panel">
+    <div class="panel-head"><h2>Payments <span class="sub"><?= e(ucfirst($payStatus)) ?> · <?= money($paidTotal) ?> of <?= money((float) $order['total']) ?></span></h2></div>
+    <div class="panel-body">
+      <?php if ($payments): ?>
+        <table class="admin-table"><thead><tr><th>Date</th><th>Method</th><th>Amount</th><th></th></tr></thead><tbody>
+          <?php foreach ($payments as $p): ?>
+            <tr<?= $p['status'] === 'void' ? ' style="opacity:.55;text-decoration:line-through;"' : '' ?>>
+              <td><?= e(fmt_dt($p['paid_at'], 'j M Y')) ?></td><td><?= e($p['method_name'] ?: '—') ?><?= $p['reference'] ? ' <span class="muted">#' . e($p['reference']) . '</span>' : '' ?></td><td class="mono"><?= money((float) $p['amount']) ?></td>
+              <td><?php if ($p['status'] === 'recorded'): ?><form method="post" onsubmit="return confirm('Void this payment?');" style="display:inline;"><?= csrf_field() ?><input type="hidden" name="form_action" value="void_payment"><input type="hidden" name="payment_id" value="<?= (int) $p['id'] ?>"><button class="btn btn-outline btn-sm">Void</button></form><?php else: ?><span class="muted">Voided</span><?php endif; ?></td>
+            </tr>
+          <?php endforeach; ?></tbody></table>
+      <?php else: ?><p class="muted">No payments recorded yet.</p><?php endif; ?>
+      <?php if ($amountDue > 0 && $order['status'] !== 'cancelled'): ?>
+        <details class="log-details" style="margin-top:12px;"><summary>Record a payment</summary>
+          <form method="post" style="margin-top:12px;"><?= csrf_field() ?><input type="hidden" name="form_action" value="record_payment">
+            <div class="field-row">
+              <div class="field"><label for="pay_amount">Amount</label><input type="number" step="0.01" min="0.01" max="<?= e((string) $amountDue) ?>" id="pay_amount" name="amount" value="<?= e((string) $amountDue) ?>" required></div>
+              <div class="field"><label for="pay_method">Method</label><select id="pay_method" name="method_id"><?php foreach ($allMethods as $m): ?><option value="<?= (int) $m['id'] ?>" <?= (int) $m['id'] === (int) $order['payment_method_id'] ? 'selected' : '' ?>><?= e($m['name']) ?></option><?php endforeach; ?></select></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label for="pay_ref">Reference <span class="muted" style="font-weight:400;">(optional)</span></label><input id="pay_ref" name="reference" maxlength="120"></div>
+              <div class="field"><label for="pay_at">Paid on <span class="muted" style="font-weight:400;">(optional)</span></label><input type="datetime-local" id="pay_at" name="paid_at"></div>
+            </div>
+            <div class="field"><label for="pay_note">Note <span class="muted" style="font-weight:400;">(optional)</span></label><input id="pay_note" name="pnote" maxlength="255"></div>
+            <button class="btn btn-primary">Record payment</button>
+          </form></details>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Returns &amp; refunds</h2></div>
+    <div class="panel-body">
+      <?php foreach ($returns as $r): ?>
+        <p style="margin:0 0 8px;"><strong><?= e(fmt_dt($r['returned_at'], 'j M Y')) ?></strong> — refund <span class="mono"><?= money((float) $r['refund_amount']) ?></span><?= $r['method_name'] ? ' via ' . e($r['method_name']) : '' ?><?= $r['reason'] ? '<br><span class="muted">' . e($r['reason']) . '</span>' : '' ?></p>
+      <?php endforeach; ?>
+      <?php if (!$returns): ?><p class="muted">No returns.</p><?php endif; ?>
+      <?php if ($order['status'] !== 'cancelled'): ?>
+        <details class="log-details" style="margin-top:12px;"><summary>Record a return</summary>
+          <form method="post" style="margin-top:12px;"><?= csrf_field() ?><input type="hidden" name="form_action" value="record_return">
+            <table class="admin-table"><thead><tr><th>Item</th><th>Qty back</th><th>Restock</th></tr></thead><tbody>
+              <?php foreach ($items as $it): $left = (int) $it['quantity'] - ($returnedQty[(int) $it['id']] ?? 0); if ($left < 1) continue; ?>
+                <tr><td><?= e($it['product_name']) ?><?= $it['variant_label'] ? ' <span class="muted">(' . e($it['variant_label']) . ')</span>' : '' ?></td>
+                  <td><input type="number" min="0" max="<?= $left ?>" value="0" name="ret_qty[<?= (int) $it['id'] ?>]" style="width:70px;"></td>
+                  <td><input type="checkbox" name="ret_restock[<?= (int) $it['id'] ?>]" value="1" checked></td></tr>
+              <?php endforeach; ?></tbody></table>
+            <div class="field-row" style="margin-top:12px;">
+              <div class="field"><label for="ret_refund">Refund amount</label><input type="number" step="0.01" min="0" id="ret_refund" name="refund_amount" value="0"></div>
+              <div class="field"><label for="ret_method">Refunded via</label><select id="ret_method" name="refund_method_id"><option value="">—</option><?php foreach ($allMethods as $m): ?><option value="<?= (int) $m['id'] ?>"><?= e($m['name']) ?></option><?php endforeach; ?></select></div>
+            </div>
+            <div class="field"><label for="ret_reason">Reason <span class="muted" style="font-weight:400;">(optional)</span></label><input id="ret_reason" name="reason" maxlength="255"></div>
+            <p class="help">Items ticked "Restock" go back on the shelf. The refund is recorded here — send the money back yourself.</p>
+            <button class="btn btn-primary">Record return</button>
+          </form></details>
+      <?php endif; ?>
     </div>
   </div>
 </div>

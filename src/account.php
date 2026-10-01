@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Please enter your full name.';
         } else {
             db()->prepare('UPDATE users SET name = ?, phone = ? WHERE id = ?')->execute([$name, $phone ?: null, $user['id']]);
+            try { erp_customer_profile_updated((int) $user['id'], $name, $phone ?: null); } catch (Throwable $e) { error_log('[erp] profile sync: ' . $e->getMessage()); }
             $success = 'Profile updated.';
             $user = fetch_user_row((int) $user['id']);
         }

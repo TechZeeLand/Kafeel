@@ -59,8 +59,8 @@ require __DIR__ . '/includes/header.php';
       <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
       <div class="summary-row"><span>Shipping</span><span class="val">Calculated at checkout</span></div>
       <p style="font-size:0.8rem;color:var(--ink-soft);margin-top:8px;">
-        <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka
-        (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)
+        <?= money(shipcfg('inside')) ?> inside Dhaka · <?= money(shipcfg('suburbs')) ?> suburbs · <?= money(shipcfg('outside')) ?> outside Dhaka
+        (+<?= money(shipcfg('extra_kg')) ?>/kg over <?= (int)shipcfg('free_kg') ?>kg)
       </p>
       <a href="/checkout" class="btn btn-primary btn-block cart-checkout-desktop" style="margin-top:16px;">Proceed to checkout</a>
     </div>

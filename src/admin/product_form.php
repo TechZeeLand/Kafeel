@@ -100,10 +100,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $productId = (int) $pdo->lastInsertId();
             }
 
+            $vBefore = [];
+            if ($product) foreach ($pdo->query('SELECT id, stock FROM product_variants WHERE product_id = ' . (int) $productId)->fetchAll() as $vb) $vBefore[(int) $vb['id']] = (int) $vb['stock'];
             $variantTotal = save_product_variants($pdo, $productId, $parsed['colors'], $parsed['sizes'], $combos);
             if ($variantTotal !== null) {
                 // Variant products are stocked per combination; keep the product-level number in step.
                 $pdo->prepare('UPDATE products SET stock = ? WHERE id = ?')->execute([$variantTotal, $productId]);
+            }
+
+            // Accounting: send the product, then any hand-made quantity change as a delta (never an absolute overwrite).
+            // A brand-new product's starting quantity travels inside its create event as an opening balance.
+            erp_emit('product', $productId, 'auto');
+            if ($product) {
+                if ($variantTotal === null) {
+                    erp_stock_adjust_emit($productId, null, max(0, $stock) - (int) $product['stock'], 'Edited in the product form');
+                } else {
+                    foreach (product_variants_for($productId, false) as $vNow) {
+                        $delta = (int) $vNow['stock'] - ($vBefore[(int) $vNow['id']] ?? 0);
+                        erp_stock_adjust_emit($productId, (int) $vNow['id'], $delta, 'Edited in the product form');
+                    }
+                }
             }
 
             if ($newGallery) {
@@ -266,11 +282,11 @@ require __DIR__ . '/includes/header.php';
           <div class="field-row cols-3">
             <div class="field">
               <label for="price">Selling price</label>
-              <div class="input-affix"><span class="affix"><?= e(STORE_CURRENCY_SYMBOL) ?></span><input type="number" step="0.01" min="0" id="price" name="price" required value="<?= e($f['price']) ?>"></div>
+              <div class="input-affix"><span class="affix"><?= e(store_currency_symbol()) ?></span><input type="number" step="0.01" min="0" id="price" name="price" required value="<?= e($f['price']) ?>"></div>
             </div>
             <div class="field">
               <label for="compare_price">Compare at <span class="muted" style="font-weight:400;">(optional)</span></label>
-              <div class="input-affix"><span class="affix"><?= e(STORE_CURRENCY_SYMBOL) ?></span><input type="number" step="0.01" min="0" id="compare_price" name="compare_price" value="<?= e($f['compare_price']) ?>"></div>
+              <div class="input-affix"><span class="affix"><?= e(store_currency_symbol()) ?></span><input type="number" step="0.01" min="0" id="compare_price" name="compare_price" value="<?= e($f['compare_price']) ?>"></div>
               <div class="hint">Shows the old price crossed out.</div>
             </div>
             <div class="field">
@@ -392,5 +408,5 @@ require __DIR__ . '/includes/header.php';
   </form>
 <?php endforeach; ?>
 
-<script>window.KAFEEL_CURRENCY = <?= json_encode(STORE_CURRENCY_SYMBOL, $jsonFlags) ?>; window.KAFEEL_VARIANT_EDITOR = <?= json_encode($editorData, $jsonFlags) ?>;</script>
+<script>window.KAFEEL_CURRENCY = <?= json_encode(store_currency_symbol(), $jsonFlags) ?>; window.KAFEEL_VARIANT_EDITOR = <?= json_encode($editorData, $jsonFlags) ?>;</script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -6,7 +6,7 @@ require_admin();
 $q = trim($_GET['q'] ?? '');
 $cat = (int) ($_GET['cat'] ?? 0);
 $filter = $_GET['filter'] ?? 'all';
-if (!in_array($filter, ['all', 'active', 'hidden', 'low', 'out'], true)) $filter = 'all';
+if (!in_array($filter, ['all', 'active', 'hidden', 'low', 'out', 'archived'], true)) $filter = 'all';
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 25;
 
@@ -15,7 +15,7 @@ $effStock = 'CASE WHEN (SELECT COUNT(*) FROM product_variants pv0 WHERE pv0.prod
                   THEN (SELECT COALESCE(SUM(pv0.stock), 0) FROM product_variants pv0 WHERE pv0.product_id = p.id AND pv0.is_active = 1)
                   ELSE p.stock END';
 
-$where = ['1=1']; $params = [];
+$where = [$filter === 'archived' ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL']; $params = [];
 if ($q !== '') {
     foreach (search_words($q) as $w) {
         $like = '%' . like_escape($w) . '%';
@@ -33,7 +33,7 @@ $whereSql = implode(' AND ', $where);
 // Counts for the filter tabs (respecting search + category, not the tab itself).
 $base = $where; $baseParams = $params;
 $counts = [];
-foreach (['all' => '1=1', 'active' => 'p.is_active = 1', 'hidden' => 'p.is_active = 0', 'low' => "($effStock) BETWEEN 1 AND 5", 'out' => "($effStock) <= 0"] as $k => $cond) {
+foreach (['all' => 'p.archived_at IS NULL', 'active' => 'p.archived_at IS NULL AND p.is_active = 1', 'hidden' => 'p.archived_at IS NULL AND p.is_active = 0', 'low' => "p.archived_at IS NULL AND ($effStock) BETWEEN 1 AND 5", 'out' => "p.archived_at IS NULL AND ($effStock) <= 0", 'archived' => 'p.archived_at IS NOT NULL'] as $k => $cond) {
     $w2 = ['1=1']; $p2 = [];
     if ($q !== '') { foreach (search_words($q) as $w) { $like = '%' . like_escape($w) . '%'; $w2[] = "(p.name LIKE ? ESCAPE '|' OR p.sku LIKE ? ESCAPE '|' OR p.tags LIKE ? ESCAPE '|' OR c.name LIKE ? ESCAPE '|')"; array_push($p2, $like, $like, $like, $like); } }
     if ($cat) { $w2[] = 'p.category_id = ?'; $p2[] = $cat; }
@@ -94,7 +94,7 @@ require __DIR__ . '/includes/header.php';
     <?php if ($q !== '' || $cat): ?><a class="btn btn-outline" href="<?= e(products_url(['q' => '', 'cat' => 0, 'page' => 1])) ?>">Clear</a><?php endif; ?>
     <span class="spacer"></span>
     <div class="seg" role="tablist">
-      <?php foreach (['all' => 'All', 'active' => 'Visible', 'hidden' => 'Hidden', 'low' => 'Low stock', 'out' => 'Out of stock'] as $k => $label): ?>
+      <?php foreach (['all' => 'All', 'active' => 'Visible', 'hidden' => 'Hidden', 'low' => 'Low stock', 'out' => 'Out of stock', 'archived' => 'Archived'] as $k => $label): if ($k === 'archived' && !$counts['archived']) continue; ?>
         <a href="<?= e(products_url(['filter' => $k, 'page' => 1])) ?>" class="<?= $filter === $k ? 'active' : '' ?>"><?= e($label) ?><span class="n"><?= $counts[$k] ?></span></a>
       <?php endforeach; ?>
     </div>
@@ -124,10 +124,14 @@ require __DIR__ . '/includes/header.php';
             <span class="btn-group">
               <a href="/admin/product_form.php?id=<?= (int) $p['id'] ?>" class="btn btn-outline btn-sm">Edit</a>
               <a href="/product.php?slug=<?= e($p['slug']) ?>" target="_blank" class="btn btn-outline btn-sm" title="View on store">↗</a>
+              <?php if (!empty($p['archived_at'])): ?>
+                <form method="post" action="/admin/product_restore.php" style="display:inline;"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $p['id'] ?>"><button class="btn btn-outline btn-sm" type="submit">Restore</button></form>
+              <?php else: ?>
               <form method="post" action="/admin/product_delete.php" style="display:inline;" onsubmit="return confirm('Delete “<?= e(addslashes($p['name'])) ?>”? This cannot be undone.');">
                 <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
                 <button class="btn btn-danger btn-sm" type="submit">Delete</button>
               </form>
+              <?php endif; ?>
             </span>
           </td>
         </tr>

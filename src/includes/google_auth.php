@@ -196,7 +196,9 @@ function google_sign_in_user(string $sub, string $email, string $name): array {
         if ($id = $q->fetchColumn()) return [(int) $id, false, null];
         throw $e;
     }
-    return [(int) $pdo->lastInsertId(), true, null];
+    $newUserId = (int) $pdo->lastInsertId();
+    try { erp_customer_touch($name !== '' ? $name : explode('@', $email)[0], $email, null, [], $newUserId); } catch (Throwable $e) { error_log('[erp] customer touch: ' . $e->getMessage()); }
+    return [$newUserId, true, null];
 }
 
 /** The multi-colour "G" mark, as required by Google's branding guidelines for sign-in buttons. */

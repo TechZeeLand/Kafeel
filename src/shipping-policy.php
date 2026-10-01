@@ -12,11 +12,11 @@ require __DIR__ . '/includes/header.php';
     <h2>Delivery areas & fees</h2>
     <p>We ship nationwide across Bangladesh via courier, with cash on delivery available everywhere we deliver. Delivery fees depend on the zone:</p>
     <ul>
-      <li><strong>Inside Dhaka:</strong> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?></li>
-      <li><strong>Dhaka suburbs:</strong> <?= money(SHIPPING_SUBURBS_FEE) ?></li>
-      <li><strong>Outside Dhaka:</strong> <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?></li>
+      <li><strong>Inside Dhaka:</strong> <?= money(shipcfg('inside')) ?></li>
+      <li><strong>Dhaka suburbs:</strong> <?= money(shipcfg('suburbs')) ?></li>
+      <li><strong>Outside Dhaka:</strong> <?= money(shipcfg('outside')) ?></li>
     </ul>
-    <p>The first <?= (int) SHIPPING_FREE_WEIGHT_KG ?>kg of a parcel is covered by the base fee above; every additional kg (or part of a kg) adds <?= money(SHIPPING_EXTRA_PER_KG) ?>. Your exact delivery fee is always shown at checkout before you place the order.</p>
+    <p>The first <?= (int) shipcfg('free_kg') ?>kg of a parcel is covered by the base fee above; every additional kg (or part of a kg) adds <?= money(shipcfg('extra_kg')) ?>. Your exact delivery fee is always shown at checkout before you place the order.</p>
 
     <h2>Delivery time</h2>
     <p>Most orders arrive within <?= (int) DELIVERY_DAYS_MIN ?>–<?= (int) DELIVERY_DAYS_MAX ?> days of being placed, depending on your location and the courier's schedule. Customized or made-to-order items may take longer to ship — we'll let you know if that's the case for something in your order.</p>

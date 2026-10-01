@@ -59,9 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $billState = $billingSame ? $state : trim($_POST['billing_state'] ?? '');
     $billZip = $billingSame ? $zip : trim($_POST['billing_zip'] ?? '');
 
-    // No online payment gateway is set up yet, so cash on delivery is the only method actually
-    // processed for now — the "Online Payment" radio below is shown as a preview only.
-    $payment = 'cod';
+    // Payment methods are managed by the admin (Payment methods). Cash on delivery always exists.
+    $pmRows = checkout_payment_methods();
+    $pmChosen = null;
+    foreach ($pmRows as $pm) if ((string) $pm['id'] === (string) ($_POST['payment_method'] ?? '')) $pmChosen = $pm;
+    $pmChosen = $pmChosen ?: $pmRows[0];
+    $payment = $pmChosen['kind'] === 'cod' ? 'cod' : 'bank_transfer';
     $deliveryArea = in_array($_POST['delivery_area'] ?? '', ['inside_dhaka', 'suburbs', 'outside_dhaka'], true) ? $_POST['delivery_area'] : 'inside_dhaka';
     $saveAddress = !empty($_POST['save_address']);
 
@@ -105,19 +108,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (coupon_session_code() !== '') {
                 [$coupon, $discount] = coupon_claim_for_order($pdo, coupon_session_code(), (float) $freshTotals['subtotal'], coupon_shopper($__user, $email, $phone));
             }
-            $orderTotal = round((float) $freshTotals['subtotal'] - $discount + $shippingFee, 2);
+            $taxCfg = tax_settings();
+            [$orderTax, $taxAdded] = tax_for(round((float) $freshTotals['subtotal'] - $discount, 2), $taxCfg);
+            $orderTotal = round((float) $freshTotals['subtotal'] - $discount + $taxAdded + $shippingFee, 2);
+            $custSyncId = erp_customer_touch($name, $email ?: ($__user['email'] ?? null), $phone, ['line1' => $line1, 'city' => $city, 'state' => $state ?: null, 'zip' => $zip ?: null], $__user['id'] ?? null);
             $orderNumber = 'RA-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
             $ins = $pdo->prepare(
-                'INSERT INTO orders (order_number, user_id, status, payment_method, delivery_area, subtotal, discount, coupon_id, coupon_code, shipping_fee, total,
+                'INSERT INTO orders (order_number, user_id, status, payment_method, payment_method_id, delivery_area, subtotal, discount, tax, tax_inclusive, coupon_id, coupon_code, shipping_fee, total,
                  shipping_name, shipping_phone, customer_email, shipping_line1, shipping_city, shipping_state, shipping_zip,
-                 billing_same_as_shipping, billing_name, billing_phone, billing_line1, billing_city, billing_state, billing_zip, notes)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                 billing_same_as_shipping, billing_name, billing_phone, billing_line1, billing_city, billing_state, billing_zip, notes, customer_sync_id)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             $ins->execute([
-                $orderNumber, $__user['id'] ?? null, 'pending', $payment, $deliveryArea,
-                $freshTotals['subtotal'], $discount, $coupon['id'] ?? null, $coupon['code'] ?? null, $shippingFee, $orderTotal,
+                $orderNumber, $__user['id'] ?? null, 'pending', $payment, (int) $pmChosen['id'] ?: null, $deliveryArea,
+                $freshTotals['subtotal'], $discount, $orderTax, $taxCfg['inclusive'] ? 1 : 0, $coupon['id'] ?? null, $coupon['code'] ?? null, $shippingFee, $orderTotal,
                 $name, $phone, ($email ?: ($__user['email'] ?? null)) ?: null, $line1, $city, $state ?: null, $zip ?: null,
-                $billingSame ? 1 : 0, $billName, $billPhone, $billLine1, $billCity, $billState ?: null, $billZip ?: null, $notes ?: null,
+                $billingSame ? 1 : 0, $billName, $billPhone, $billLine1, $billCity, $billState ?: null, $billZip ?: null, $notes ?: null, $custSyncId,
             ]);
             $orderId = (int) $pdo->lastInsertId();
 
@@ -138,6 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmtStock->rowCount() < 1) {
                     throw new RuntimeException($it['name'] . ' just sold out — please review your cart.');
                 }
+                erp_stock_record((int) $it['product_id'], $it['variant_id'] ? (int) $it['variant_id'] : null, -(int) $it['quantity'], 'sale', 'order', $orderId);
+                if ($it['variant_id']) stock_sync_product_total((int) $it['product_id']);
             }
             order_status_add($orderId, 'pending');
 
@@ -159,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            erp_emit('order', $orderId, 'create'); // queued in the same transaction as the sale
             $pdo->commit();
             cart_clear();
             coupon_session_clear();
@@ -272,7 +281,7 @@ require __DIR__ . '/includes/header.php';
           <input type="radio" name="delivery_area" value="outside_dhaka" id="da_outside" data-fee="<?= e((string)$shippingOutside) ?>" <?= ($_POST['delivery_area'] ?? '') === 'outside_dhaka' ? 'checked' : '' ?>>
           <span class="radio-option-label">Outside Dhaka — <?= money($shippingOutside) ?></span>
         </label>
-        <div class="hint">+<?= money(SHIPPING_EXTRA_PER_KG) ?> added per additional kg once your parcel passes <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg.</div>
+        <div class="hint">+<?= money(shipcfg('extra_kg')) ?> added per additional kg once your parcel passes <?= (int)shipcfg('free_kg') ?>kg.</div>
       </div>
 
       <?php if ($__user): ?>
@@ -344,19 +353,19 @@ require __DIR__ . '/includes/header.php';
 
       <div class="field">
         <label>Payment method</label>
-        <label class="radio-option">
-          <input type="radio" name="payment_method" value="cod" id="pm_cod" checked disabled>
-          <span class="radio-option-label">Cash on delivery — pay when your order arrives</span>
-        </label>
-        <label class="radio-option is-disabled" title="Not available yet">
-          <input type="radio" id="pm_online" disabled>
-          <span class="radio-option-label">Online Payment <span style="color:var(--ink-faint);font-size:.85em;">— coming soon</span></span>
-        </label>
+        <?php $pmList = checkout_payment_methods(); $pmSel = (string) ($_POST['payment_method'] ?? $pmList[0]['id']); ?>
+        <?php foreach ($pmList as $pm): ?>
+          <label class="radio-option">
+            <input type="radio" name="payment_method" value="<?= (int) $pm['id'] ?>" <?= $pmSel === (string) $pm['id'] ? 'checked' : '' ?>>
+            <span class="radio-option-label"><?= e($pm['name']) ?><?= $pm['kind'] === 'cod' ? ' — pay when your order arrives' : '' ?>
+              <?php if (!empty($pm['instructions'])): ?><span class="hint" style="display:block;font-weight:400;white-space:pre-line;"><?= e($pm['instructions']) ?></span><?php endif; ?></span>
+          </label>
+        <?php endforeach; ?>
       </div>
 
       <?php /* "Save this address" checkbox moved up under the shipping section, closer to what it saves. */ ?>
 
-      <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></span></button>
+      <button type="submit" class="btn btn-primary btn-block place-order-desktop">Place order — <span id="submitTotal"><?= money($totals['subtotal'] - $discount + tax_for(max(0, $totals['subtotal'] - $discount))[1] + $shippingInside) ?></span></button>
     </form>
   </div>
 
@@ -367,8 +376,11 @@ require __DIR__ . '/includes/header.php';
     <?php endforeach; ?>
     <div class="summary-row"><span>Subtotal</span><span class="val"><?= money($totals['subtotal']) ?></span></div>
     <div class="summary-row discount-row" id="summaryDiscountRow"<?= $discount > 0 ? '' : ' hidden' ?>><span>Discount<?= $appliedCoupon ? ' <small class="coupon-tag" id="summaryCouponCode">' . e($appliedCoupon['coupon']['code']) . '</small>' : ' <small class="coupon-tag" id="summaryCouponCode"></small>' ?></span><span class="val" id="summaryDiscount">&minus;<?= money($discount) ?></span></div>
+    <?php $__tax = tax_settings(); if ($__tax['enabled'] && $__tax['rate'] > 0): ?>
+      <div class="summary-row"><span><?= e($__tax['label']) ?> (<?= e(rtrim(rtrim(number_format($__tax['rate'], 3), '0'), '.')) ?>%<?= $__tax['inclusive'] ? ', included' : '' ?>)</span><span class="val" id="summaryTax"><?= money(tax_for(max(0, $totals['subtotal'] - $discount))[0]) ?></span></div>
+    <?php endif; ?>
     <div class="summary-row"><span>Shipping</span><span class="val" id="summaryShipping"><?= money($shippingInside) ?></span></div>
-    <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></span></div>
+    <div class="summary-row total"><span>Total</span><span class="val" id="summaryTotal"><?= money($totals['subtotal'] - $discount + tax_for(max(0, $totals['subtotal'] - $discount))[1] + $shippingInside) ?></span></div>
 
     <div class="coupon-box" id="couponBox" data-discount="<?= e((string) $discount) ?>">
       <form class="coupon-form" id="couponForm" autocomplete="off"<?= $appliedCoupon ? ' hidden' : '' ?>>
@@ -388,7 +400,7 @@ require __DIR__ . '/includes/header.php';
   </div>
 
   <div class="checkout-bar">
-    <div class="bb-price"><small>Total</small><strong id="barTotal"><?= money($totals['subtotal'] - $discount + $shippingInside) ?></strong></div>
+    <div class="bb-price"><small>Total</small><strong id="barTotal"><?= money($totals['subtotal'] - $discount + tax_for(max(0, $totals['subtotal'] - $discount))[1] + $shippingInside) ?></strong></div>
     <button type="submit" form="checkoutForm" class="btn btn-primary">Place order</button>
   </div>
 </div>
@@ -397,7 +409,9 @@ require __DIR__ . '/includes/header.php';
 (function () {
   var subtotal = <?= (float)$totals['subtotal'] ?>;
   var discount = <?= (float) $discount ?>;
-  var symbol = <?= json_encode(STORE_CURRENCY_SYMBOL) ?>;
+  var taxCfg = <?= json_encode(['on' => tax_settings()['enabled'], 'rate' => tax_settings()['rate'], 'inclusive' => tax_settings()['inclusive']]) ?>;
+  var taxEl = document.getElementById('summaryTax');
+  var symbol = <?= json_encode(store_currency_symbol()) ?>;
   var radios = document.querySelectorAll('input[name="delivery_area"]');
   var shippingEl = document.getElementById('summaryShipping');
   var totalEl = document.getElementById('summaryTotal');
@@ -415,7 +429,14 @@ require __DIR__ . '/includes/header.php';
   function update() {
     var checked = document.querySelector('input[name="delivery_area"]:checked');
     var fee = checked ? parseFloat(checked.dataset.fee) : 0;
-    var total = Math.max(0, subtotal - discount) + fee;
+    var base = Math.max(0, subtotal - discount);
+    var tax = 0, added = 0;
+    if (taxCfg.on && taxCfg.rate > 0 && base > 0) {
+      if (taxCfg.inclusive) { tax = Math.round((base - base / (1 + taxCfg.rate / 100)) * 100) / 100; }
+      else { tax = Math.round(base * taxCfg.rate) / 100; added = tax; }
+    }
+    if (taxEl) taxEl.textContent = fmt(tax);
+    var total = base + added + fee;
     shippingEl.textContent = fmt(fee);
     totalEl.textContent = fmt(total);
     submitEl.textContent = fmt(total);

@@ -151,6 +151,7 @@ function register_user(string $name, string $email, string $password, string $ph
     $ins = db()->prepare('INSERT INTO users (name, email, password_hash, phone, email_verified, email_verify_token, email_verify_sent_at, promo_emails) VALUES (?,?,?,?,0,?,NOW(),?)');
     $ins->execute([trim($name), $email, $hash, $phone ?: null, $token, $promo ? 1 : 0]);
     $userId = (int) db()->lastInsertId();
+    try { erp_customer_touch(trim($name), $email, $phone ?: null, [], $userId); } catch (Throwable $e) { error_log('[erp] customer touch: ' . $e->getMessage()); }
 
     // Sent after the page has been delivered, so a slow mail server never holds up sign-up.
     defer_job(fn () => send_verification_email($userId, trim($name), $email, $token));

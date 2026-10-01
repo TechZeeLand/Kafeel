@@ -53,7 +53,7 @@ $tags = product_tags($product);
 
 // Everything the page's picker script needs, in one JSON blob.
 $pickerData = [
-    'symbol' => STORE_CURRENCY_SYMBOL,
+    'symbol' => store_currency_symbol(),
     'basePrice' => (float) $product['price'],
     'base' => [
         'weight' => (int) $product['weight_grams'],
@@ -255,7 +255,7 @@ require __DIR__ . '/includes/header.php';
           <div class="tag-list"><?php foreach ($tags as $t): ?><a href="/search?q=<?= urlencode($t) ?>"><?= e($t) ?></a><?php endforeach; ?></div>
         </div>
       <?php endif; ?>
-      <div><b>Shipping:</b> <?= money(SHIPPING_INSIDE_DHAKA_FEE) ?> inside Dhaka · <?= money(SHIPPING_SUBURBS_FEE) ?> suburbs · <?= money(SHIPPING_OUTSIDE_DHAKA_FEE) ?> outside Dhaka (+<?= money(SHIPPING_EXTRA_PER_KG) ?>/kg over <?= (int)SHIPPING_FREE_WEIGHT_KG ?>kg)</div>
+      <div><b>Shipping:</b> <?= money(shipcfg('inside')) ?> inside Dhaka · <?= money(shipcfg('suburbs')) ?> suburbs · <?= money(shipcfg('outside')) ?> outside Dhaka (+<?= money(shipcfg('extra_kg')) ?>/kg over <?= (int)shipcfg('free_kg') ?>kg)</div>
       <div><b>Delivery time:</b> <?= (int)DELIVERY_DAYS_MIN ?>–<?= (int)DELIVERY_DAYS_MAX ?> days</div>
       <div><b>Payment:</b> Cash on delivery <span style="color:var(--ink-faint);">(online payment coming soon)</span></div>
       <?php if ($warranty = warranty_label($product['warranty_days'] ?? null)): ?>

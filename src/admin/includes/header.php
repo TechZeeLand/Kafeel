@@ -51,6 +51,9 @@ $__ico = [
       <div class="section-label">Sales</div>
       <?= nav_link('/admin/orders.php', 'Orders', ['orders.php', 'order_detail.php'], $__path, $__ico['cart']) ?>
       <?= nav_link('/admin/coupons.php', 'Coupons', ['coupons.php', 'coupon_form.php'], $__path, $__ico['ticket']) ?>
+      <?php if (admin_is_owner()): ?><?= nav_link('/admin/payment_methods.php', 'Payment methods', ['payment_methods.php'], $__path, $__ico['ticket']) ?>
+      <?= nav_link('/admin/delivery_tax.php', 'Delivery & tax', ['delivery_tax.php'], $__path, $__ico['gear']) ?>
+      <?= nav_link('/admin/erp.php', 'Accounting link' . (function_exists('erp_attention_count') && ($__n = erp_attention_count()) ? ' (' . $__n . ')' : ''), ['erp.php'], $__path, $__ico['log']) ?><?php endif; ?>
       <?= nav_link('/admin/reviews.php', 'Reviews', ['reviews.php'], $__path, $__ico['star']) ?>
       <?php if (admin_is_owner()): ?><?= nav_link('/admin/promotions.php', 'Promotional emails', ['promotions.php'], $__path, $__ico['mail']) ?><?php endif; ?>
       <div class="section-label">People</div>

@@ -630,7 +630,7 @@ function render_head_meta(): string {
     $h .= $m('property', 'og:image:alt', $share['alt']);
     if ($isProduct) {
         $h .= $m('property', 'product:price:amount', number_format((float) $seo['price'], 2, '.', ''));
-        $h .= $m('property', 'product:price:currency', STORE_CURRENCY_CODE);
+        $h .= $m('property', 'product:price:currency', store_currency_code());
         $h .= $m('property', 'product:availability', !empty($seo['in_stock']) ? 'in stock' : 'out of stock');
     }
 
@@ -652,7 +652,7 @@ function render_head_meta(): string {
             'brand' => ['@type' => 'Brand', 'name' => $s['name']],
             'aggregateRating' => (!empty($seo['review_count']) && !empty($seo['rating']))
                 ? ['@type' => 'AggregateRating', 'ratingValue' => number_format((float) $seo['rating'], 1, '.', ''), 'reviewCount' => (int) $seo['review_count'], 'bestRating' => 5, 'worstRating' => 1] : null,
-            'offers' => ['@type' => 'Offer', 'url' => $url, 'priceCurrency' => STORE_CURRENCY_CODE, 'price' => number_format((float) $seo['price'], 2, '.', ''),
+            'offers' => ['@type' => 'Offer', 'url' => $url, 'priceCurrency' => store_currency_code(), 'price' => number_format((float) $seo['price'], 2, '.', ''),
                 'availability' => 'https://schema.org/' . (!empty($seo['in_stock']) ? 'InStock' : 'OutOfStock'), 'itemCondition' => 'https://schema.org/NewCondition'],
         ], fn ($v) => $v !== null && $v !== '');
     }

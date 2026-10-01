@@ -430,3 +430,7 @@ Kafeel is licensed under the [GNU AGPL v3.0](LICENSE). In short: you're
 free to use, modify, and self-host it, but if you run a modified version
 as a network service, you must make your modified source available to its
 users under the same license.
+
+## Accounting integration (Byabsayee)
+
+Kafeel can link to a Byabsayee accounting book so orders, payments, returns, stock, customers, coupons, tax and delivery charges stay in step. It is **off until an owner pairs it** (Admin → Accounting link), and migration `012` only adds tables. Protocol and behaviour: [`docs/INTEGRATION.md`](docs/INTEGRATION.md). New owner screens: *Payment methods*, *Delivery & tax*, *Accounting link*; order pages gain Payments and Returns.

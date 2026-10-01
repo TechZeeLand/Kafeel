@@ -58,11 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ['parent' => 'Parent category', 'name' => 'Name', 'description' => 'Description', 'sort_order' => 'Sort order', 'is_active' => 'Visible in shop', 'slug' => 'URL slug']);
                 if ($uploaded) $diff['Image'] = ['(old image)', 'replaced'];
                 admin_log('category.update', 'Edited category "' . $name . '"' . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (saved, nothing changed)'), 'category', (int) $category['id'], $diff ? ['changes' => $diff] : []);
+                erp_emit('category', (int) $category['id'], 'auto');
                 flash_set('success', 'Category updated.');
             } else {
                 db()->prepare('INSERT INTO categories (parent_id, name, slug, description, image, sort_order, is_active) VALUES (?,?,?,?,?,?,?)')
                     ->execute([$parentId, $name, $slug, $description ?: null, $image, $sortOrder, $isActive]);
-                admin_log('category.create', 'Created category "' . $name . '"' . ($parentId ? ' under "' . $parentName($parentId) . '"' : ''), 'category', (int) db()->lastInsertId());
+                $newCatId = (int) db()->lastInsertId();
+                erp_emit('category', $newCatId, 'auto');
+                admin_log('category.create', 'Created category "' . $name . '"' . ($parentId ? ' under "' . $parentName($parentId) . '"' : ''), 'category', $newCatId);
                 flash_set('success', 'Category created.');
             }
             redirect('/admin/categories.php');

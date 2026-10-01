@@ -98,7 +98,7 @@ function flash_get(): array {
 /* ----------------------------------------------------- formatting --- */
 
 function money(float $amount): string {
-    return STORE_CURRENCY_SYMBOL . number_format($amount, 2);
+    return store_currency_symbol() . number_format($amount, 2);
 }
 
 function slugify(string $text): string {
@@ -452,9 +452,9 @@ function warranty_label(?int $days): ?string {
 
 /** Base flat fee for a delivery zone, before the over-weight surcharge. */
 function shipping_base_fee_for_area(string $area): float {
-    if ($area === 'outside_dhaka') return SHIPPING_OUTSIDE_DHAKA_FEE;
-    if ($area === 'suburbs') return SHIPPING_SUBURBS_FEE;
-    return SHIPPING_INSIDE_DHAKA_FEE;
+    if ($area === 'outside_dhaka') return shipcfg('outside');
+    if ($area === 'suburbs') return shipcfg('suburbs');
+    return shipcfg('inside');
 }
 
 /**
@@ -464,10 +464,10 @@ function shipping_base_fee_for_area(string $area): float {
  */
 function shipping_fee_for_area(string $area, int $weightGrams): float {
     $base = shipping_base_fee_for_area($area);
-    $freeGrams = SHIPPING_FREE_WEIGHT_KG * 1000;
+    $freeGrams = shipcfg('free_kg') * 1000;
     $extraGrams = max(0, $weightGrams - $freeGrams);
     $extraKg = (int) ceil($extraGrams / 1000);
-    return $base + ($extraKg * SHIPPING_EXTRA_PER_KG);
+    return $base + ($extraKg * shipcfg('extra_kg'));
 }
 
 function cart_add(int $productId, int $qty = 1, ?int $variantId = null, ?int $maxQty = null): void {
@@ -657,6 +657,8 @@ function all_settings(): array {
             }
         }
         $GLOBALS['__settings_cache'] = $cache;
+        // A timezone adopted from the connected book (see the integration module) wins over the .env one.
+        if (!empty($cache['timezone']) && in_array($cache['timezone'], timezone_identifiers_list(), true)) date_default_timezone_set($cache['timezone']);
     }
     return $GLOBALS['__settings_cache'];
 }
@@ -892,20 +894,28 @@ function delete_upload_file(?string $urlPath): void {
  * Returns false — changing nothing — if there isn't enough stock to revive it.
  * Call inside a transaction.
  */
-function order_stock_adjust(PDO $pdo, int $orderId, int $direction): bool {
-    $items = $pdo->prepare('SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?');
+function order_stock_adjust(PDO $pdo, int $orderId, int $direction, string $origin = 'store'): bool {
+    $items = $pdo->prepare('SELECT id, product_id, variant_id, quantity, is_preorder FROM order_items WHERE order_id = ?');
     $items->execute([$orderId]);
+    // Units already put back on the shelf by a recorded return must not be put back (or taken out) a second time.
+    $ret = $pdo->prepare('SELECT COALESCE(SUM(quantity), 0) FROM order_return_items WHERE order_item_id = ? AND restock = 1');
     foreach ($items->fetchAll() as $it) {
         $table = $it['variant_id'] ? 'product_variants' : 'products';
         $rowId = $it['variant_id'] ?: $it['product_id'];
-        if (!$rowId) continue; // product was deleted since — nothing to adjust
+        if (!$rowId || !$it['product_id']) continue; // product was deleted since — nothing to adjust
+        $ret->execute([$it['id']]);
+        $qty = (int) $it['quantity'] - (int) $ret->fetchColumn();
+        if ($qty < 1) continue;
         if ($direction > 0) {
-            $pdo->prepare("UPDATE $table SET stock = stock + ? WHERE id = ?")->execute([$it['quantity'], $rowId]);
+            $pdo->prepare("UPDATE $table SET stock = stock + ? WHERE id = ?")->execute([$qty, $rowId]);
+            if (function_exists('erp_stock_record')) erp_stock_record((int) $it['product_id'], $it['variant_id'] ? (int) $it['variant_id'] : null, $qty, 'sale_cancel', 'order', $orderId, $origin);
         } else {
             $st = $pdo->prepare("UPDATE $table SET stock = stock - ? WHERE id = ? AND stock >= ?");
-            $st->execute([$it['quantity'], $rowId, $it['quantity']]);
+            $st->execute([$qty, $rowId, $qty]);
             if ($st->rowCount() < 1) return false;
+            if (function_exists('erp_stock_record')) erp_stock_record((int) $it['product_id'], $it['variant_id'] ? (int) $it['variant_id'] : null, -$qty, 'sale', 'order', $orderId, $origin);
         }
+        if ($it['variant_id'] && function_exists('stock_sync_product_total')) stock_sync_product_total((int) $it['product_id']);
     }
     return true;
 }
@@ -939,3 +949,4 @@ require_once __DIR__ . '/admin_log.php';
 require_once __DIR__ . '/coupons.php';
 require_once __DIR__ . '/reviews.php';
 require_once __DIR__ . '/staff.php';
+require_once __DIR__ . '/erp/reconcile.php';

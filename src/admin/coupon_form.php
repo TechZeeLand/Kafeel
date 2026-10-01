@@ -75,11 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $old['is_active'] = $old['is_active'] ? 'yes' : 'no'; $cmpNew['is_active'] = $cmpNew['is_active'] ? 'yes' : 'no';
                 $diff = admin_log_diff($old, $cmpNew, $labels);
                 admin_log('coupon.update', 'Edited coupon ' . $code . ($diff ? ': ' . admin_log_diff_summary($diff) : ' (no changes)'), 'coupon', (int) $coupon['id'], $diff ? ['changes' => $diff] : []);
+                erp_emit('coupon', (int) $coupon['id'], 'auto');
                 flash_set('success', 'Coupon ' . $code . ' saved.');
                 redirect('/admin/coupons.php');
             } else {
                 db()->prepare('INSERT INTO coupons (code, type, value, max_discount, min_subtotal, starts_at, expires_at, usage_limit, per_customer_limit, is_active, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')->execute($args);
                 $newId = (int) db()->lastInsertId();
+                erp_emit('coupon', $newId, 'auto');
                 admin_log('coupon.create', 'Created coupon ' . $code . ' — ' . coupon_describe($new), 'coupon', $newId, ['minimum_order' => $minSub, 'total_uses' => $usageLimit ?? 'unlimited', 'per_customer' => $perCustomer ?? 'unlimited']);
                 flash_set('success', 'Coupon ' . $code . ' created.');
                 redirect('/admin/coupons.php');
@@ -114,7 +116,7 @@ require __DIR__ . '/includes/header.php';
         <label for="type">Discount type</label>
         <select id="type" name="type">
           <option value="percent" <?= $f['type'] === 'percent' ? 'selected' : '' ?>>Percentage off (e.g. 10%)</option>
-          <option value="fixed" <?= $f['type'] === 'fixed' ? 'selected' : '' ?>>Fixed amount off (e.g. <?= e(STORE_CURRENCY_SYMBOL) ?>200)</option>
+          <option value="fixed" <?= $f['type'] === 'fixed' ? 'selected' : '' ?>>Fixed amount off (e.g. <?= e(store_currency_symbol()) ?>200)</option>
         </select>
       </div>
     </div>
@@ -126,15 +128,15 @@ require __DIR__ . '/includes/header.php';
       </div>
       <div class="field" id="maxWrap">
         <label for="max_discount">Maximum discount <span class="muted" style="font-weight:400;">(optional)</span></label>
-        <div class="input-affix"><span class="affix"><?= e(STORE_CURRENCY_SYMBOL) ?></span><input type="number" id="max_discount" name="max_discount" value="<?= e((string) $f['max_discount']) ?>" step="0.01" min="0" placeholder="No cap"></div>
-        <div class="hint">Caps how much a percentage coupon can take off, e.g. 10% off but never more than <?= e(STORE_CURRENCY_SYMBOL) ?>500.</div>
+        <div class="input-affix"><span class="affix"><?= e(store_currency_symbol()) ?></span><input type="number" id="max_discount" name="max_discount" value="<?= e((string) $f['max_discount']) ?>" step="0.01" min="0" placeholder="No cap"></div>
+        <div class="hint">Caps how much a percentage coupon can take off, e.g. 10% off but never more than <?= e(store_currency_symbol()) ?>500.</div>
       </div>
     </div>
 
     <div class="field-row">
       <div class="field">
         <label for="min_subtotal">Minimum order <span class="muted" style="font-weight:400;">(optional)</span></label>
-        <div class="input-affix"><span class="affix"><?= e(STORE_CURRENCY_SYMBOL) ?></span><input type="number" id="min_subtotal" name="min_subtotal" value="<?= e((string) ((float) $f['min_subtotal'] > 0 ? $f['min_subtotal'] : '')) ?>" step="0.01" min="0" placeholder="No minimum"></div>
+        <div class="input-affix"><span class="affix"><?= e(store_currency_symbol()) ?></span><input type="number" id="min_subtotal" name="min_subtotal" value="<?= e((string) ((float) $f['min_subtotal'] > 0 ? $f['min_subtotal'] : '')) ?>" step="0.01" min="0" placeholder="No minimum"></div>
         <div class="hint">Measured on the items total, before shipping.</div>
       </div>
       <div class="field">
@@ -184,7 +186,7 @@ require __DIR__ . '/includes/header.php';
 <script>
 (function () {
   var type = document.getElementById('type'), affix = document.getElementById('valueAffix'), maxWrap = document.getElementById('maxWrap');
-  var symbol = <?= json_encode(STORE_CURRENCY_SYMBOL) ?>;
+  var symbol = <?= json_encode(store_currency_symbol()) ?>;
   function sync() {
     var pct = type.value === 'percent';
     affix.textContent = pct ? '%' : symbol;
