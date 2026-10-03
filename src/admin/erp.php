@@ -101,8 +101,12 @@ $tabs = ['overview' => 'Overview', 'setup' => 'Setup review', 'queue' => 'Sync q
         <p>Link this store to your Byabsayee accounting book so orders, payments, stock and customers stay in step. It stays completely off until you do this, and your shop works exactly as before.</p>
       <?php endif; ?>
       <?php if ($err = erp_site_public_error()): ?><div class="alert alert-error"><?= e($err) ?></div><?php endif; ?>
+      <?php if (!$err && ($__h = (string) parse_url(site_url(), PHP_URL_HOST)) !== ''): ?>
+        <div class="alert alert-info">This store will introduce itself to Byabsayee as <strong><?= e($__h) ?></strong>. The pairing code must have been created for exactly this domain.
+          Wrong domain? Change it under <a href="/admin/settings.php">Settings &amp; email → Public site address</a> (that saved value overrides <code>SITE_URL</code> in <code>.env</code>), then come back here.</div>
+      <?php endif; ?>
       <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="connect">
-        <div class="field"><label for="book_url">Byabsayee address</label><input id="book_url" name="book_url" placeholder="https://books.example.com" required></div>
+        <div class="field"><label for="book_url">Byabsayee address</label><input id="book_url" name="book_url" placeholder="https://books.example.com" value="https://web.byabsayee.com" required></div>
         <div class="field"><label for="pairing_code">Pairing code</label><input id="pairing_code" name="pairing_code" autocomplete="off" placeholder="Generated in Byabsayee → Integrations"><div class="hint">Easiest way. Or use the manual credentials below.</div></div>
         <details class="log-details"><summary>Enter the credentials by hand instead</summary>
           <div class="field" style="margin-top:12px;"><label for="connection_id">Connection ID</label><input id="connection_id" name="connection_id" autocomplete="off"></div>
