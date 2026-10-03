@@ -179,14 +179,18 @@ foreach ($history as &$__h) { if (empty($__h['from_status']) && $__prev !== null
 unset($__h);
 $statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 
-$pageTitle = 'Order ' . $order['order_number'];
+$pageTitle = 'Order ' . order_invoice_id($order);
 require __DIR__ . '/includes/header.php';
 ?>
 
 <div class="panel">
   <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
     <h2>Order items</h2>
-    <a href="/admin/invoice.php?id=<?= (int)$order['id'] ?>" target="_blank" class="btn btn-outline btn-sm"><?= ui_icon('file', 15) ?> View invoice</a>
+    <span style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="/admin/invoice.php?id=<?= (int)$order['id'] ?>" target="_blank" class="btn btn-outline btn-sm" title="Exactly what customers see"><?= ui_icon('file', 15) ?> View invoice<?= invoice_source() === 'book' && order_book_invoice_no($order) ? ' (' . e(order_book_invoice_no($order)) . ')' : '' ?></a>
+      <?php if (invoice_source() === 'book'): ?><a href="/admin/invoice.php?id=<?= (int)$order['id'] ?>&amp;src=kafeel" target="_blank" class="btn btn-outline btn-sm">Store invoice</a><?php endif; ?>
+      <?php if ($__bookUrl = order_book_invoice_admin_url($order)): ?><a href="<?= e($__bookUrl) ?>" target="_blank" rel="noopener" class="btn btn-outline btn-sm">Open in Byabsayee ↗</a><?php endif; ?>
+    </span>
   </div>
   <table class="admin-table">
     <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>

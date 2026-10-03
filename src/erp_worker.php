@@ -19,6 +19,7 @@ try {
     try {
         if (erp_active() && erp_setup_done()) {
             $stats = erp_flush(10);
+            erp_backfill_invoices(20);
             if ($stats['sent'] || $stats['failed'] || $stats['dead']) echo date('c') . " sent={$stats['sent']} failed={$stats['failed']} dead={$stats['dead']}\n";
             foreach (db()->query("SELECT id FROM sync_import_batches WHERE status = 'running' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN) as $bid) erp_import_step((int) $bid, 50);
             $last = erp_last_reconcile();

@@ -52,7 +52,7 @@ $recentOrders = db()->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT
       <?php endif; ?>
       <?php foreach ($recentOrders as $o): ?>
         <tr>
-          <td class="mono"><?= e($o['order_number']) ?></td>
+          <td class="mono"><?= e(order_invoice_id($o)) ?></td>
           <td><?= e($o['shipping_name']) ?></td>
           <td><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
           <td class="mono"><?= money($o['total']) ?></td>

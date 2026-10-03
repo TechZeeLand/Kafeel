@@ -13,8 +13,8 @@ if (!is_logged_in()) {
         if ($wait !== null) {
             $error = 'Too many attempts. Please try again in ' . ceil($wait / 60) . ' minute(s).';
         } else {
-            $q = db()->prepare('SELECT order_number, user_id FROM orders WHERE order_number = ? AND LOWER(customer_email) = ?');
-            $q->execute([$num, $mail]);
+            $q = db()->prepare('SELECT order_number, user_id FROM orders WHERE (order_number = ? OR book_invoice_no = ?) AND LOWER(customer_email) = ?');
+            $q->execute([$num, $num, $mail]);
             $hit = $q->fetch();
             if ($hit && empty($hit['user_id'])) {
                 guest_order_grant($hit['order_number']);
@@ -33,11 +33,11 @@ if (!is_logged_in()) {
     <div class="wrap">
       <div class="form-card form-narrow">
         <h2 style="text-align:center;margin-bottom:6px;">Track your order</h2>
-        <p style="text-align:center;color:var(--ink-soft);margin-bottom:26px;font-size:0.9rem;">Enter the order number from your confirmation email and the email you used at checkout.</p>
+        <p style="text-align:center;color:var(--ink-soft);margin-bottom:26px;font-size:0.9rem;">Enter the order number or invoice ID from your confirmation email and the email you used at checkout.</p>
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
         <form method="post">
           <?= csrf_field() ?>
-          <div class="field"><label for="order_number">Order number</label><input id="order_number" name="order_number" required placeholder="RA-260928-AB12C" autocapitalize="characters" value="<?= e($_POST['order_number'] ?? '') ?>"></div>
+          <div class="field"><label for="order_number">Order number or invoice ID</label><input id="order_number" name="order_number" required placeholder="RA-260928-AB12C" autocapitalize="characters" value="<?= e($_POST['order_number'] ?? '') ?>"></div>
           <div class="field"><label for="email">Email</label><input type="email" id="email" name="email" required autocomplete="email" value="<?= e($_POST['email'] ?? '') ?>"></div>
           <button type="submit" class="btn btn-primary btn-block">Track order</button>
         </form>
@@ -74,11 +74,11 @@ require __DIR__ . '/includes/header.php';
       </div>
     <?php else: ?>
       <div class="table-scroll"><table class="data-table stack">
-        <thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Total</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <thead><tr><th><?= invoice_source() === 'book' ? 'Invoice' : 'Order' ?></th><th>Date</th><th>Status</th><th>Total</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>
           <?php foreach ($orders as $o): ?>
             <tr>
-              <td class="mono cell-order" data-label="Order"><a href="<?= e(order_url($o['order_number'])) ?>"><?= e($o['order_number']) ?></a></td>
+              <td class="mono cell-order" data-label="Order"><a href="<?= e(order_url($o['order_number'])) ?>"><?= e(order_invoice_id($o)) ?></a><?php if (order_invoice_differs($o)): ?><br><span style="color:var(--ink-faint);font-size:0.78rem;">Order <?= e($o['order_number']) ?></span><?php endif; ?></td>
               <td class="cell-date" data-label="Date"><?= fmt_dt($o['created_at'], 'd M Y') ?></td>
               <td class="cell-status" data-label="Status"><span class="status-pill status-<?= e($o['status']) ?>"><?= e(ucfirst($o['status'])) ?></span></td>
               <td class="mono cell-total" data-label="Total"><?= money($o['total']) ?></td>

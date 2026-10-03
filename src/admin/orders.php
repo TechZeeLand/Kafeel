@@ -19,11 +19,11 @@ $searchSql = ''; $searchParams = [];
 if ($q !== '') {
     $needle = ltrim($q, "# \t");
     $like = '%' . like_escape($needle) . '%';
-    $searchSql = " AND (o.order_number LIKE ? ESCAPE '|' OR o.shipping_name LIKE ? ESCAPE '|' OR o.shipping_phone LIKE ? ESCAPE '|'
+    $searchSql = " AND (o.order_number LIKE ? ESCAPE '|' OR o.book_invoice_no LIKE ? ESCAPE '|' OR o.shipping_name LIKE ? ESCAPE '|' OR o.shipping_phone LIKE ? ESCAPE '|'
                         OR o.customer_email LIKE ? ESCAPE '|'
                         OR EXISTS (SELECT 1 FROM users u WHERE u.id = o.user_id AND u.email LIKE ? ESCAPE '|')
                         OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.product_name LIKE ? ESCAPE '|'))";
-    $searchParams = array_fill(0, 6, $like);
+    $searchParams = array_fill(0, 7, $like);
 }
 
 // Status tab counts reflect the current search.
@@ -96,7 +96,7 @@ require __DIR__ . '/includes/header.php';
         <?php endif; ?>
         <?php foreach ($orders as $o): ?>
           <tr>
-            <td class="mono"><a href="/admin/order_detail.php?id=<?= (int) $o['id'] ?>" style="font-weight:600;"><?= hl_order($o['order_number'], $q) ?></a></td>
+            <td class="mono"><a href="/admin/order_detail.php?id=<?= (int) $o['id'] ?>" style="font-weight:600;"><?= hl_order(order_invoice_id($o), $q) ?></a><?php if (order_invoice_differs($o)): ?><br><span class="muted small">Order <?= hl_order($o['order_number'], $q) ?></span><?php endif; ?></td>
             <td><?= hl_order($o['shipping_name'], $q) ?><br><span class="muted small"><?= hl_order($o['shipping_phone'], $q) ?></span></td>
             <td class="mono"><?= (int) $o['item_count'] ?></td>
             <td><?= $o['payment_method'] === 'cod' ? 'COD' : 'Advance' ?></td>

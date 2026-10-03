@@ -22,6 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'secret_site_to_book' => $_POST['secret_site_to_book'] ?? '', 'secret_book_to_site' => $_POST['secret_book_to_site'] ?? '']);
             if ($ok) admin_log('erp.connect', 'Started linking the store to the accounting book at ' . (erp_conn(true)['book_base_url'] ?? ''));
             flash_set($ok ? 'success' : 'error', $msg); $go();
+        case 'invoice_source':
+            $v = (string) ($_POST['source'] ?? '');
+            if (!in_array($v, ['kafeel', 'book'], true)) { flash_set('error', 'Choose one of the two invoice options.'); $go(); }
+            set_setting('invoice_source', $v);
+            admin_log('erp.invoice_source', 'Customer invoices now come from ' . ($v === 'book' ? 'Byabsayee' : 'this store'));
+            flash_set('success', $v === 'book' ? 'Customers now see the invoice Byabsayee generates.' : 'Customers now see this store\'s own invoice.'); $go();
         case 'pause': erp_pause(); admin_log('erp.state', 'Accounting sync paused'); flash_set('success', 'Sync paused. Changes keep queuing and are sent when you resume.'); $go();
         case 'resume': erp_resume(); admin_log('erp.state', 'Accounting sync resumed'); flash_set('success', 'Sync resumed.'); $go();
         case 'disconnect':
@@ -132,6 +138,30 @@ $tabs = ['overview' => 'Overview', 'setup' => 'Setup review', 'queue' => 'Sync q
           <div class="field"><label for="dc">Type DISCONNECT to confirm</label><input id="dc" name="confirm" autocomplete="off"></div>
           <button class="btn btn-danger">Disconnect</button></form></details>
     <?php endif; ?>
+  </div>
+</section>
+<?php
+  $__linked = in_array($status, ['active', 'paused'], true);
+  $__eff = invoice_source();
+  $__pref = invoice_source_pref();
+  $__known = (int) db()->query("SELECT COUNT(*) FROM orders WHERE book_invoice_no IS NOT NULL")->fetchColumn();
+  $__total = (int) db()->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+?>
+<section class="panel">
+  <div class="panel-head"><h2>Customer invoices <span class="sub">Showing: <?= $__eff === 'book' ? 'Byabsayee invoice' : 'Store invoice' ?></span></h2></div>
+  <div class="panel-body">
+    <p class="help">Pick which invoice <strong>customers of this website</strong> see — on their order page, in the downloadable invoice PDF and in order emails. It also decides the look of the <strong>Invoice ID</strong>. This only changes this website; Byabsayee is not affected.</p>
+    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="invoice_source">
+      <label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;cursor:<?= $__linked ? 'pointer' : 'not-allowed' ?>;<?= $__linked ? '' : 'opacity:.55;' ?>">
+        <input type="radio" name="source" value="book" <?= $__eff === 'book' ? 'checked' : '' ?> <?= $__linked ? '' : 'disabled' ?>>
+        <span><strong>Byabsayee invoice</strong> <span class="muted">(recommended when connected)</span><br><span class="muted small">The invoice your accounting book generates. Invoice ID looks like <span class="mono">INV-000123</span>. If one isn't available yet, the store invoice is shown instead.<?= $__linked ? '' : ' Needs the Byabsayee link below.' ?></span></span></label>
+      <label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;cursor:pointer;">
+        <input type="radio" name="source" value="kafeel" <?= $__eff === 'kafeel' ? 'checked' : '' ?>>
+        <span><strong>Store invoice</strong> <span class="muted">(independent)</span><br><span class="muted small">The invoice this website creates by itself. Invoice ID is the order number, like <span class="mono">RA-260928-AB12C</span>. Works with or without Byabsayee.</span></span></label>
+      <button class="btn btn-primary btn-sm">Save choice</button>
+      <?php if ($__pref === '' && $__linked): ?><span class="muted small" style="margin-left:8px;">Not chosen yet — the Byabsayee invoice is used by default while linked.</span><?php endif; ?>
+    </form>
+    <?php if ($__linked): ?><p class="muted small" style="margin-top:12px;"><?= $__known ?> of <?= $__total ?> order(s) have their Byabsayee invoice number so far; the rest are looked up in the background.</p><?php endif; ?>
   </div>
 </section>
 <?php if (in_array($status, ['active', 'paused'], true) && ($rep = erp_last_reconcile())): ?>

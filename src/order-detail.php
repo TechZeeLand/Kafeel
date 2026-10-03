@@ -43,11 +43,11 @@ if (in_array($order['status'], ['shipped', 'completed'], true)) {
 $statusLabels = ['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 
 $__activeAccountTab = 'orders';
-$pageTitle = 'Order ' . $order['order_number'];
+$pageTitle = (order_invoice_differs($order) ? 'Invoice ' : 'Order ') . order_invoice_id($order);
 require __DIR__ . '/includes/header.php';
 ?>
 
-<div class="page-header wrap"><span class="eyebrow">Order</span><h1 class="mono" style="font-family:var(--font-mono);font-size:1.6rem;"><?= e($order['order_number']) ?></h1></div>
+<div class="page-header wrap"><span class="eyebrow"><?= order_invoice_differs($order) ? 'Invoice' : 'Order' ?></span><h1 class="mono" style="font-family:var(--font-mono);font-size:1.6rem;"><?= e(order_invoice_id($order)) ?></h1><?php if (order_invoice_differs($order)): ?><div class="mono" style="color:var(--ink-faint);font-size:0.85rem;margin-top:4px;">Order <?= e($order['order_number']) ?></div><?php endif; ?></div>
 
 <div class="wrap <?= $__guestView ? '' : 'account-layout' ?>" <?= $__guestView ? 'style="max-width:820px;"' : '' ?>>
   <?php if (!$__guestView) include __DIR__ . '/includes/account_nav.php'; ?>

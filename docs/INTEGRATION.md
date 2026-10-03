@@ -223,3 +223,17 @@ HTTPS-only with SSRF guard; signed + keyed + replay-protected requests; constant
 2. Whether `gateway`-kind payment methods should exist (store only creates `cod`/`manual`).
 3. Webhook suppression for `payload.import` events (required by §8).
 4. Whether the book wants `base_version` enforcement (the store sends it but never depends on it).
+
+---
+
+## 12. Invoices (additive in v1 — capability `invoices`)
+
+The store can show its customers the **invoice the Book generated** instead of its own. Nothing here changes the other sections; a Book or store without it keeps working exactly as before (the store falls back to its own invoice per order).
+
+* **Capability:** the book lists `"invoices"` in `capabilities`.
+* **Invoice number in the event answer.** When the book applies an `order` event it MAY add `"invoice": {"invoice_no","invoice_id","book_id","status","public_url"}` next to `result:"applied"`. The store keeps `invoice_no` as the order's *Invoice ID* and builds a staff-only "Open in Byabsayee" link from `/books/{book_id}/invoices/{invoice_id}`. Unknown keys are ignored by older stores.
+* **Orders created in the book** (`source:"book"`): their `number` already IS the invoice number; the store stores it as the Invoice ID.
+* **Lookup:** `GET {book}/api/v1/integrations/invoice/{order_uuid}` (signed with `site_to_book`) → `{ "ok":true, "invoice":{…same object…} }`, `404 not_found` when the order has no invoice. The store's worker uses it to fill in orders that never got the number (history imports, lost answers), at most once an hour per order.
+* **PDF:** `GET {book}/api/v1/integrations/invoice/{order_uuid}/pdf` (signed) → `application/pdf`. The store proxies it to the customer **after** its own viewer check (guest grant / account owner), so customers never see the book's address and the book never sees customers. Rendered fresh each time; any failure/timeout (15 s) → the store shows its own invoice.
+* **Owner choice (store only):** Admin → Accounting link → *Customer invoices*: **Byabsayee invoice** or **Store invoice**. Default: Byabsayee while linked, Store otherwise. It changes only what the website shows (order page, invoice PDF, status emails, Invoice ID in order lists and tracking). It is never sent to the book.
+* **Tracking:** guests may enter either the order number or the Invoice ID with their email.
