@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Email after the shopper has been sent on to the confirmation page (see defer_job), so a slow
             // mail server never delays them.
             require_once __DIR__ . '/includes/order_mail.php';
-            defer_job(fn () => send_order_confirmation($placedOrderId));
+            defer_job(fn () => send_order_confirmation_synced($placedOrderId)); // waits a few seconds for the book's invoice number when that invoice is shown
             redirect('/order-success');
         }
     }

@@ -950,3 +950,4 @@ require_once __DIR__ . '/coupons.php';
 require_once __DIR__ . '/reviews.php';
 require_once __DIR__ . '/staff.php';
 require_once __DIR__ . '/erp/reconcile.php';
+require_once __DIR__ . '/erp/invoices.php';

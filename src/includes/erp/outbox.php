@@ -245,6 +245,8 @@ function erp_send_batch(array $batch, array &$stats): bool {
         $result = (string) ($x['result'] ?? '');
         if (in_array($result, ['applied', 'duplicate'], true)) {
             db()->prepare("UPDATE sync_outbox SET status = 'done', sent_at = UTC_TIMESTAMP(), last_error = NULL WHERE id = ?")->execute([$r['id']]);
+            // The book answers an applied order with its invoice number: keep it so customers can be shown the book's invoice.
+            if ($r['entity'] === 'order' && !empty($x['invoice']) && is_array($x['invoice'])) { try { erp_order_save_invoice($r['entity_uuid'], $x['invoice']); } catch (Throwable $e) { error_log('[erp invoice save] ' . $e->getMessage()); } }
             $stats['sent']++;
         } elseif ($result === 'conflict') {
             db()->prepare("UPDATE sync_outbox SET status = 'conflict', sent_at = UTC_TIMESTAMP(), last_error = ? WHERE id = ?")->execute([mb_substr((string) ($x['message'] ?? 'Queued as a conflict at the book.'), 0, 500), $r['id']]);

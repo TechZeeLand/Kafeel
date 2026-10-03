@@ -122,6 +122,15 @@ $tabs = ['overview' => 'Overview', 'setup' => 'Setup review', 'queue' => 'Sync q
         <tr><th>Waiting to send</th><td><?= (int) $q['pending'] ?> event(s)<?= $q['dead'] ? ' · <strong style="color:var(--rust);">' . (int) $q['dead'] . ' stuck</strong> (see Sync queue)' : '' ?></td></tr>
         <tr><th>Module / book version</th><td><?= e(ERP_MODULE_VERSION) ?> / <?= e($conn['peer_module_version'] ?: '—') ?></td></tr>
       </tbody></table>
+      <?php
+        // The link remembers the store's public domain from the moment it was paired. If the store's address was changed afterwards
+        // (new domain, http→https, www on/off), the book would keep calling the old one — tell the owner instead of failing silently.
+        $pairedHost = strtolower((string) ($conn['site_domain'] ?? ''));
+        $nowHost = strtolower((string) parse_url(site_url(), PHP_URL_HOST));
+        if ($pairedHost !== '' && $nowHost !== '' && $pairedHost !== $nowHost && !erp_test_mode()): ?>
+        <div class="alert alert-error"><strong>The store's address changed.</strong> This link was set up for <code><?= e($pairedHost) ?></code> but the store now answers as <code><?= e($nowHost) ?></code>, so the book can no longer reach it.
+          Fix: <em>Disconnect</em> below, generate a new pairing code in Byabsayee, and connect again — your records and their matches are kept, so nothing is duplicated.</div>
+      <?php endif; ?>
       <?php if ($status === 'verifying'): ?><p>The book is checking that this domain is yours. This page updates once it finishes — reload in a few seconds.</p><?php endif; ?>
       <?php if ($status === 'active' && !erp_setup_done()): ?><div class="alert alert-info"><strong>One more step:</strong> review how the two catalogs line up before anything syncs. <a href="<?= $self ?>?tab=setup">Open the setup review →</a></div><?php endif; ?>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">

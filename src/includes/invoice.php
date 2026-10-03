@@ -163,7 +163,18 @@ function build_invoice_html(array $order, array $items): string {
  * @param array  $items Rows from `order_items`.
  * @param string $mode  'I' = stream inline in the browser, 'D' = force download.
  */
-function output_order_invoice(array $order, array $items, string $mode = 'I'): void {
+function output_order_invoice(array $order, array $items, string $mode = 'I', ?string $src = null): void {
+    // The invoice customers see is the one the owner picked (Admin → Accounting link). $src lets staff force one or the other.
+    $src = $src ?? invoice_source();
+    if ($src === 'book' && ($pdf = erp_book_invoice_pdf($order)) !== null) {
+        $fname = 'invoice-' . preg_replace('/[^A-Za-z0-9._-]/', '_', order_invoice_id($order, 'book')) . '.pdf';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: ' . ($mode === 'D' ? 'attachment' : 'inline') . '; filename="' . $fname . '"');
+        header('Content-Length: ' . strlen($pdf));
+        header('Cache-Control: private, no-store');
+        echo $pdf;
+        return;
+    }
     $mpdf = new Mpdf([
         'tempDir' => sys_get_temp_dir(), 'format' => 'A4', 'margin_top' => 16, 'margin_bottom' => 16,
         // Pick a font that has the right glyphs (Bengali ৳, Arabic, …) automatically.

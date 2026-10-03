@@ -534,6 +534,8 @@ class ErpMapOrder extends ErpMap {
                 $bill ? self::str($bill['city'] ?? null, 100) : null, $bill ? self::str($bill['state'] ?? null, 100) : null, $bill ? self::str($bill['zip'] ?? null, 20) : null,
                 self::str($f['notes'] ?? null, 255), $placed, 'book', $custId, $imported ? (int) ($imp['batch'] ?? 0) ?: null : null]);
         $id = (int) $pdo->lastInsertId();
+        // An order that was created in the book carries the book's invoice number as its number.
+        if (($f['source'] ?? '') === 'book') $pdo->prepare('UPDATE orders SET book_invoice_no = ? WHERE id = ?')->execute([$number, $id]);
         self::insertLines($id, $lines);
         order_status_add($id, 'pending', $imported ? 'Imported from the book' : 'Placed at the book');
         // Imported history never touches current stock (unless the owner picks opening balance elsewhere).

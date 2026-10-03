@@ -279,7 +279,7 @@ require __DIR__ . '/includes/header.php';
   <?= csrf_field() ?><input type="hidden" name="section" value="site_url">
   <div class="panel-head"><h2>Public site address <span class="sub">used for links inside emails</span></h2></div>
   <div class="panel-body">
-    <p class="help">Verification, password-reset and order links in emails point here. Set it to the address customers really use to reach the store — for example <code>https://kafeel.com.bd</code> once you own it. It's deliberately <em>not</em> read from the browser, so nobody can trick the store into emailing links to another website. Saved here, it overrides <code>SITE_URL</code> in <code>.env</code>.</p>
+    <p class="help">Verification, password-reset and order links in emails point here. Set it to the address customers really use to reach the store — for example <code>https://shop.example.com</code>. If you ever change it, the Accounting link must be re-paired (the Accounting link page tells you). It's deliberately <em>not</em> read from the browser, so nobody can trick the store into emailing links to another website. Saved here, it overrides <code>SITE_URL</code> in <code>.env</code>.</p>
     <?php $__cfgHost = (string) parse_url(mail_base_url(), PHP_URL_HOST); $__reqHost = (string) parse_url(base_url(), PHP_URL_HOST);
           if (site_url() !== '' && $__cfgHost !== $__reqHost): ?>
       <div class="alert alert-warn"><strong>Check this.</strong> Links in emails currently point to <strong><?= e(mail_base_url()) ?></strong>, but you're using the admin panel on <strong><?= e($__reqHost) ?></strong>. If <?= e($__cfgHost) ?> isn't live yet, customers who click "Verify my email" or "Reset password" will land on a dead page. Type the address customers actually use below.</div>
